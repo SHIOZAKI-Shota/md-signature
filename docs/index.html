@@ -1355,7 +1355,7 @@ tsa_token: |
                         <div class="term-pane" role="tabpanel" id="cli-win" aria-labelledby="tab-cli-win" hidden>
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.c1w"># インストール（winget）</span>
-<span class="cmd">winget install SHIOZAKI-Shota.mdsig</span></code></pre><button type="button" class="tcopy icon-copy"
+<span class="cmd">go install github.com/SHIOZAKI-Shota/md-signature/cmd/mdsig@latest</span></code></pre><button type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
                                         aria-hidden="true"></i></button>
@@ -1364,8 +1364,7 @@ tsa_token: |
                         <div class="term-pane" role="tabpanel" id="cli-linux" aria-labelledby="tab-cli-linux" hidden>
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.c1l"># GitHub Releases の .deb / .rpm を導入</span>
-<span class="cmd">sudo dpkg -i mdsig_0.0.1_linux_amd64.deb</span>
-<span class="cmd">sudo rpm -i mdsig_0.0.1_linux_amd64.rpm</span></code></pre><button type="button"
+<span class="cmd">go install github.com/SHIOZAKI-Shota/md-signature/cmd/mdsig@latest</span></code></pre><button type="button"
                                     class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
                                     aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
                                         data-lucide="check" aria-hidden="true"></i></button>
@@ -1421,7 +1420,8 @@ tsa_token: |
                     <div class="term-body">
                         <div class="term-pane" role="tabpanel" id="lib-node" aria-labelledby="tab-lib-node">
                             <div class="tblock">
-                                <pre><code><span class="cmd">npm install @md-signature/core</span></code></pre><button
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+<span class="cmd">npm install @md-signature/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
@@ -1503,7 +1503,8 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         <div class="term-pane" role="tabpanel" id="lib-workers" aria-labelledby="tab-lib-workers"
                             hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmd">npm install @md-signature/core</span></code></pre><button
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+<span class="cmd">npm install @md-signature/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
