@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <style>
+    .h { stroke: #0f141a; } .c { stroke: #0b7348; }
+    @media (prefers-color-scheme: dark) { .h { stroke: #eef1f4; } .c { stroke: #5cc895; } }
+  </style>
+  <path class="h" d="M18 5v38M30 5v38M5 18h38M5 30h38" stroke-width="4.2"/>
+  <path class="c" d="M21 24.4l2.8 2.8 5-6.2" stroke-width="3.4"/>
+</svg>

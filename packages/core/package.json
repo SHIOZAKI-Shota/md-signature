@@ -1,0 +1,38 @@
+{
+  "name": "@md-signature/core",
+  "version": "0.0.1",
+  "description": "Embedded, append-only signatures for Markdown documents. Zero dependencies, Web-standard APIs only.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SHIOZAKI-Shota/md-signature.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://shiozaki-shota.github.io/md-signature/",
+  "keywords": ["markdown", "signature", "ed25519", "e-signature", "rfc3161"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.ts",
+    "check:web-standard": "node scripts/check-web-standard.mjs",
+    "examples": "node scripts/gen-examples.ts",
+    "build:tsa-roots": "node scripts/gen-tsa-roots.ts",
+    "build:docs": "tsc -p tsconfig.json --outDir ../../docs/vendor/core --declaration false && node scripts/gen-docs-examples.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}

@@ -1,0 +1,79 @@
+name: TSA roots
+
+# Monthly review of packages/core/tsa-roots against the Microsoft root list (CCADB) and the live TSAs.
+# Opens or updates one pull request when the list changes, and one issue when something needs a person.
+# Needs "Allow GitHub Actions to create and approve pull requests" (Settings > Actions > General).
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tsa-roots
+  cancel-in-progress: false
+
+env:
+  BRANCH: automation/tsa-roots
+  TITLE: "Update bundled TSA root certificates"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/core/package-lock.json
+      - name: Install
+        working-directory: packages/core
+        run: npm ci --ignore-scripts
+      - name: Review roots
+        id: review
+        working-directory: packages/core
+        run: node scripts/update-tsa-roots.ts --write --summary "$RUNNER_TEMP/summary.md"
+      - name: Rebuild and test
+        if: steps.review.outputs.changes != '0'
+        working-directory: packages/core
+        run: |
+          npm run build:docs
+          npm test
+          npm run typecheck
+          npm run check:web-standard
+      - name: Pull request
+        if: steps.review.outputs.changes != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add packages/core/tsa-roots packages/core/src/tsa-roots.ts docs/tsa-roots.json docs/vendor/core
+          git commit -m "$TITLE"
+          git push --force origin "$BRANCH"
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh pr create --head "$BRANCH" --base "${{ github.event.repository.default_branch }}" --title "$TITLE" --body-file "$RUNNER_TEMP/summary.md"
+          fi
+      - name: Issue
+        if: steps.review.outputs.attention != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="TSA roots need a look"
+          number="$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/summary.md"
+          fi

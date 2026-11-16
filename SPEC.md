@@ -1,0 +1,654 @@
+# md-signature: Embedded Signatures for Markdown Documents
+
+- **Version:** 0.0.1 (draft)
+- **Status:** Working draft, intended for submission as `draft-md-signature-00`
+- **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
+- **Original text:** [日本語 (SPEC.ja.md)](SPEC.ja.md). This English version is the normative text, maintained for a possible IETF submission. The two are kept in sync; if they differ, this English text prevails.
+
+## Abstract
+
+This document specifies `md-signature`, a format for embedding one or more
+digital signatures inside a Markdown document. Signatures are stored in HTML
+comments appended to the end of the file, so they do not affect rendering, and
+the signed document stays a single self-contained file. Multiple signers form an
+append-only hash chain: each signature covers the document and every signature
+before it.
+
+## 1. Conventions and Terminology
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",
+"SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in BCP 14 [RFC2119] [RFC8174] when,
+and only when, they appear in all capitals, as shown here.
+
+- **Document**: A UTF-8 encoded Markdown file.
+- **Signature block** (block): One `<!-- md-signature ... -->` comment as defined in Section 3.
+- **Chain**: The ordered sequence of signature blocks at the end of a document (Section 5.2).
+- **Body**: The bytes of the document that precede the first block of the chain.
+- **Generator**: Software that creates signature blocks.
+- **Verifier**: Software that checks signature blocks.
+
+## 2. Design Goals
+
+1. **Zero rendering impact.** Blocks are HTML comments; CommonMark and GFM renderers do not display them.
+2. **Single-file portability.** No detached signature files.
+3. **Append-only co-signing.** A new signer appends a block that covers all preceding bytes, including earlier blocks.
+4. **Crypto-agility.** Algorithm identifiers are explicit, so new algorithms (including post-quantum ones) can be added without changing the format.
+5. **Web-standard implementability.** Everything in this specification can be implemented with the Web Crypto API, `fetch`, and `CompressionStream` / `DecompressionStream`.
+
+## 3. Signature Block Syntax
+
+### 3.1 Example
+
+```markdown
+# Purchase Agreement
+
+The parties agree to the following terms...
+
+<!-- md-signature
+v: 0.0.1
+method: git-hosting
+signer: github.com/alice
+role: author
+reason: Initial draft
+ts: 2026-11-16T09:00:00Z
+alg: ed25519
+hash: sha256:3a0d0b5c...
+sig: base64:q1Xv...
+-->
+<!-- md-signature
+v: 0.0.1
+method: dns
+signer: example.com
+selector: 2026
+role: approver
+ts: 2026-11-16T09:46:00Z
+alg: ed25519
+hash: sha256:8f434346...
+sig: base64:Zm9v...
+tsa_url: http://ts.ssl.com
+tsa_token: |
+  gzip+base64:H4sIAAAAAAAA/+3SW0hTURwG8G+mpWZRFl0oKiR7
+  sJuZRZJGQSRRQUQk9VJUFBRBhhGFFdGNioqCLu
+-->
+```
+
+### 3.2 Grammar
+
+The following ABNF [RFC5234] describes a block. `LF` is the line terminator after
+normalization (Section 5.1); generators MUST emit `LF`, and verifiers MUST
+accept `CRLF` and `CR` by normalizing first.
+
+```abnf
+block        = open-line *(field) close-line
+open-line    = "<!-- md-signature" LF
+close-line   = "-->" [LF]
+field        = simple-field / folded-field
+simple-field = key ":" SP value LF
+folded-field = key ":" SP "|" LF 1*(cont-line)
+cont-line    = 2SP value LF
+key          = (%x61-7A) *(%x61-7A / DIGIT / "_")      ; lowercase a-z, 0-9, _
+value        = vchar *(*SP vchar)                      ; no leading/trailing space
+vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
+```
+
+Rules that apply in addition to the grammar:
+
+1. The open line MUST be exactly `<!-- md-signature` with no leading or trailing characters (trailing spaces/tabs MAY be tolerated by verifiers). The close line MUST be exactly `-->`.
+2. A block MUST NOT contain blank lines. CommonMark ends an HTML block at a blank line, so a blank line would make the rest of the block visible when rendered.
+3. Values MUST NOT contain the sequence `--`. This prevents an early end of the HTML comment. Generators MUST reject such input rather than silently changing it.
+4. Values MUST NOT contain control characters (U+0000–U+001F, U+007F–U+009F), line separators (U+2028, U+2029), or bidirectional control characters (U+202A–U+202E, U+2066–U+2069), except the `LF` that separates the lines of a folded value (rule 7). These characters can be used to forge the verification result shown on a terminal or screen.
+5. A key MUST NOT appear more than once in a block. Verifiers MUST reject a block with duplicate keys.
+6. Verifiers MUST accept fields in any order. Generators SHOULD emit them in this order: `v`, `method`, `signer`, method-specific keys (`selector`, `key_fp`, `fpr`, `pubkey`), `rp_id`, `role`, `reason`, `ts`, `expires`, `scope`, `require`, `resources`, `revocation_url`, extension keys (`x_*`, sorted), `alg`, `hash`, `sig`, `webauthn_authenticator_data`, `webauthn_client_data`, `tsa_url`, `tsa_token`.
+7. **Folding.** A folded field's value is its continuation lines, with the two-space indent removed, joined by `LF` (there is no `LF` after the last line). Each continuation line is checked against rules 3 and 4 on its own. Folding has two uses:
+   - **Lists**, such as `require` and `resources`, where each line is one item.
+   - **Long binary values.** Generators SHOULD fold `sig`, `tsa_token`, `webauthn_authenticator_data`, and `webauthn_client_data` when they are longer than 76 characters, using lines of at most 76 characters. Decoders of these values MUST remove all `LF` and whitespace before decoding.
+
+   A generator MUST use the folded form for any value that contains `LF`.
+
+### 3.3 Common Fields
+
+| Key | Requirement | Description |
+| --- | --- | --- |
+| `v` | MUST | Specification version. This document defines `0.0.1`. |
+| `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu` (Section 4). |
+| `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
+| `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
+| `reason` | MAY | Free-text reason or comment. |
+| `ts` | MUST | Signing time claimed by the signer, in UTC: `YYYY-MM-DDTHH:MM:SSZ` [RFC3339]. This is a claim only; see `tsa_token` for third-party evidence. |
+| `alg` | MAY | Signature algorithm. Default `ed25519`. See Section 6. |
+| `hash` | MUST | Digest of the covered document slice: `<hash-alg>:<lowercase-hex>`. Default `sha256`. |
+| `sig` | MUST | Signature over the signed payload: `base64:<standard base64 with padding>` [RFC4648, Section 4]. |
+| `tsa_url` | MAY | RFC 3161 Time-Stamping Authority endpoint used to obtain `tsa_token`. |
+| `tsa_token` | MAY | RFC 3161 `TimeStampResp`, DER-encoded, with an encoding prefix: `base64:`, `gzip+base64:` (RECOMMENDED), or `zstd+base64:`. |
+| `expires` | MAY | Time after which the signature is no longer valid, same format as `ts` (Section 5.9). |
+| `scope` | MAY | Sign only marked sections of the document instead of the whole slice (Section 5.6). |
+| `require` | MAY | Co-signatures that must follow for the document to be complete (Section 5.8). |
+| `resources` | MAY | Hashes of external files and URLs the document refers to (Section 5.7). |
+| `revocation_url` | MAY | `https://` URL of the signer's revocation list (Section 5.9). |
+| `rp_id`, `webauthn_authenticator_data`, `webauthn_client_data` | — | REQUIRED when `alg` is `webauthn-es256`, and MUST NOT appear otherwise (Section 6.1). |
+| `x_*` | MAY | Extension fields for private use, for example `x_ref: PO-123`. |
+
+Method-specific fields are listed in Section 4.
+
+Verifiers MUST reject a block that is missing a REQUIRED field, or that has a
+`v` they do not support.
+
+**Unknown fields.** A verifier MUST report a block as malformed if it contains
+a key that is neither defined in this document nor starts with `x_`. Keys
+starting with `x_` carry no meaning defined here: verifiers MUST NOT change
+their verification result because of them, but they are still part of the
+signed payload (Section 5.3), so they cannot be changed without breaking the
+signature. Because unknown keys cause a failure, a future version that adds a
+field cannot be mistaken for a valid signature by a verifier that does not
+understand that field.
+
+## 4. Key Resolution Methods
+
+### 4.1 `dns` — Domain TXT record
+
+- `signer`: A domain name, lowercase, without a trailing dot.
+- `selector` (MAY): A DNS label. If present, the record is at `<selector>._mdsig.<signer>`. If absent, it is at `_mdsig.<signer>`.
+- Record value: a list of `tag=value` pairs separated by `;` with optional whitespace, for example:
+
+  ```
+  _mdsig.example.com. IN TXT "v=mdsig1; k=ed25519; p=11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+  ```
+
+  - `v` MUST be `mdsig1`.
+  - `k` is the key type. It MUST be the key type of the block's `alg` (Section 6): `ed25519` for `ed25519`, `es256` for `webauthn-es256`.
+  - `p` is the public key in standard base64. For `ed25519` it is the raw 32-byte key [RFC8032] (the same convention as DKIM [RFC8463]); verifiers SHOULD also accept a DER `SubjectPublicKeyInfo`. For `es256` it is a DER `SubjectPublicKeyInfo` for a P-256 key [RFC5480]; verifiers SHOULD also accept the 65-byte uncompressed point.
+- If the TXT record is split into multiple character-strings, verifiers MUST concatenate them before parsing.
+- If several TXT records at the name have `v=mdsig1`, the signature is valid if it verifies with any of them. This allows key rotation.
+- Implementations that cannot use the system resolver (browsers, edge runtimes) SHOULD use DNS-over-HTTPS [RFC8484], for example the JSON API at `https://cloudflare-dns.com/dns-query` with fallback to `https://dns.google/resolve`. This works for any domain; the domain's DNS provider does not have to support DoH.
+- Verifiers SHOULD tell users that DNS records can change after signing (Section 9.3).
+
+### 4.2 `git-hosting` — SSH keys published by a Git forge
+
+- `signer`: `<host>/<username>`, for example `github.com/alice` or `gitlab.com/bob`. `<host>` MUST be a domain name of two or more labels. A block whose `<host>` is an IP address or a single-label name (such as `localhost`) is malformed.
+- `key_fp` (MAY): The OpenSSH fingerprint of the key, `SHA256:<unpadded base64 of SHA-256 over the SSH wire-format public key blob>` (the format printed by `ssh-keygen -l`).
+- Lookup: `GET https://<signer>.keys` returns one OpenSSH public key per line. Verifiers MUST use only lines whose key type matches `alg` (`ssh-ed25519` for `ed25519`). If `key_fp` is present, verifiers MUST use only the key with that fingerprint. Otherwise the signature is valid if it verifies with any listed key.
+- Generators MUST produce a raw Ed25519 signature [RFC8032] directly over the signed payload (Section 5.3), for example with the raw private key or with an ssh-agent `SSH_AGENTC_SIGN_REQUEST`. Generators MUST NOT use the OpenSSH SSHSIG format (`ssh-keygen -Y sign`), which signs a different, wrapped message and is not compatible.
+- An ssh-agent returns the signature in SSH wire format (`string "ssh-ed25519"`, `string signature`). Generators MUST store only the inner 64-byte signature in `sig`.
+- Verifiers SHOULD tell users that the key list reflects the account's current keys, not the keys at signing time.
+
+### 4.3 `pgp` — OpenPGP
+
+- `signer`: A lowercase email address (`local@domain`).
+- `fpr` (MUST): The fingerprint of the key used to sign (the primary key or a signing subkey), 40 uppercase hexadecimal characters (v4 keys) or 64 (v6 keys) [RFC9580].
+- `alg`: MUST be `openpgp`. A block with `method: pgp` whose `alg` is not `openpgp`, and a block whose `method` is not `pgp` and whose `alg` is `openpgp`, are malformed. The signature format is specified in Section 6.2.
+- **Key lookup.** Verifiers look for the key in the following order and stop at the first certificate (transferable public key) that contains a key with fingerprint `fpr`.
+  1. The user's local keyring (only in implementations that have one, for example `gpg --export <fpr>`).
+  2. WKD [WKD] for the domain of `signer`. The advanced method (`https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<local>`) is tried first, then the direct method (`https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<local>`). `<hash>` is the z-base-32 encoding of the SHA-1 of the lowercased local part.
+  3. A keyserver chosen by the verifier, `https://keys.openpgp.org` by default, using HKP [HKP]: `GET <keyserver>/pks/lookup?op=get&options=mr&search=0x<fpr>`.
+
+  A block cannot name the keyserver. If the signer could, anyone could sign under someone else's `signer` through a keyserver that does not confirm email addresses. Verifiers SHOULD use only keyservers that confirm email addresses.
+
+  In a verifier running in a browser, a WKD fetch can fail because the WKD server does not allow CORS. In that case the verifier SHOULD go on to the keyserver lookup.
+- **Key validation.** Verifiers MUST check all of the following on the retrieved certificate.
+  1. A primary key or subkey matching `fpr` exists.
+  2. A User ID exists that has a valid self-certification by the primary key (signature types 0x10 to 0x13) and whose email address (the part between `<` and `>`, or the whole User ID if there are none) matches `signer`, compared case-insensitively.
+  3. If `fpr` refers to a subkey, a valid subkey binding signature (0x18) by the primary key exists, its key flags include signing (0x02), and it contains a valid embedded primary key binding signature (0x19) made by the subkey. If `fpr` refers to the primary key and the self-certification has key flags, they include signing (0x02).
+  4. No valid revocation signature (0x20 or 0x28) exists for the key (the primary key, or the subkey `fpr` refers to).
+
+  If no certificate satisfying conditions 1 to 3 is obtained, the result is **unresolved** (code `not-found`). Some keyservers do not distribute User IDs whose email address has not been confirmed, so condition 2 can fail with them. If condition 4 fails, the block is **invalid** (code `revoked`). If the key has expired at verification time, verifiers SHOULD warn but MUST NOT treat the block as invalid for that reason alone. Evidence of the signing time comes from `tsa_token` (Section 5.5).
+- **Distinguishing lookup results.** The result is `not-found` only if every source tried answered that the key does not exist. If any source did not answer because of a communication failure, the result is `network`. Verifiers SHOULD show the user the result for each source.
+- Generators MAY sign with a local OpenPGP implementation (for example `gpg --detach-sign`). In that case too, the signed data is the signed payload (Section 5.3), and the signature MUST satisfy the conditions in Section 6.2.
+
+### 4.4 `tofu` — Trust on first use (embedded key)
+
+- `signer`: Any identifier, for example `bob@laptop`.
+- `pubkey` (MUST): `<key-type>:<base64>`, for example `ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`. The key type and encoding are the same as for `dns` (Section 4.1). A `pubkey` whose key type does not match `alg`, or that cannot be decoded, makes the block malformed.
+- A `tofu` signature proves only that the document has not changed since someone holding that key signed it. It does not prove who that is.
+- Verifiers that keep state SHOULD remember the `signer` → `pubkey` binding the first time they see it and MUST report a block as **invalid** (code `key-changed`) if a later document uses the same `signer` with a different `pubkey`. The binding is stored after the block has verified, and is replaced only when the user explicitly accepts the new key.
+
+## 5. Canonicalization and Cryptographic Procedure
+
+### 5.1 Document normalization
+
+Given a byte sequence `S`, `normalize(S)` is:
+
+1. If `S` starts with the UTF-8 byte order mark (`EF BB BF`), remove it.
+2. Replace every `CRLF` with `LF`, then every remaining `CR` with `LF`.
+3. Remove all trailing `LF`, `SP` (U+0020), and `HTAB` (U+0009) characters from the end.
+4. Append exactly one `LF`.
+
+No Unicode normalization is done. Generators SHOULD NOT change the
+document's characters before signing.
+
+Documents MUST be valid UTF-8. Generators MUST refuse to sign, and verifiers
+MUST report a failure for, a document that is not valid UTF-8.
+
+### 5.2 The chain and document slices
+
+The **chain** is found by scanning from the end of the normalized document:
+
+1. Trailing whitespace is ignored.
+2. If the document then ends with a close line `-->`, find the nearest preceding open line `<!-- md-signature`. If every line between them is a valid field line, this is a block. Repeat, skipping whitespace-only lines between blocks.
+3. Stop at the first text that is not a block or whitespace. Everything before it, plus that text, is the body.
+
+The hash of every block is computed from the start of the document, so the cost of verification grows with the number of blocks. A verifier MAY limit the number of blocks in a chain. If it does, the limit is at least 256, and a document over the limit is reported as a failure.
+
+So the chain is the largest run of blocks at the end of the file separated only
+by whitespace. Example blocks inside the body (for example in a fenced code
+block, followed by more prose) are part of the body and are not verified.
+
+The **slice** for block `N` (counting from 1) is every byte of the document
+from the start to the first byte of block `N`'s open line. For block 1 that is
+the body; for block `N > 1` it is the body plus blocks 1 to `N-1` and the
+whitespace between them.
+
+Verifiers MUST treat any non-whitespace text after the last block as a
+failure, because no signature covers it. (By the definition above, such text
+would also end the chain, so a document whose last non-whitespace content is
+not a block has no signatures.) Verifiers SHOULD report "content after the
+last signature" when a recognizable block is followed by other text.
+
+### 5.3 Digest and signed payload
+
+For block `N`:
+
+1. `hash = <hash-alg> ":" lowercase-hex(H(normalize(slice_N)))`, where `H` is the hash named by `<hash-alg>` (default SHA-256). If the block has a `scope` field, the input to `H` is defined by Section 5.6 instead.
+2. The **signed payload** is built from every field of the block except `sig`, `tsa_url`, `tsa_token`, `webauthn_authenticator_data`, and `webauthn_client_data`:
+   1. Sort fields by key, comparing keys as ASCII byte strings.
+   2. Write each field as `key "=" value`. If the value contains `LF` (a folded list), write every `LF` in it as `LF` followed by two spaces. Keys start with a lowercase letter, so a continuation line can never be mistaken for another field.
+   3. Join with `LF`. There is no trailing `LF`.
+   4. Prepend the domain separation line `md-signature/v1` followed by `LF`.
+   5. Encode as UTF-8.
+3. `sig = "base64:" base64(Sign(private-key, payload))`.
+
+Since `hash` is in the payload, the signature covers the document; since every
+other field is in the payload, `signer`, `role`, `reason`, `ts`, and so on cannot be
+changed without breaking the signature.
+
+Example payload for the first block in Section 3.1:
+
+```
+md-signature/v1
+alg=ed25519
+hash=sha256:3a0d0b5c...
+method=git-hosting
+reason=Initial draft
+role=author
+signer=github.com/alice
+ts=2026-11-16T09:00:00Z
+v=0.0.1
+```
+
+### 5.4 Verification procedure
+
+For each block in the chain, in order, a verifier MUST:
+
+1. Parse the block (Section 3). On a syntax error, a missing REQUIRED field, or an unknown field, the block is **malformed**.
+2. Compute the digest of the block's slice (or of its scoped sections, Section 5.6) and compare it with `hash` (constant-time comparison is not required; the values are public). On mismatch the block is **invalid (hash mismatch)**.
+3. Build the payload and resolve candidate public keys with `method` (Section 4). If resolution fails because of the network, the result is **unresolved**, which is different from invalid.
+4. Verify `sig` with each candidate key (for `webauthn-es256`, as in Section 6.1; for `openpgp`, as in Section 6.2). If none verifies, the block is **invalid (bad signature)**.
+5. If `expires` is present and has passed, the block is **invalid (expired)** (Section 5.9).
+6. If `resources` is present, check it (Section 5.7).
+7. If `revocation_url` is present, check it (Section 5.9).
+8. If `tsa_token` is present, check it (Section 5.5).
+
+The document is **verified** only if the chain has at least one block, every
+block is valid, and there is no unsigned content after the last block.
+Separately, a verified document whose `require` fields (Section 5.8) are not
+all satisfied is **verified but pending**; verifiers MUST NOT present such a
+document as complete.
+
+### 5.5 RFC 3161 timestamps
+
+The timestamp covers the signature, so the evidence chain is
+`document → hash → sig → tsa_token`.
+
+1. The generator computes `SHA-256(raw signature bytes)` (the decoded `sig`, not the base64 text).
+2. It sends a `TimeStampReq` [RFC3161] to `tsa_url` with that value as `messageImprint` (hash algorithm `id-sha256`), `certReq` set to `TRUE`, and a random `nonce`.
+3. It stores the full DER `TimeStampResp` in `tsa_token`, RECOMMENDED as `gzip+base64:`. The `tsa_url` and `tsa_token` fields are not in the signed payload, so a timestamp can be added after signing.
+
+A verifier that checks a timestamp MUST confirm that the response status is
+`granted` or `grantedWithMods` and that the `messageImprint` in the `TSTInfo`
+equals `SHA-256(raw signature bytes)`. Because `tsa_token` is not in the signed
+payload and a third party can replace it, a verifier SHOULD limit its
+decompressed size (RECOMMENDED: 1 MB). It SHOULD report `genTime`. It SHOULD
+verify the CMS signature of the token and the TSA certificate chain against a
+trust store it chooses. A verifier that does not do the CMS check MUST say so
+when it reports the timestamp (for example "imprint matched, TSA signature not
+checked").
+
+### 5.6 Section signing (`scope`)
+
+A signer can sign only parts of the document, so that other parts (notes,
+fill-in fields, appendices) can still be edited without breaking the signature.
+
+**Section markers.** A section is delimited by two marker lines in the body,
+each alone on its line (trailing spaces and tabs are tolerated):
+
+```markdown
+<!-- mdsig:section terms -->
+## Terms
+...
+<!-- /mdsig:section -->
+```
+
+- The section id matches `[a-z0-9-]+`.
+- Marker lines inside fenced code blocks are not markers.
+- Sections MUST NOT be nested, and an id MUST NOT be used twice.
+- Every begin marker MUST have a matching end marker.
+
+**Field.** `scope` is a comma-separated list of `section:<id>`, for example
+`scope: section:terms,section:fees`.
+
+**Hash input.** For a block with `scope`, the input to `H` in Section 5.3 is
+the concatenation, in the order listed, of `normalize(section)` for each listed
+section, where `section` is the text from the first byte of the begin marker
+line to the end of the end marker line. Markers are looked up in the block's
+slice (Section 5.2). Normalization gives every section exactly one trailing
+`LF`, so section boundaries cannot be shifted without changing the hash.
+
+**Verification.**
+
+- If the markers in the slice break the rules above, the block is malformed.
+- If a listed id is not found, the block is **invalid (scope missing)**.
+- A verifier MUST show, wherever it reports such a block as valid, that the signature covers only the listed sections (for example "valid — partial: terms, fees").
+
+A block without `scope` still covers its whole slice, including any sections
+and the text around them. A signer who wants later edits outside the sections
+to keep the chain valid therefore needs every later signer to use `scope` as
+well.
+
+### 5.7 External resources (`resources`)
+
+`resources` binds files and URLs that the document refers to, such as
+screenshots, diagrams, and data files. Each line of its value is
+`sha256:<lowercase-hex> SP <ref>`:
+
+```
+resources: |
+  sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ./diagram.png
+  sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4 https://example.com/chart.png
+```
+
+- `<ref>` is either an `https://` URL or a relative path. A relative path uses `/` as the separator, is resolved against the directory that contains the document, and MUST NOT be absolute, start with a drive letter, contain `\`, or contain a `..` segment.
+- The hash is SHA-256 over the exact bytes of the file or of the HTTP response body.
+
+Verification:
+
+1. **Local files** MUST be checked whenever the verifier has access to the document's directory. If a file is missing, the block is **invalid (resource missing)**. If its hash differs, the block is **invalid (resource mismatch)**.
+2. **URLs** SHOULD be fetched only when the user asks for it (Section 9.8). If they are not fetched, the verifier MUST say that the remote resources were not checked. If a URL cannot be fetched, the block is **unresolved**. If its hash differs, the block is **invalid (resource mismatch)**.
+3. Verifiers MUST only fetch `https://` URLs, SHOULD limit the response size (RECOMMENDED: 50 MB), and SHOULD refuse addresses in private, loopback, and link-local ranges.
+
+Remote content can change for legitimate reasons, such as re-encoding by a
+CDN or the page going away. For long-term evidence, signers SHOULD keep a
+local copy and list the copy.
+
+### 5.8 Required co-signatures (`require`)
+
+`require` states which co-signatures must follow before the document is
+complete. Each line of its value is `<method>:<signer>` optionally followed by
+`SP <role>`:
+
+```
+require: |
+  dns:example.com approver
+  git-hosting:github.com/bob
+```
+
+A requirement declared by block `N` is **satisfied** if a valid block
+`M > N` has the same `method` and `signer` (domain names compared without
+case and without a trailing dot), and, if a role is given, the same `role`.
+Requirements are collected from every block that is valid or unresolved (for
+example, not checked because the verifier is offline), so that a chain that
+could not be fully checked is never reported as complete. Only valid blocks
+satisfy requirements.
+
+A block with `scope` does not satisfy a requirement. Such a block does not
+cover the block that declared the requirement, and it stays valid when moved
+to another document that contains the same sections (Section 9.9).
+
+A verifier MUST report the agreement status of a verified document: `none` (no
+requirements), `complete` (all satisfied), or `pending` (with the list of
+missing co-signatures). The match is on `method` and `signer` because those
+are what the signature authenticates; `role` alone is the signer's own claim.
+
+### 5.9 Expiry and revocation (`expires`, `revocation_url`)
+
+**Expiry.** `expires` MUST be a real calendar date and time in the `ts`
+format (for example, `2026-02-30T00:00:00Z` and `2026-11-16T24:00:00Z` are not);
+otherwise the block is malformed. If the verifier's current time is later than
+`expires`, the block is **invalid (expired)**. Verifiers use their own clock.
+
+**Revocation.** `revocation_url` is the `https://` URL of the signer's
+revocation list. The list is itself an md-signature document. Its body
+contains one line per revoked signature:
+
+```
+revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
+```
+
+The identifier is computed from the signed payload (Section 5.3) of the revoked
+block. It is not computed from the bytes of `sig`, because a third party
+without the private key can change an ECDSA or OpenPGP signature into
+different bytes that still verify. The identifier would then change and the
+revocation would be bypassed.
+
+1. Verifiers SHOULD fetch the list when they are online. They MUST NOT send any information about the document being verified; the request is a plain `GET` of the URL. The fetch follows the restrictions of Section 5.7, with a RECOMMENDED size limit of 5 MB.
+2. The list is trusted only if verifying it as a document succeeds and its chain contains a valid block with the same `method` and `signer` as the revoked block (compared as in Section 5.8, and, for `tofu`, with the same `pubkey`).
+3. When verifying the list, verifiers MUST NOT follow `revocation_url` fields found in the list itself, MUST NOT fetch its remote resources, and MUST NOT evaluate its `require` fields. This prevents loops.
+4. If the block's identifier is on a trusted list, the block is **invalid (revoked)**.
+5. If the list cannot be fetched or is not trusted, the block is **unresolved**. Otherwise blocking the fetch would be enough to hide a revocation. If the user turned the fetch off, or the verifier is offline, the verifier MUST report that revocation was not checked. This does not by itself make the block invalid.
+
+## 6. Algorithms
+
+| `alg` | Status | Notes |
+| --- | --- | --- |
+| `ed25519` | REQUIRED to implement | [RFC8032] pure Ed25519. Key type `ed25519`. |
+| `webauthn-es256` | RECOMMENDED to implement for verification | WebAuthn assertion with ECDSA P-256 / SHA-256 (Section 6.1). Key type `es256`. |
+| `openpgp` | RECOMMENDED to implement for verification | OpenPGP signature packet [RFC9580] (Section 6.2). Used only with `method: pgp`. |
+| `ml-dsa-44`, `ml-dsa-65` | Reserved | [FIPS204]. |
+| `slh-dsa-sha2-128s` | Reserved | [FIPS205]. |
+| `ed25519+ml-dsa-65` | Reserved | Composite. `sig` is the concatenation of both signatures. |
+
+| Hash prefix | Status |
+| --- | --- |
+| `sha256` | REQUIRED to implement, default |
+| `sha512` | Reserved |
+| `sha3-256` | Reserved |
+
+A verifier MUST report a block using an unsupported algorithm as
+"unsupported", never as valid.
+
+**Post-quantum archival co-signing.** A party that wants long-term protection
+can append a block with a post-quantum `alg`. Because that block covers all
+earlier blocks, it protects them even if Ed25519 is later broken.
+
+### 6.1 WebAuthn (`webauthn-es256`)
+
+`webauthn-es256` lets a person sign with a passkey or security key in a web
+browser [WebAuthn]. An authenticator does not sign arbitrary data. It signs
+`authenticatorData || SHA-256(clientDataJSON)`, where `clientDataJSON` contains
+a challenge. The signed payload is bound through that challenge.
+
+Additional fields:
+
+| Key | Description |
+| --- | --- |
+| `rp_id` | The WebAuthn Relying Party ID (a domain) used for the assertion. It is part of the signed payload. |
+| `webauthn_authenticator_data` | `authenticatorData` from the assertion, standard base64. Not part of the payload. |
+| `webauthn_client_data` | `clientDataJSON` from the assertion, standard base64. Not part of the payload. |
+| `sig` | `base64:` of the assertion `signature`, which is an ASN.1 DER `ECDSA-Sig-Value`. |
+
+**Generator.**
+
+1. Build the payload (Section 5.3), including `rp_id`.
+2. Call `navigator.credentials.get()` with `challenge = SHA-256(payload)` and `rpId = rp_id`.
+3. Store the three values from the response in the fields above.
+
+**Verifier.** The block's signature is valid only if all of the following hold:
+
+1. `clientDataJSON` parses as JSON, its `type` is `webauthn.get`, and its `challenge` equals the unpadded base64url encoding of `SHA-256(payload)`.
+2. The host of its `origin` equals `rp_id` or is a subdomain of it. The origin MUST use `https`, except for `localhost`. Verifiers MUST display `rp_id`, and SHOULD warn when it is `localhost`.
+3. The first 32 bytes of `authenticatorData` equal `SHA-256(rp_id)`, and the User Present flag (bit 0 of byte 32) is set.
+4. `sig` verifies with a candidate `es256` key over `authenticatorData || SHA-256(clientDataJSON)` with ECDSA P-256 / SHA-256. APIs such as Web Crypto that need the fixed-length `r || s` form require a conversion from DER. The conversion MUST reject malformed DER and integers longer than 33 bytes.
+
+The public key comes from the block's `method`, as for any other algorithm:
+`tofu` (`pubkey: es256:...`) or `dns` (`k=es256`). Passkeys are bound to their
+RP ID (Section 9.9).
+
+### 6.2 OpenPGP (`openpgp`)
+
+`openpgp` lets a person sign with an existing OpenPGP key, including keys held
+by gpg-agent or on a smartcard. `sig` is an OpenPGP detached signature over the
+signed payload (Section 5.3) as a binary document [RFC9580].
+
+**Format of `sig`.** `base64:` followed by binary data (no ASCII armor) that
+contains exactly one OpenPGP signature packet (tag 2). The signature MUST
+satisfy all of the following:
+
+1. It is a version 4 or version 6 signature packet. A v6 signature is made with a v6 key, and a v4 signature with a v4 key.
+2. The signature type is 0x00 (binary document).
+3. The hash algorithm is SHA-256, SHA-384, or SHA-512.
+4. The hashed subpackets include a Signature Creation Time (type 2) and an Issuer Fingerprint (type 33) that matches `fpr`.
+5. The public-key algorithm is one of the following:
+
+   | ID | Algorithm | Condition |
+   | --- | --- | --- |
+   | 1 | RSA (PKCS#1 v1.5) | Modulus of at least 2048 bits |
+   | 19 | ECDSA | Curve NIST P-256 |
+   | 22 | EdDSALegacy | Curve Ed25519 |
+   | 27 | Ed25519 | — |
+
+A signature that does not satisfy conditions 1 to 4, or that contains a
+subpacket with the critical flag that the verifier cannot interpret, is
+**invalid** (code `bad-signature`). A public-key algorithm not listed in
+condition 5 is **unsupported** (code `unsupported-alg`).
+
+**On SHA-1.** Condition 3 forbids SHA-1 as the hash algorithm of the
+signature. SHA-1 is still used, as each standard specifies, to compute v4 key
+fingerprints, the checksum that protects v4 secret keys, and WKD addresses.
+
+**Verifier.** The block's signature is valid only if OpenPGP signature
+verification [RFC9580, Section 5.2.4] with the signed payload as input succeeds
+with the key obtained by the procedure in Section 4.3 (the primary key or
+subkey that `fpr` refers to).
+
+**Signature creation time.** The creation time in the signature packet is a
+value set by the signer, like `ts`. Verifiers SHOULD display the creation time,
+`ts`, and the `tsa_token` time as separate values. Only `tsa_token` is
+third-party evidence (Section 9.4).
+
+**Timestamps.** The "raw signature bytes" in Section 5.5 are the bytes of the
+signature packet obtained by decoding `sig`.
+
+## 7. Appending a Signature (Generator Procedure)
+
+1. Read the document and find the existing chain (Section 5.2). If there is unsigned content after the last block, the generator MUST refuse to co-sign, because the new signature would also endorse content earlier signers never signed. (It MAY offer to sign the whole file as a new body instead, which loses nothing but must be an explicit user choice.)
+2. Compute `hash` over the whole file as it is now (this is the slice for the new block).
+3. Build the fields, compute `sig`, and optionally obtain `tsa_token`.
+4. Write: the original file with trailing whitespace removed, then `LF`, then (only if there is no existing chain) one blank line, then the new block followed by `LF`.
+
+## 8. IANA Considerations
+
+This document has no IANA actions at this time. A future revision may request:
+
+- a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`);
+- a registry "md-signature Algorithms" (Section 6);
+- registration of the `_mdsig` underscored DNS node name in the "Underscored and Globally Scoped DNS Node Names" registry [RFC8552].
+
+## 9. Security Considerations
+
+### 9.1 What a signature proves
+
+A valid block proves that the holder of the resolved private key signed the
+exact bytes of the slice (after normalization) together with the metadata
+fields. How much that says about a real person depends on the method: `dns`
+binds to a domain's operator, and `git-hosting` to a forge account. `pgp` binds
+to the operator of the email address's domain when the key comes from WKD, to
+the confirmation of the email address by the keyserver the verifier chose when
+it comes from a keyserver, and to the user's own judgment when it comes from the local keyring.
+`tofu` binds to nothing beyond the key.
+
+### 9.2 Normalization
+
+Normalization treats documents that differ only in line endings, a leading BOM,
+or trailing whitespace as the same. Changes to any other byte, including
+whitespace inside the document, break the signature. Unicode text that looks
+the same but is encoded differently (for example NFC vs NFD) is treated as different.
+
+### 9.3 Key rotation and revocation
+
+`dns`, `git-hosting`, and `pgp` resolve keys at verification time. If the signer later
+removes the key, older signatures will no longer verify; if an attacker takes
+over the domain or account, they can publish a key of their own. Neither case
+can be detected from the document alone. For long-term evidence, signers
+SHOULD add an RFC 3161 timestamp, and verifiers SHOULD record the key they used
+and when.
+
+### 9.4 Claimed time
+
+`ts` is set by the signer and can be anything. The same holds for the creation
+time in an OpenPGP signature packet (Section 6.2). Only `tsa_token` gives
+third-party evidence that the signature existed at a given time.
+
+### 9.5 Rendering and display
+
+Renderers do not show blocks, so readers of rendered output cannot see whether a
+document is signed. Tools SHOULD show verification results next to rendered
+output. Verifiers MUST NOT display a document as "signed" based only on the
+presence of blocks.
+
+The body of a document can contain HTML, including HTML comments, that renders
+differently from its source. A signature covers the source, not the rendering.
+
+### 9.6 Key reuse and domain separation
+
+`git-hosting` reuses SSH keys that are also used for SSH authentication. The
+`md-signature/v1` prefix (Section 5.3) makes signed payloads distinguishable
+from SSH authentication data and from other protocols.
+
+### 9.7 Comment injection
+
+Rule 3 of Section 3.2 (no `--` in values) prevents a value from ending the
+HTML comment early and injecting visible Markdown.
+
+### 9.8 Fetching resources and revocation lists
+
+Fetching a URL tells its server that someone is verifying, and when. This is
+the same as a tracking pixel. That is why verifiers fetch remote `resources`
+only on request. Revocation lists are fetched as whole files, so the server
+learns that some document of that signer is being verified. If the signer
+names a different `revocation_url` in each document, the server also learns
+which one. A verifier that runs on a server and processes untrusted documents can
+be made to request internal addresses (server-side request forgery); the
+restrictions in Section 5.7 apply to revocation lists and to key lookups (the
+`git-hosting` host, WKD, and the keyserver) too.
+
+### 9.9 Partial signatures, requirements, and passkeys
+
+- A signature with `scope` leaves the rest of the document unsigned. A reader of the rendered document cannot see where the signed sections end, so text outside them can be added to mislead. That is why verifiers must show partial coverage (Section 5.6). A signature with `scope` also stays valid when moved to another document that contains the same sections, so it is not counted as satisfying `require` (Section 5.8).
+- `require` is set by the signer of the declaring block. Its status says only whether the listed parties have co-signed; it does not create obligations.
+- A passkey can be used only with the RP ID it was registered for. If the site that hosts the signing page moves to another domain, passkeys registered on the old domain cannot sign there. Signatures that were already made stay verifiable, because `rp_id` is recorded in each block.
+
+### 9.10 OpenPGP keys
+
+- v4 key fingerprints are based on SHA-1. Collision attacks on SHA-1 are known, but forging an `fpr` needs a second preimage, and no practical attack is known at present. Signers who want a stronger binding can use v6 keys.
+- WKD and keyservers return the current certificate, not the key as it was at signing time. A certificate fetched after the key was revoked contains the revocation signature, so signatures made before the revocation are also reported as invalid. Evidence that a signature existed before the revocation is `tsa_token`, but the verification procedure in this version does not ignore a revocation on that ground.
+- Generators that handle private keys in a browser MUST NOT store the private key or its passphrase in persistent storage, and SHOULD wipe erasable buffers (such as decrypted key material) after signing. JavaScript strings and key material copied inside cryptographic APIs cannot be wiped, so this measure only shortens the exposure.
+
+## 10. References
+
+- [RFC2119] Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", BCP 14, RFC 2119.
+- [RFC8174] Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words", BCP 14, RFC 8174.
+- [RFC3161] Adams, C., et al., "Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)", RFC 3161.
+- [RFC3339] Klyne, G. and C. Newman, "Date and Time on the Internet: Timestamps", RFC 3339.
+- [RFC4648] Josefsson, S., "The Base16, Base32, and Base64 Data Encodings", RFC 4648.
+- [RFC5234] Crocker, D. and P. Overell, "Augmented BNF for Syntax Specifications: ABNF", RFC 5234.
+- [RFC5480] Turner, S., et al., "Elliptic Curve Cryptography Subject Public Key Information", RFC 5480.
+- [WebAuthn] W3C, "Web Authentication: An API for accessing Public Key Credentials", Level 3.
+- [RFC8032] Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital Signature Algorithm (EdDSA)", RFC 8032.
+- [RFC8463] Levine, J., "A New Cryptographic Signature Method for DomainKeys Identified Mail (DKIM)", RFC 8463.
+- [RFC8484] Hoffman, P. and P. McManus, "DNS Queries over HTTPS (DoH)", RFC 8484.
+- [RFC8552] Crocker, D., "Scoped Interpretation of DNS Resource Records through Underscored Naming of Attribute Leaves", RFC 8552.
+- [RFC9580] Wouters, P., et al., "OpenPGP", RFC 9580.
+- [WKD] Koch, W., "OpenPGP Web Key Directory", Work in Progress, Internet-Draft, draft-koch-openpgp-webkey-service.
+- [HKP] Shaw, D. and A. Gallagher, "OpenPGP HTTP Keyserver Protocol", Work in Progress, Internet-Draft, draft-gallagher-openpgp-hkp.
+- [FIPS204] NIST, "Module-Lattice-Based Digital Signature Standard", FIPS 204.
+- [FIPS205] NIST, "Stateless Hash-Based Digital Signature Standard", FIPS 205.
+- CommonMark Spec, Section 4.6 "HTML blocks", https://spec.commonmark.org/

@@ -1,0 +1,109 @@
+version: 2
+
+project_name: mdsig
+
+before:
+  hooks:
+    # the release must build from the committed go.sum, so nothing here may rewrite it
+    - sh -c "go mod verify && go vet ./... && go test ./..."
+
+builds:
+  - id: mdsig
+    main: ./cmd/mdsig
+    binary: mdsig
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath, -mod=readonly]
+    ldflags:
+      - -s -w -X github.com/SHIOZAKI-Shota/md-signature/internal/cli.Version={{ .Version }}
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - README.ja.md
+      - LICENSE
+      - LICENSE-SPEC
+      - SPEC.md
+      - CLI_SPEC.md
+      - SPEC.ja.md
+      - CLI_SPEC.ja.md
+
+checksum:
+  name_template: checksums.txt
+
+# keyless signing needs cosign and an OIDC identity (GitHub Actions: permissions id-token: write)
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+
+# needs syft
+sboms:
+  - artifacts: archive
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+release:
+  github:
+    owner: SHIOZAKI-Shota
+    name: md-signature
+  draft: true
+  prerelease: auto
+
+nfpms:
+  - id: packages
+    package_name: mdsig
+    vendor: md-signature
+    homepage: https://shiozaki-shota.github.io/md-signature/
+    maintainer: SHIOZAKI Shota <noreply@users.noreply.github.com>
+    description: Sign and verify Markdown documents with embedded md-signature blocks.
+    license: MIT
+    formats: [deb, rpm]
+    bindir: /usr/bin
+
+homebrew_casks:
+  - name: mdsig
+    repository:
+      owner: SHIOZAKI-Shota
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://shiozaki-shota.github.io/md-signature/
+    description: Sign and verify Markdown documents with embedded md-signature blocks.
+    license: MIT
+    binaries: [mdsig]
+    # binaries are not notarized yet, so Gatekeeper may quarantine them
+    caveats: |
+      mdsig is not notarized yet. If macOS refuses to run it:
+        xattr -dr com.apple.quarantine "$(readlink -f "$(brew --prefix)/bin/mdsig")"
+
+winget:
+  - name: mdsig
+    publisher: SHIOZAKI-Shota
+    package_identifier: SHIOZAKI-Shota.mdsig
+    short_description: Sign and verify Markdown documents with embedded md-signature blocks.
+    license: MIT
+    homepage: https://shiozaki-shota.github.io/md-signature/
+    publisher_url: https://github.com/SHIOZAKI-Shota
+    repository:
+      owner: SHIOZAKI-Shota
+      name: winget-pkgs
+      branch: "mdsig-{{ .Version }}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master

@@ -1,0 +1,6 @@
+node_modules/
+packages/core/dist/
+bin/
+dist/
+*.exe
+.DS_Store

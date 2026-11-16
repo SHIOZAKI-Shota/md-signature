@@ -1,0 +1,98 @@
+{
+  "_comment": "PUBLIC TEST KEYS from RFC 8032 Section 7.1. Never use them for real signatures. Verifiers under test must resolve these signers to these keys instead of using the network, use `now` as the current time, serve the URLs in `fetch` from the listed files, and resolve relative resources against this directory.",
+  "git-hosting": {
+    "github.com/alice": {
+      "seed_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+      "keys_file": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINdamAGCsQq31Uv+08lkBzoO4XLz2qYjJa8CGmj3B1Ea alice@example",
+      "key_fp": "SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8"
+    }
+  },
+  "dns": {
+    "2026._mdsig.example.com": {
+      "seed_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+      "txt": "v=mdsig1; k=ed25519; p=PUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw="
+    }
+  },
+  "tofu": {
+    "bob@laptop": {
+      "seed_hex": "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7",
+      "pubkey": "ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU="
+    }
+  },
+  "pgp": {
+    "dave@example.org": {
+      "fpr": "DC169A0E529FF31AB87FC0B8EF37BA0F059AD959",
+      "version": 4,
+      "seed_hex": "f5e5767cf153319517630f226876b86c8160cc583bc013744c6bf255f5cc0ee5",
+      "cert": "pgp/dave.pub.asc",
+      "secret": "pgp/dave.sec.asc",
+      "lookup": "WKD (direct)"
+    },
+    "erin@example.org": {
+      "fpr": "1E79CDA3F204FEF40DE7B7DDC1E564DE2D9677BAB5E768574CA08AB07B092777",
+      "version": 6,
+      "seed_hex": "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+      "cert": "pgp/erin.pub.asc",
+      "secret": "pgp/erin.sec.asc"
+    },
+    "frank@example.org": {
+      "fpr": "275E2B9A1BC461282279D5335E7F0C0F098A2BC1",
+      "version": 4,
+      "cert": "pgp/frank.pub.asc",
+      "secret": "pgp/frank.sec.asc",
+      "passphrase": "test"
+    },
+    "grace@example.org": {
+      "fpr": "1A819392C4BF970EB64479F92B689457188F0F3A",
+      "version": 4,
+      "cert": "pgp/grace.pub.asc",
+      "secret": "pgp/grace.sec.asc",
+      "note": "ECDSA P-256 signing subkey"
+    },
+    "henry@example.org": {
+      "fpr": "4F855F7E693604CDA8FA6A2E3490D31A011CD5A6",
+      "version": 4,
+      "cert": "pgp/henry.pub.asc",
+      "note": "revoked key"
+    },
+    "ivan@example.org": {
+      "fpr": "B109CA5B15574608C2FF19C6B28CB4C65D5E3252",
+      "version": 4,
+      "cert": "pgp/ivan.pub.asc",
+      "note": "subkey without the signing flag"
+    },
+    "mallory (dave@example.org)": {
+      "fpr": "7DB2DE110A507EB9F9B446506FC27FCAE0BED344",
+      "version": 4,
+      "cert": "pgp/mallory.pub.asc",
+      "secret": "pgp/mallory.sec.asc",
+      "note": "claims dave's address; signs pgp-keyserver-field.md"
+    },
+    "judy@example.org": {
+      "fpr": "3255926F3D3CD10E334EA19BC2C8C2973DAC9306",
+      "version": 4,
+      "cert": "pgp/judy.pub.asc",
+      "note": "signing subkey without a primary key binding signature"
+    },
+    "kate@example.org": {
+      "fpr": "6B8CABC94BD6F8DF0B1937F719457B025C590D526D4B4F8652AC62DAE08F499B",
+      "version": 6,
+      "cert": "pgp/kate.pub.asc",
+      "note": "version 6 key without a direct key signature"
+    }
+  },
+  "now": "2026-12-01T00:00:00Z",
+  "fetch": {
+    "https://example.com/.well-known/mdsig-revoked.md": "revocation/example.com.md",
+    "https://example.org/.well-known/openpgpkey/hu/z9g983skpuzwkib59q4zknqjfmsjwqx5?l=dave": "pgp/dave.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0xDC169A0E529FF31AB87FC0B8EF37BA0F059AD959": "pgp/dave.pub.asc",
+    "https://example.org/.well-known/mdsig-revoked.md": "revocation/dave.md",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x1E79CDA3F204FEF40DE7B7DDC1E564DE2D9677BAB5E768574CA08AB07B092777": "pgp/erin.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x1A819392C4BF970EB64479F92B689457188F0F3A": "pgp/grace.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x4F855F7E693604CDA8FA6A2E3490D31A011CD5A6": "pgp/henry.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0xB109CA5B15574608C2FF19C6B28CB4C65D5E3252": "pgp/ivan.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x3255926F3D3CD10E334EA19BC2C8C2973DAC9306": "pgp/judy.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x6B8CABC94BD6F8DF0B1937F719457B025C590D526D4B4F8652AC62DAE08F499B": "pgp/kate.pub.asc",
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x275E2B9A1BC461282279D5335E7F0C0F098A2BC1": "pgp/frank.pub.asc"
+  }
+}

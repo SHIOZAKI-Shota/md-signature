@@ -1,0 +1,8 @@
+# Checked-out bytes must match the committed ones: test vectors and resources are hashed.
+* text=auto eol=lf
+examples/** -text
+mdsig/testdata/** -text
+packages/core/tsa-roots/*.pem -text
+docs/vendor/** -text
+*.png binary
+*.jpg binary

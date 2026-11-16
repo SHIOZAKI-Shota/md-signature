@@ -1,0 +1,9 @@
+[
+  { "name": "SSL.com", "url": "http://ts.ssl.com" },
+  { "name": "DigiCert", "url": "http://timestamp.digicert.com" },
+  { "name": "Sectigo", "url": "http://timestamp.sectigo.com" },
+  { "name": "GlobalSign", "url": "http://timestamp.globalsign.com/tsa/r6advanced1" },
+  { "name": "Certum", "url": "http://time.certum.pl" },
+  { "name": "QuoVadis", "url": "http://ts.quovadisglobal.com/eu" },
+  { "name": "IdenTrust", "url": "http://timestamp.identrust.com" }
+]
