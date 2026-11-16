@@ -18,8 +18,8 @@ import (
 	"github.com/charmbracelet/huh"
 	"golang.org/x/term"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/mdsig"
 )
 
 // --- gpg

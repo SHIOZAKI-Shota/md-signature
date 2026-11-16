@@ -127,7 +127,7 @@ docs/contract.md
   Agreement: pending — missing dns:partner.example witness
 ```
 
-パスキーによる署名では、その `rp_id` も表示する。例：`passkey (rp_id shiozaki-shota.github.io)`。
+パスキーによる署名では、その `rp_id` も表示する。例：`passkey (rp_id mdsig.dev)`。
 `pgp` による署名では、フィンガープリント、ユーザ ID、鍵の取得元、および署名パケットの作成時刻を表示する。
 作成時刻は `ts` と同じく署名者の申告であり、TSA の時刻とは区別して表示する。
 

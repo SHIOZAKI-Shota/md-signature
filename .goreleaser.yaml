@@ -17,7 +17,7 @@ builds:
     goarch: [amd64, arm64]
     flags: [-trimpath, -mod=readonly]
     ldflags:
-      - -s -w -X github.com/SHIOZAKI-Shota/md-signature/internal/cli.Version={{ .Version }}
+      - -s -w -X mdsig.dev/internal/cli.Version={{ .Version }}
 
 archives:
   - id: default
@@ -67,7 +67,7 @@ nfpms:
   - id: packages
     package_name: mdsig
     vendor: md-signature
-    homepage: https://shiozaki-shota.github.io/md-signature/
+    homepage: https://mdsig.dev/
     maintainer: SHIOZAKI Shota <noreply@users.noreply.github.com>
     description: Sign and verify Markdown documents with embedded md-signature blocks.
     license: MIT
@@ -84,7 +84,7 @@ homebrew_casks:
       git:
         url: "ssh://git@github.com:SHIOZAKI-Shota/homebrew-tap.git"
         private_key: "{{ .Env.TAP_DEPLOY_KEY }}"
-    homepage: https://shiozaki-shota.github.io/md-signature/
+    homepage: https://mdsig.dev/
     description: Sign and verify Markdown documents with embedded md-signature blocks.
     license: MIT
     binaries: [mdsig]
@@ -100,7 +100,7 @@ winget:
     package_identifier: SHIOZAKI-Shota.mdsig
     short_description: Sign and verify Markdown documents with embedded md-signature blocks.
     license: MIT
-    homepage: https://shiozaki-shota.github.io/md-signature/
+    homepage: https://mdsig.dev/
     publisher_url: https://github.com/SHIOZAKI-Shota
     repository:
       owner: SHIOZAKI-Shota

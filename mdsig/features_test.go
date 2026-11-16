@@ -665,12 +665,12 @@ func (a *softAuth) GetAssertion(challenge []byte) (*WebAuthnAssertion, error) {
 	return &WebAuthnAssertion{Signature: der, AuthenticatorData: authData, ClientDataJSON: clientData}, nil
 }
 
-const rp = "shiozaki-shota.github.io"
+const rp = "mdsig.dev"
 
 func TestWebAuthn(t *testing.T) {
 	auth := newSoftAuth(t, rp, "", 0x05)
 	s := mustSign(t, fDoc, SignOptions{WebAuthn: auth, Method: "tofu", SignerID: "carol@passkey", Role: "approver", TS: fTS})
-	for _, re := range []string{`pubkey: es256:`, `rp_id: shiozaki-shota\.github\.io`, `alg: webauthn-es256`} {
+	for _, re := range []string{`pubkey: es256:`, `rp_id: mdsig\.dev`, `alg: webauthn-es256`} {
 		if !regexp.MustCompile(re).MatchString(s.Block) {
 			t.Fatalf("%s missing:\n%s", re, s.Block)
 		}
@@ -700,7 +700,7 @@ func TestWebAuthn(t *testing.T) {
 	if r := code(mustSign(t, fDoc, SignOptions{WebAuthn: wrongOrigin, Method: "tofu", SignerID: "x", TS: fTS}).Text); !strings.Contains(r.Message, "origin") {
 		t.Fatalf("%+v", r)
 	}
-	sub := newSoftAuth(t, "github.io", "https://shiozaki-shota.github.io", 0x05)
+	sub := newSoftAuth(t, "mdsig.dev", "https://app.mdsig.dev", 0x05)
 	if r := code(mustSign(t, fDoc, SignOptions{WebAuthn: sub, Method: "tofu", SignerID: "x", TS: fTS}).Text); r.Status != StatusValid {
 		t.Fatalf("%+v", r)
 	}

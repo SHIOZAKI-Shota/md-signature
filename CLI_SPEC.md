@@ -130,7 +130,7 @@ docs/contract.md
   Agreement: pending — missing dns:partner.example witness
 ```
 
-A passkey signature also shows its `rp_id`, for example `passkey (rp_id shiozaki-shota.github.io)`.
+A passkey signature also shows its `rp_id`, for example `passkey (rp_id mdsig.dev)`.
 A `pgp` signature shows the fingerprint, the User ID, where the key was found, and the creation time of the signature packet.
 The creation time is claimed by the signer, like `ts`, and is shown separately from the TSA time.
 

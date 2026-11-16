@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/mdsig"
 )
 
 type inspectOptions struct{ json bool }

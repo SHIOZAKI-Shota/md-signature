@@ -1,6 +1,6 @@
 # md-signature — project context
 
-Repository: https://github.com/SHIOZAKI-Shota/md-signature (Pages: https://shiozaki-shota.github.io/md-signature/). Go module: `github.com/SHIOZAKI-Shota/md-signature` (go.mod at the repository root; library `…/mdsig`, CLI `…/cmd/mdsig`, so `go install …/cmd/mdsig@latest` installs a binary named `mdsig`).
+Repository: https://github.com/SHIOZAKI-Shota/md-signature (Pages: https://mdsig.dev/). Go module: `mdsig.dev` (a vanity import path: `docs/` serves `<meta name="go-import">` pointing at the GitHub repository, on the root page, on one page per package path and on `404.html`; go.mod at the repository root; library `…/mdsig`, CLI `…/cmd/mdsig`, so `go install …/cmd/mdsig@latest` installs a binary named `mdsig`).
 
 Open, vendor-neutral format for signing Markdown documents. Signatures are HTML
 comments (`<!-- md-signature ... -->`) appended to the end of the file and form an
@@ -63,7 +63,7 @@ All are in SPEC.md §5.6–5.9 and §6.1. The version string stays `0.0.1` becau
 - **Unknown fields fail** (`unknown-field`); only `x_*` keys are free-form. This replaces "ignore unknown fields", so future extensions can never be silently accepted.
 - **Folded `|` values keep LF** (lists). Binary values strip whitespace when decoded. In the payload, LF inside a value is written as LF + two spaces (no field forgery).
 - `scope` (section markers `<!-- mdsig:section id -->` … `<!-- /mdsig:section -->`), `require` (exit code 5 = pending), `resources` (local always checked; https only on `--fetch-resources`; SSRF limits), `expires`, `revocation_url` (the list is itself a signed md-signature document; verified with revocation/resources/require disabled to avoid loops; trusted only from a block with the same `method` + `signer`, plus the same `pubkey` for tofu), `webauthn-es256` (passkeys; key type `es256`; `rp_id` is signed; DER sig converted to P1363 for Web Crypto).
-- Passkey RP ID = `location.hostname` of the signing page (`shiozaki-shota.github.io` in production, `localhost` in dev). Moving the playground to another domain orphans registered passkeys.
+- Passkey RP ID = `location.hostname` of the signing page (`mdsig.dev` in production, `localhost` in dev). Moving the playground to another domain orphans registered passkeys.
 - Test vectors for all of the above are in `examples/` (see `keys.json` `now` / `fetch`).
 
 ## Security review changes (2026-11-16)

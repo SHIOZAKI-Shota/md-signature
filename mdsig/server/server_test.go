@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/mdsig"
 )
 
 func tofuDoc(t *testing.T, seedByte byte, signer string) string {

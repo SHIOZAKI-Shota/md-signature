@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/mdsig"
 )
 
 // --- display

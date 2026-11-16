@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/mdsig"
 )
 
 func exampleSigner(b byte) mdsig.KeySigner {

@@ -17,9 +17,9 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/internal/sshkeys"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/internal/sshkeys"
+	"mdsig.dev/mdsig"
 )
 
 type signOptions struct {

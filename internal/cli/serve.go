@@ -14,9 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig/server"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/mdsig"
+	"mdsig.dev/mdsig/server"
 )
 
 const defaultListen = "127.0.0.1:8787"

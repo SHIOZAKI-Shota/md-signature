@@ -1,4 +1,4 @@
-module github.com/SHIOZAKI-Shota/md-signature
+module mdsig.dev
 
 go 1.26.4
 

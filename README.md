@@ -4,7 +4,7 @@
 
 **Electronic signatures, for Markdown too.**
 
-[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://shiozaki-shota.github.io/md-signature/)
+[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://mdsig.dev/)
 
 `md-signature` is an open, vendor-neutral format for Markdown that appends a signature after the last line of a document and verifies it.
 Each signature is an HTML comment appended to the end of the file:
@@ -45,7 +45,7 @@ sig: base64:q1Xv...
 
 ```sh
 # Install (needs Go 1.26 or later; Homebrew, winget, npm and prebuilt binaries are not available yet)
-go install github.com/SHIOZAKI-Shota/md-signature/cmd/mdsig@latest
+go install mdsig.dev/cmd/mdsig@latest
 
 # Sign with the SSH key you already use for GitHub (ssh-agent or ~/.ssh/id_ed25519)
 mdsig sign contract.md -m git-hosting -s github.com/alice -r author --reason "Initial draft"
@@ -97,10 +97,10 @@ const { signer } = await generateEd25519();
 const { text } = await signDocument(markdown, { signer, method: "tofu", signerId: "bob@laptop", role: "reviewer" });
 ```
 
-**Go (`github.com/SHIOZAKI-Shota/md-signature/mdsig`):** the same verification the CLI runs, as functions.
+**Go (`mdsig.dev/mdsig`):** the same verification the CLI runs, as functions.
 
 ```go
-import "github.com/SHIOZAKI-Shota/md-signature/mdsig"
+import "mdsig.dev/mdsig"
 
 r := mdsig.VerifyDocument(ctx, text, &mdsig.VerifyOptions{})
 ```
@@ -122,7 +122,7 @@ OpenPGP signatures (`alg: openpgp`) store a detached signature in `sig`, the sam
 
 Passkey signatures (`alg: webauthn-es256`) use `tofu` or `dns` for the public key.
 Passkeys are bound to the domain of the signing page (currently
-`shiozaki-shota.github.io`). If the playground moves to another domain, passkeys
+`mdsig.dev`). If the playground moves to another domain, passkeys
 registered on the old one cannot sign there, though existing signatures stay
 verifiable.
 
@@ -133,9 +133,9 @@ verifiable.
 | [`SPEC.md`](SPEC.md) | Format and cryptographic specification (RFC 2119 style). Normative English text; the original is written in Japanese: [`SPEC.ja.md`](SPEC.ja.md) |
 | [`CLI_SPEC.md`](CLI_SPEC.md) | CLI behavior, flags, exit codes. Informative translation; the normative text is Japanese: [`CLI_SPEC.ja.md`](CLI_SPEC.ja.md) |
 | [`packages/core`](packages/core) | `@md-signature/core`, TypeScript, zero dependencies |
-| [`mdsig`](mdsig) | Go library (`github.com/SHIOZAKI-Shota/md-signature/mdsig`); [`mdsig/server`](mdsig/server) is the HTTP handler |
+| [`mdsig`](mdsig) | Go library (`mdsig.dev/mdsig`); [`mdsig/server`](mdsig/server) is the HTTP handler |
 | [`cmd/mdsig`](cmd/mdsig), [`internal`](internal) | `mdsig`, the native CLI (Go) |
-| [`docs`](docs) | Playground at https://shiozaki-shota.github.io/md-signature/ |
+| [`docs`](docs) | Playground at https://mdsig.dev/ |
 | [`examples`](examples) | Test vectors shared by all implementations |
 
 ## Development

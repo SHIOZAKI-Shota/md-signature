@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/cli"
+	"mdsig.dev/internal/cli"
 )
 
 func main() {

@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/mdsig"
 )
 
 var ErrPassphraseNeeded = errors.New("the key file is passphrase-protected")

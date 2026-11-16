@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/mdsig"
 )
 
 // overridden at release via -ldflags -X (see .goreleaser.yaml)

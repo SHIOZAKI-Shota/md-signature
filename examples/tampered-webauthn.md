@@ -16,18 +16,18 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 v: 0.0.1
 method: tofu
 signer: carol@passkey
-pubkey: es256:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvuwY9Iy+yLe1HAuFHsyCkvEQzGhTg0VA5/KCXXxlkGb5dwqElyEwKqRZghmPdry5v9KLAFxWRMa8/FTua0FtvQ==
-rp_id: shiozaki-shota.github.io
+pubkey: es256:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4Hmma5/+sWOEYzrd68H1dT5j89HdPZ2ywS3ZdF7XtODu76FLN2ynI0xr12tdgbPN+yEh7WQURQeupvOdYxsJeA==
+rp_id: mdsig.dev
 role: witness
 ts: 2026-11-16T09:00:00Z
 alg: webauthn-es256
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:MEQCIB+bj60MDRgStZIlMDbRSk9CpVReJ2pauxTRZgNTfbviAiAu/V4zNOp3q89j57az0
-  G7fUoaPB1g6xINWixBfiB6AbA==
-webauthn_authenticator_data: HS/zKgNa9uWQF0Kn5QwpoGFq9Y2u8dwkJpq0bj2J930FAAAAAQ==
+  base64:MEYCIQDCz239fmylYR1G4gaYJqwrkPcGvXDl1YVKKhwvcS0kIQIhAN1MsUOvybhJJ9tgd
+  3ZSTZOvTh1WTeYu+YmQhy83cvjo
+webauthn_authenticator_data: giN8m4J3g+0j/9cKIoAryEjcV7GCQ6NwAhWYv5tYfiYFAAAAAQ==
 webauthn_client_data: |
-  eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiejRETXJibnM1RXk5am9SZnhNdHA4
-  d0JjaHVyaGU0eXAyNmtHbVNackEyVSIsIm9yaWdpbiI6Imh0dHBzOi8vc2hpb3pha2ktc2hvdGEu
-  Z2l0aHViLmlvIiwiY3Jvc3NPcmlnaW4iOmZhbHNlfQ==
+  eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiSWhxcFlzcFFaVXpSNk4wTWItN2J1
+  cTZZcGc5NS1YVU16RWNBTWNZNkd1YyIsIm9yaWdpbiI6Imh0dHBzOi8vbWRzaWcuZGV2IiwiY3Jv
+  c3NPcmlnaW4iOmZhbHNlfQ==
 -->

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/mdsig"
 )
 
 // --- per-run resolver cache

@@ -4,7 +4,7 @@
 
 **Markdownにも電子署名を。**
 
-[English](README.md) · [仕様書](SPEC.ja.md) · [CLI 仕様](CLI_SPEC.ja.md) · [Playground](https://shiozaki-shota.github.io/md-signature/)
+[English](README.md) · [仕様書](SPEC.ja.md) · [CLI 仕様](CLI_SPEC.ja.md) · [Playground](https://mdsig.dev/)
 
 `md-signature` は、本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマットです。特定のベンダーに依存しません。
 署名はファイル末尾に HTML コメントとして追記します。
@@ -45,7 +45,7 @@ sig: base64:q1Xv...
 
 ```sh
 # インストール（Go 1.26 以降が必要。Homebrew、winget、npm での配布とビルド済みバイナリは準備中）
-go install github.com/SHIOZAKI-Shota/md-signature/cmd/mdsig@latest
+go install mdsig.dev/cmd/mdsig@latest
 
 # GitHub に登録済みの SSH 鍵で署名（ssh-agent または ~/.ssh/id_ed25519 を自動検出）
 mdsig sign contract.md -m git-hosting -s github.com/alice -r author --reason "初版確定"
@@ -94,10 +94,10 @@ const { signer } = await generateEd25519();
 const { text } = await signDocument(markdown, { signer, method: "tofu", signerId: "bob@laptop", role: "reviewer" });
 ```
 
-**Go（`github.com/SHIOZAKI-Shota/md-signature/mdsig`）：** CLI と同じ検証処理を関数として呼び出せます。
+**Go（`mdsig.dev/mdsig`）：** CLI と同じ検証処理を関数として呼び出せます。
 
 ```go
-import "github.com/SHIOZAKI-Shota/md-signature/mdsig"
+import "mdsig.dev/mdsig"
 
 r := mdsig.VerifyDocument(ctx, text, &mdsig.VerifyOptions{})
 ```
@@ -117,7 +117,7 @@ r := mdsig.VerifyDocument(ctx, text, &mdsig.VerifyOptions{})
 
 OpenPGP 署名（`alg: openpgp`）の `sig` は、`gpg --detach-sign` が出力する形式の分離署名です。CLI は gpg を経由して署名するため、gpg-agent やスマートカード上の鍵をそのまま使用できます。鍵ファイルを指定した署名も可能で、ブラウザでも鍵ファイルを読み込んで署名できます。対応する鍵は Ed25519（v4・v6）、RSA（2048 ビット以上）、ECDSA P-256 です。パスフレーズによる保護は、gpg の既定形式（iterated+salted S2K と AES）に対応します。Argon2 と AEAD による保護は CLI のみ対応し、ブラウザでは未対応です。
 
-パスキー署名（`alg: webauthn-es256`）の公開鍵は `tofu` または `dns` で示します。パスキーは署名ページのドメイン（現在は `shiozaki-shota.github.io`）に結び付きます。Playground を別ドメインへ移すと、旧ドメインで登録したパスキーではそこで署名できません。作成済みの署名は引き続き検証できます。
+パスキー署名（`alg: webauthn-es256`）の公開鍵は `tofu` または `dns` で示します。パスキーは署名ページのドメイン（現在は `mdsig.dev`）に結び付きます。Playground を別ドメインへ移すと、旧ドメインで登録したパスキーではそこで署名できません。作成済みの署名は引き続き検証できます。
 
 ## リポジトリ構成
 
@@ -128,7 +128,7 @@ OpenPGP 署名（`alg: openpgp`）の `sig` は、`gpg --detach-sign` が出力�
 | [`packages/core`](packages/core) | `@md-signature/core`（TypeScript） |
 | [`mdsig`](mdsig) | Go ライブラリ。[`mdsig/server`](mdsig/server) は HTTP ハンドラ |
 | [`cmd/mdsig`](cmd/mdsig)、[`internal`](internal) | ネイティブ CLI `mdsig`（Go） |
-| [`docs`](docs) | Playground（https://shiozaki-shota.github.io/md-signature/） |
+| [`docs`](docs) | Playground（https://mdsig.dev/） |
 | [`examples`](examples) | 全実装で共有するテストベクタ |
 
 ## 開発

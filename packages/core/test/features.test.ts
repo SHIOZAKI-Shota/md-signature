@@ -245,31 +245,31 @@ test("DER <-> P1363 conversion, including short and long integers", () => {
 });
 
 test("webauthn-es256: valid, challenge mismatch, rpId mismatch, origin mismatch", async () => {
-  const auth = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+  const auth = await createSoftwareAuthenticator("mdsig.dev");
   const s = await signDocument(DOC, { signer: auth, method: "tofu", signerId: "carol@passkey", role: "approver", ts: TS });
   assert.match(s.block, /pubkey: es256:/);
-  assert.match(s.block, /rp_id: shiozaki-shota\.github\.io/);
+  assert.match(s.block, /rp_id: mdsig\.dev/);
   assert.match(s.block, /alg: webauthn-es256/);
   const v = await verifyDocument(s.text);
   assert.equal(v.ok, true, JSON.stringify(v, null, 1));
-  assert.equal(v.signatures[0]!.webauthn!.rpId, "shiozaki-shota.github.io");
+  assert.equal(v.signatures[0]!.webauthn!.rpId, "mdsig.dev");
 
   assert.equal((await verifyDocument(s.text.replace("agree", "disagree"))).signatures[0]!.code, "hash-mismatch");
   assert.equal((await verifyDocument(s.text.replace("role: approver", "role: author"))).signatures[0]!.code, "bad-signature");
-  assert.equal((await verifyDocument(s.text.replace("rp_id: shiozaki-shota.github.io", "rp_id: evil.example"))).signatures[0]!.code, "bad-signature");
+  assert.equal((await verifyDocument(s.text.replace("rp_id: mdsig.dev", "rp_id: evil.example"))).signatures[0]!.code, "bad-signature");
 
-  const other = await createSoftwareAuthenticator("evil.example", "https://shiozaki-shota.github.io");
-  const forged = { ...other, rpId: "shiozaki-shota.github.io" };
+  const other = await createSoftwareAuthenticator("evil.example", "https://mdsig.dev");
+  const forged = { ...other, rpId: "mdsig.dev" };
   const s2 = await signDocument(DOC, { signer: forged, method: "tofu", signerId: "x", ts: TS });
   const v2 = await verifyDocument(s2.text);
   assert.equal(v2.signatures[0]!.code, "bad-signature");
   assert.match(v2.signatures[0]!.message!, /rpIdHash/);
 
-  const wrongOrigin = await createSoftwareAuthenticator("shiozaki-shota.github.io", "https://evil.example");
+  const wrongOrigin = await createSoftwareAuthenticator("mdsig.dev", "https://evil.example");
   const s3 = await signDocument(DOC, { signer: wrongOrigin, method: "tofu", signerId: "x", ts: TS });
   assert.match((await verifyDocument(s3.text)).signatures[0]!.message!, /origin/);
 
-  const wrongType = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+  const wrongType = await createSoftwareAuthenticator("mdsig.dev");
   wrongType.overrideClientData = (cd) => ({ ...cd, type: "webauthn.create" });
   const s4 = await signDocument(DOC, { signer: wrongType, method: "tofu", signerId: "x", ts: TS });
   assert.equal((await verifyDocument(s4.text)).signatures[0]!.code, "bad-signature");
@@ -280,7 +280,7 @@ test("webauthn-es256: valid, challenge mismatch, rpId mismatch, origin mismatch"
   assert.equal(v5.ok, true);
   assert.ok(v5.signatures[0]!.warnings.some((w) => w.includes("localhost")));
 
-  const noUp = await createSoftwareAuthenticator("shiozaki-shota.github.io", undefined, 0x04);
+  const noUp = await createSoftwareAuthenticator("mdsig.dev", undefined, 0x04);
   const s6 = await signDocument(DOC, { signer: noUp, method: "tofu", signerId: "x", ts: TS });
   assert.match((await verifyDocument(s6.text)).signatures[0]!.message!, /User Present/);
 
@@ -292,7 +292,7 @@ test("webauthn-es256: valid, challenge mismatch, rpId mismatch, origin mismatch"
 });
 
 test("webauthn-es256 via dns (k=es256)", async () => {
-  const auth = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+  const auth = await createSoftwareAuthenticator("mdsig.dev");
   const p = btoa(String.fromCharCode(...auth.publicKey));
   const fetch = (async () => Response.json({ Status: 0, Answer: [{ type: 16, data: `"v=mdsig1; k=ed25519; p=11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="` }, { type: 16, data: `"v=mdsig1; k=es256; p=${p}"` }] })) as typeof globalThis.fetch;
   const s = await signDocument(DOC, { signer: auth, method: "dns", signerId: "example.com", ts: TS });
@@ -313,7 +313,7 @@ test("all features together round-trip through the parser", async () => {
 });
 
 test("hardening: null clientData, unreadable resource, dns trailing dot, invalid expires, offline require", async () => {
-  const auth = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+  const auth = await createSoftwareAuthenticator("mdsig.dev");
   const wa = await signDocument(DOC, { signer: auth, method: "tofu", signerId: "x", ts: TS });
   const nulled = wa.text.replace(/webauthn_client_data: (\|\n(  .*\n)+|.*\n)/, "webauthn_client_data: bnVsbA==\n");
   assert.equal((await verifyDocument(nulled)).signatures[0]!.status, "malformed");

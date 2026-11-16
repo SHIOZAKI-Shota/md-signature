@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SHIOZAKI-Shota/md-signature/internal/i18n"
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig"
+	"mdsig.dev/internal/i18n"
+	"mdsig.dev/mdsig"
 )
 
 var examplesDir = filepath.Join("..", "..", "examples")
@@ -204,7 +204,7 @@ func TestVerifyJSON(t *testing.T) {
 	check(res.Files[1]["agreement"], `{"status":"pending","required":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1}],"missing":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1}]}`)
 	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[]}`)
 	check(sig(2)["partial"], `{"sections":["terms","fees"]}`)
-	check(sig(3)["webauthn"], `{"rp_id":"shiozaki-shota.github.io","origin":"https://shiozaki-shota.github.io","user_verified":true}`)
+	check(sig(3)["webauthn"], `{"rp_id":"mdsig.dev","origin":"https://mdsig.dev","user_verified":true}`)
 	check(sig(4)["revocation"], `{"status":"not-revoked","detail":null}`)
 }
 
@@ -217,7 +217,7 @@ func TestHumanOutput(t *testing.T) {
 		"resources: ✓ ./assets/diagram.svg  - https://example.com/chart.png (not checked)",
 		"Agreement: pending — missing dns:example.com approver",
 		"partial: terms, fees",
-		"passkey (rp_id shiozaki-shota.github.io)",
+		"passkey (rp_id mdsig.dev)",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in\n%s", want, s)

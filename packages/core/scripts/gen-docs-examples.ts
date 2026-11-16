@@ -214,7 +214,7 @@ async function passkey(): Promise<Example> {
     ja: lines(
       "# パスキー署名",
       "",
-      "この文書の署名はパスキー（WebAuthn）で作成したものです。`alg` は `webauthn-es256` で、署名ブロックには認証器が返した `authenticator_data` と `client_data` も記録されます。`rp_id` は `shiozaki-shota.github.io` です。",
+      "この文書の署名はパスキー（WebAuthn）で作成したものです。`alg` は `webauthn-es256` で、署名ブロックには認証器が返した `authenticator_data` と `client_data` も記録されます。`rp_id` は `mdsig.dev` です。",
       "",
       "この例は、動作確認用のソフトウェア認証器で署名しています。",
       "",
@@ -226,7 +226,7 @@ async function passkey(): Promise<Example> {
     en: lines(
       "# Passkey signature",
       "",
-      "This document was signed with a passkey (WebAuthn). The `alg` is `webauthn-es256`, and the block also records the `authenticator_data` and `client_data` returned by the authenticator. The `rp_id` is `shiozaki-shota.github.io`.",
+      "This document was signed with a passkey (WebAuthn). The `alg` is `webauthn-es256`, and the block also records the `authenticator_data` and `client_data` returned by the authenticator. The `rp_id` is `mdsig.dev`.",
       "",
       "The signature here comes from a software authenticator used for testing.",
       "",
@@ -240,7 +240,7 @@ async function passkey(): Promise<Example> {
   const reasons = { ja: "パスキーで承認", en: "Approved with a passkey" };
   const text = {} as Text;
   for (const l of ["ja", "en"] as const) {
-    const signer = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+    const signer = await createSoftwareAuthenticator("mdsig.dev");
     text[l] = (await signDocument(body[l], { signer, method: "tofu", signerId: ids[l], role: "approver", reason: reasons[l], ts: TS1 })).text;
   }
   return { title: { ja: "パスキー署名", en: "Passkey signature" }, text };

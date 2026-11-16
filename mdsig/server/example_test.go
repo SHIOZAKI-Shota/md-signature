@@ -3,7 +3,7 @@ package server_test
 import (
 	"net/http"
 
-	"github.com/SHIOZAKI-Shota/md-signature/mdsig/server"
+	"mdsig.dev/mdsig/server"
 )
 
 func ExampleNewHandler() {

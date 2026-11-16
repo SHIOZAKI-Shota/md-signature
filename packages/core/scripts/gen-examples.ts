@@ -130,7 +130,7 @@ w("malformed-bidi-control.md", single.text.replace("role: author", "role: \u202e
 // SPEC 4.2: the host of a git-hosting signer is never an IP address
 w("malformed-git-hosting-ip.md", single.text.replace("method: tofu", "method: git-hosting").replace("signer: bob@laptop", "signer: 127.0.0.1/bob").replace(/pubkey: .*\n/, ""));
 
-const passkey = await createSoftwareAuthenticator("shiozaki-shota.github.io");
+const passkey = await createSoftwareAuthenticator("mdsig.dev");
 const wa = await signDocument(body, { signer: passkey, method: "tofu", signerId: "carol@passkey", role: "approver", ts: "2026-11-16T09:00:00Z" });
 w("valid-webauthn.md", wa.text);
 w("tampered-webauthn.md", wa.text.replace("role: approver", "role: witness"));

@@ -9,7 +9,7 @@
     "url": "git+https://github.com/SHIOZAKI-Shota/md-signature.git",
     "directory": "packages/core"
   },
-  "homepage": "https://shiozaki-shota.github.io/md-signature/",
+  "homepage": "https://mdsig.dev/",
   "keywords": ["markdown", "signature", "ed25519", "e-signature", "rfc3161"],
   "exports": {
     ".": {
