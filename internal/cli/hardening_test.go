@@ -89,8 +89,8 @@ func TestPrintVerifyHumanEscapesResultText(t *testing.T) {
 		Signatures: []*mdsig.BlockResult{{
 			Index: 1, Status: mdsig.StatusValid, KeySource: "keyserver https://k.example/\x1b]0;t\x07",
 			Fields:    map[string]string{"signer": "a@example.com", "method": "pgp", "alg": "webauthn-es256", "rp_id": "rp\x1b[1m"},
-			Pgp:       &mdsig.PgpInfo{Fpr: "AB", UID: "Evil\x1b[2K\u202e <a@example.com>", KeySource: "keyserver", Created: "2026\x1b[1m"},
-			TSA:       &mdsig.TSACheck{Status: mdsig.TSAOk, Verified: true, GenTime: "\x1b[1G\x1b[2Kfake"},
+			PGP:       &mdsig.PGPInfo{Fpr: "AB", UID: "Evil\x1b[2K\u202e <a@example.com>", KeySource: "keyserver", Created: "2026\x1b[1m"},
+			TSA:       &mdsig.TSACheck{Status: mdsig.TSAOK, Verified: true, GenTime: "\x1b[1G\x1b[2Kfake"},
 			Resources: []mdsig.ResourceResult{{Ref: "img\u202e.png", Status: mdsig.ResourceOK}},
 			Partial:   []string{"s\x1b[1m"},
 			Warnings:  []string{"warn\u009b2K"},

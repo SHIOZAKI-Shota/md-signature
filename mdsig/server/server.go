@@ -179,7 +179,7 @@ func (h *handler) verify(ctx context.Context, body []byte) (any, error) {
 		ResolveOptions: mdsig.ResolveOptions{
 			// no key store and no local keyring: a request must not read or change state on this machine
 			Offline: h.o.Offline, TofuStore: &mdsig.MemoryTofuStore{}, HTTPClient: h.o.HTTPClient,
-			PgpClient: h.o.HTTPClient, Keyserver: h.o.Keyserver,
+			PGPClient: h.o.HTTPClient, Keyserver: h.o.Keyserver,
 		},
 		ResourceCheckOptions: mdsig.ResourceCheckOptions{
 			FetchResources: h.o.FetchResources && !h.o.Offline,
@@ -204,5 +204,5 @@ func (h *handler) tsa(_ context.Context, body []byte) (any, error) {
 	if err != nil || len(sig) == 0 || len(sig) > maxSigBytes {
 		return nil, errors.New("sig must be the base64 of the signature bytes")
 	}
-	return mdsig.ToJSONTSA(mdsig.CheckTSATokenWith(mdsig.UnfoldBinary(*req.Token), sig, &h.o.TSA)), nil
+	return mdsig.ToJSONTSA(mdsig.CheckTSAToken(mdsig.UnfoldBinary(*req.Token), sig, &h.o.TSA)), nil
 }

@@ -91,11 +91,11 @@ func TestPayloadEscapesLF(t *testing.T) {
 }
 
 func TestFoldedValuesJoinWithLF(t *testing.T) {
-	f, errs, _ := ParseFields([]string{"require: |", "  dns:a.com", "  dns:b.com  ", "v: 0.0.1"})
+	f, errs, _ := parseFields([]string{"require: |", "  dns:a.com", "  dns:b.com  ", "v: 0.0.1"})
 	if f["require"] != "dns:a.com\ndns:b.com" {
 		t.Fatalf("%q %v", f["require"], errs)
 	}
-	_, errs, _ = ParseFields([]string{"reason: |", "  a--b"})
+	_, errs, _ = parseFields([]string{"reason: |", "  a--b"})
 	if !strings.Contains(strings.Join(errs, ";"), `"--"`) {
 		t.Fatal(errs)
 	}
@@ -365,7 +365,7 @@ func TestHardening(t *testing.T) {
 		t.Fatal(dump(v))
 	}
 
-	if !SameSigner("dns", "Example.COM.", "example.com") || SameSigner("tofu", "Bob", "bob") {
+	if !sameSigner("dns", "Example.COM.", "example.com") || sameSigner("tofu", "Bob", "bob") {
 		t.Fatal("SameSigner")
 	}
 	rv := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "a", TS: fTS, RevocationURL: revURL})
@@ -390,10 +390,10 @@ func TestHardening(t *testing.T) {
 func dnsListWithSigner(t *testing.T, s KeySigner, id, signer string) string {
 	t.Helper()
 	body := "revoked: sha256:" + id + "\n"
-	fields := map[string]string{"v": SpecVersion, "method": "dns", "signer": signer, "ts": fTS, "alg": "ed25519", "hash": NormalizedHash(body)}
+	fields := map[string]string{"v": SpecVersion, "method": "dns", "signer": signer, "ts": fTS, "alg": "ed25519", "hash": normalizedHash(body)}
 	sig, _ := s.Sign(SignedPayload(fields))
-	fields["sig"] = "base64:" + ToBase64(sig)
-	block, err := SerializeBlock(fields)
+	fields["sig"] = "base64:" + toBase64(sig)
+	block, err := serializeBlock(fields)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -574,19 +574,19 @@ func TestDERConversion(t *testing.T) {
 		if i%5 == 0 {
 			rs[32] = 0x80
 		}
-		der, err := P1363ToDER(rs)
+		der, err := p1363ToDER(rs)
 		if err != nil {
 			t.Fatal(err)
 		}
-		back, err := DERToP1363(der)
+		back, err := derToP1363(der)
 		if err != nil || !reflect.DeepEqual(back, rs) {
 			t.Fatalf("%x -> %x (%v)", rs, back, err)
 		}
 	}
-	good, _ := P1363ToDER(bytesOf(64, 1))
+	good, _ := p1363ToDER(bytesOf(64, 1))
 	expectErr := func(b []byte, sub string) {
 		t.Helper()
-		_, err := DERToP1363(b)
+		_, err := derToP1363(b)
 		if err == nil || !strings.Contains(err.Error(), sub) {
 			t.Errorf("%x: %v (want %q)", b, err, sub)
 		}
@@ -609,7 +609,7 @@ func TestDERConversion(t *testing.T) {
 	ok := append([]byte{0x30, 0x44, 0x02, 0x1f}, bytesOf(31, 0x7f)...)
 	ok = append(ok, 0x02, 0x21, 0x00)
 	ok = append(ok, bytesOf(32, 0xff)...)
-	if rs, err := DERToP1363(ok); err != nil || rs[0] != 0 || rs[1] != 0x7f || rs[63] != 0xff {
+	if rs, err := derToP1363(ok); err != nil || rs[0] != 0 || rs[1] != 0x7f || rs[63] != 0xff {
 		t.Fatalf("%x %v", rs, err)
 	}
 }
@@ -641,7 +641,7 @@ func (a *softAuth) PublicKeySPKI() []byte {
 func (a *softAuth) RPID() string { return a.rpID }
 
 func (a *softAuth) GetAssertion(challenge []byte) (*WebAuthnAssertion, error) {
-	cd := map[string]any{"type": "webauthn.get", "challenge": ToBase64URL(challenge), "origin": a.origin, "crossOrigin": false}
+	cd := map[string]any{"type": "webauthn.get", "challenge": toBase64URL(challenge), "origin": a.origin, "crossOrigin": false}
 	if a.overrideClientData != nil {
 		cd = a.overrideClientData(cd)
 	}
@@ -658,7 +658,7 @@ func (a *softAuth) GetAssertion(challenge []byte) (*WebAuthnAssertion, error) {
 	rs := make([]byte, 64)
 	r.FillBytes(rs[:32])
 	s.FillBytes(rs[32:])
-	der, err := P1363ToDER(rs)
+	der, err := p1363ToDER(rs)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +752,7 @@ func (r *rpOverride) RPID() string { return r.rp }
 
 func TestWebAuthnViaDNS(t *testing.T) {
 	auth := newSoftAuth(t, rp, "", 0x05)
-	p := ToBase64(auth.PublicKeySPKI())
+	p := toBase64(auth.PublicKeySPKI())
 	o := &VerifyOptions{ResolveOptions: ResolveOptions{LookupTXT: func(_ context.Context, name string) ([]string, error) {
 		if name != "_mdsig.example.com" {
 			t.Errorf("lookup %s", name)
@@ -765,7 +765,7 @@ func TestWebAuthnViaDNS(t *testing.T) {
 	}
 	pt := auth.PublicKeySPKI()[26:]
 	o.LookupTXT = func(context.Context, string) ([]string, error) {
-		return []string{"v=mdsig1; k=es256; p=" + ToBase64(pt)}, nil
+		return []string{"v=mdsig1; k=es256; p=" + toBase64(pt)}, nil
 	}
 	if v := verify(s.Text, o); !v.OK {
 		t.Fatal(dump(v))
@@ -782,7 +782,7 @@ func TestAllFeaturesRoundTrip(t *testing.T) {
 	}
 	var order []string
 	for _, l := range strings.Split(s.Block, "\n") {
-		if l == OpenLine || l == CloseLine || strings.HasPrefix(l, "  ") {
+		if l == openLine || l == closeLine || strings.HasPrefix(l, "  ") {
 			continue
 		}
 		order = append(order, strings.SplitN(l, ":", 2)[0])

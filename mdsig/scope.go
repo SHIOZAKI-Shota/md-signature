@@ -38,7 +38,7 @@ func FindSections(text string) (map[string]Section, []string) {
 	sections := map[string]Section{}
 	var errs []string
 	var open *Section
-	for _, fl := range LinesWithFence(text) {
+	for _, fl := range linesWithFence(text) {
 		line := fl.Line
 		if fl.InFence || !looksLikeMarker(line) {
 			continue
@@ -107,7 +107,7 @@ type ScopeError struct {
 
 func (e *ScopeError) Error() string { return e.Msg }
 
-func ScopedHashInput(slice, scope string) (string, []string, *ScopeError) {
+func scopedHashInput(slice, scope string) (string, []string, *ScopeError) {
 	ids, ok := ParseScope(scope)
 	if !ok {
 		return "", nil, &ScopeError{Code: "malformed", Msg: fmt.Sprintf("invalid scope %s (expected section:<id>[,section:<id>...] with unique ids)", jsonString(scope))}
@@ -122,7 +122,7 @@ func ScopedHashInput(slice, scope string) (string, []string, *ScopeError) {
 		if !ok {
 			return "", nil, &ScopeError{Code: "scope-missing", Msg: fmt.Sprintf("section %s not found", jsonString(id))}
 		}
-		b.WriteString(NormalizeDocument(slice[s.Start:s.End]))
+		b.WriteString(normalizeDocument(slice[s.Start:s.End]))
 	}
 	return b.String(), ids, nil
 }

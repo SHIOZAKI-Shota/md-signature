@@ -20,7 +20,7 @@ const (
 
 func mustSigner(t *testing.T, hexSeed string) KeySigner {
 	t.Helper()
-	seed, err := FromHex(hexSeed)
+	seed, err := fromHex(hexSeed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestNormalizeDocument(t *testing.T) {
 		"line1\r\n\r\nline2\r\n": "line1\n\nline2\n",
 	}
 	for in, want := range cases {
-		if got := NormalizeDocument(in); got != want {
+		if got := normalizeDocument(in); got != want {
 			t.Errorf("NormalizeDocument(%q) = %q, want %q", in, got, want)
 		}
 	}
@@ -79,7 +79,7 @@ func TestSignedPayload(t *testing.T) {
 func TestFoldingRoundTrip(t *testing.T) {
 	long := "base64:" + strings.Repeat("ABCD", 40)
 	fields := map[string]string{"v": "0.0.1", "method": "tofu", "signer": "x", "ts": "2026-11-16T09:00:00Z", "hash": "sha256:00", "sig": long, "tsa_token": "base64:" + strings.Repeat("Q", 200), "x_custom": "c", "role": "r"}
-	block, err := SerializeBlock(fields)
+	block, err := serializeBlock(fields)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestFoldingRoundTrip(t *testing.T) {
 	if strings.Index(block, "x_custom:") < strings.Index(block, "ts:") || strings.Index(block, "x_custom:") > strings.Index(block, "hash:") {
 		t.Errorf("bad order:\n%s", block)
 	}
-	got, errs, _ := ParseFields(lines[1 : len(lines)-1])
+	got, errs, _ := parseFields(lines[1 : len(lines)-1])
 	if len(errs) > 0 {
 		t.Fatal(errs)
 	}
@@ -112,7 +112,7 @@ func TestFoldingRoundTrip(t *testing.T) {
 		}
 	}
 	fields["sig"] = "base64:AAAA"
-	block, _ = SerializeBlock(fields)
+	block, _ = serializeBlock(fields)
 	if !strings.Contains(block, "\nsig: base64:AAAA\n") {
 		t.Errorf("short sig folded:\n%s", block)
 	}
@@ -271,7 +271,7 @@ func TestGitHostingKeyFP(t *testing.T) {
 
 func TestBase64(t *testing.T) {
 	for in, ok := range map[string]bool{"AAAA": true, "AA": true, "AA==": true, "A A\nA A": true, "A": false, "AA===": false, "A=A": false, "AA-_": false} {
-		_, err := FromBase64(in)
+		_, err := fromBase64(in)
 		if (err == nil) != ok {
 			t.Errorf("FromBase64(%q) err=%v", in, err)
 		}
@@ -280,12 +280,12 @@ func TestBase64(t *testing.T) {
 
 func TestTSARequestDER(t *testing.T) {
 	imprint := make([]byte, 32)
-	der, err := BuildTimeStampReq(imprint, []byte{0, 0x80, 1})
+	der, err := buildTimeStampReq(imprint, []byte{0, 0x80, 1})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := "303e0201013031300d060960864801650304020105000420" + strings.Repeat("00", 32) + "0203008001" + "0101ff"
-	if got := ToHex(der); got != want {
+	if got := toHex(der); got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
 }

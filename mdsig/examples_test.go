@@ -115,7 +115,7 @@ func examplesVerifyOptions(t *testing.T) *VerifyOptions {
 		t.Fatal(err)
 	}
 	return &VerifyOptions{
-		ResolveOptions: ResolveOptions{PgpClient: examplesFetchClient(t, nil)},
+		ResolveOptions: ResolveOptions{PGPClient: examplesFetchClient(t, nil)},
 		Resolvers:      keysJSONResolvers(t),
 		ResourceCheckOptions: ResourceCheckOptions{
 			LoadResource: DirResourceLoader(examplesDir),
@@ -169,7 +169,7 @@ func TestExamplesCompliance(t *testing.T) {
 					if (g == nil) != (want == nil) || (g != nil && *g != *want) {
 						t.Errorf("tsa[%d] = %v, want %v", i, deref(g), deref(want))
 					}
-					if g != nil && *g == TSAOk && (!r.Signatures[i].TSA.Verified || !strings.HasPrefix(r.Signatures[i].TSA.Detail, "imprint matched; TSA signature verified (")) {
+					if g != nil && *g == TSAOK && (!r.Signatures[i].TSA.Verified || !strings.HasPrefix(r.Signatures[i].TSA.Detail, "imprint matched; TSA signature verified (")) {
 						t.Errorf("tsa detail = %q", r.Signatures[i].TSA.Detail)
 					}
 				}
@@ -208,7 +208,7 @@ func TestExamplesCompliance(t *testing.T) {
 					t.Fatalf("pgp length mismatch")
 				}
 				for i, want := range exp.Pgp {
-					p := r.Signatures[i].Pgp
+					p := r.Signatures[i].PGP
 					if p == nil || p.KeySource != want.KeySource || p.KeyAlg != want.KeyAlg {
 						t.Errorf("pgp[%d] = %+v, want %+v", i, p, want)
 					}

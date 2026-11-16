@@ -25,12 +25,12 @@ func isJSLineTerminator(r rune) bool {
 	return r == '\n' || r == '\r' || r == 0x2028 || r == 0x2029
 }
 
-func ToBase64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
+func toBase64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
-func ToBase64Unpadded(b []byte) string { return base64.RawStdEncoding.EncodeToString(b) }
+func toBase64Unpadded(b []byte) string { return base64.RawStdEncoding.EncodeToString(b) }
 
 // lenient like the TS core: whitespace removed, missing padding added
-func FromBase64(s string) ([]byte, error) {
+func fromBase64(s string) ([]byte, error) {
 	clean := strings.Map(func(r rune) rune {
 		if isJSSpace(r) {
 			return -1
@@ -55,9 +55,9 @@ func FromBase64(s string) ([]byte, error) {
 	return out, nil
 }
 
-func ToHex(b []byte) string { return hex.EncodeToString(b) }
+func toHex(b []byte) string { return hex.EncodeToString(b) }
 
-func FromHex(s string) ([]byte, error) {
+func fromHex(s string) ([]byte, error) {
 	b, err := hex.DecodeString(s)
 	if err != nil {
 		return nil, errors.New("invalid hex")
@@ -65,7 +65,7 @@ func FromHex(s string) ([]byte, error) {
 	return b, nil
 }
 
-func Gzip(data []byte) []byte {
+func gzipBytes(data []byte) []byte {
 	var buf bytes.Buffer
 	w := gzip.NewWriter(&buf)
 	_, _ = w.Write(data)
@@ -76,7 +76,7 @@ func Gzip(data []byte) []byte {
 // SPEC 5.5: the value is unsigned, so the decompressed size is capped
 const MaxDecodedBytes = 1024 * 1024
 
-func Gunzip(data []byte, maxBytes int64) ([]byte, error) {
+func gunzipBytes(data []byte, maxBytes int64) ([]byte, error) {
 	r, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -101,13 +101,13 @@ func DecodePrefixedBinary(v string) ([]byte, error) {
 	prefix, body := v[:i], v[i+1:]
 	switch prefix {
 	case "base64":
-		return FromBase64(body)
+		return fromBase64(body)
 	case "gzip+base64":
-		b, err := FromBase64(body)
+		b, err := fromBase64(body)
 		if err != nil {
 			return nil, err
 		}
-		return Gunzip(b, MaxDecodedBytes)
+		return gunzipBytes(b, MaxDecodedBytes)
 	case "zstd+base64":
 		return nil, errors.New("zstd+base64 is not supported by this implementation")
 	default:

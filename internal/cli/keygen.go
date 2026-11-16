@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -54,7 +55,7 @@ func runKeygen(o *keygenOptions) error {
 		}
 		return exitf(exitIO, "%v", err)
 	}
-	b64 := mdsig.ToBase64(pub)
+	b64 := base64.StdEncoding.EncodeToString(pub)
 	w := stdout
 	fmt.Fprintf(w, "%s %s\n", pad(i18n.T("keygen.private"), 12), o.out)
 	fmt.Fprintf(w, "%s %s\n", pad(i18n.T("keygen.public"), 12), o.out+".pub")

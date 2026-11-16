@@ -20,7 +20,7 @@
 // The zero [VerifyOptions] verifies with network access and no stored state.
 // A program that takes documents from other people should set:
 //
-//   - ResolveOptions.HTTPClient, ResolveOptions.PgpClient and
+//   - ResolveOptions.HTTPClient, ResolveOptions.PGPClient and
 //     ResourceCheckOptions.FetchClient to [SafeHTTPClient], which refuses
 //     connections to private addresses. A document names the hosts that are
 //     contacted (git hosting, WKD, revocation lists, resources).

@@ -44,7 +44,7 @@ type BlockResult struct {
 	Partial      []string
 	KeySource    string
 	WebAuthn     *WebAuthnInfo
-	Pgp          *PgpInfo
+	PGP          *PGPInfo
 	Resources    []ResourceResult
 	Revocation   *RevocationCheck
 	TSA          *TSACheck
@@ -95,7 +95,7 @@ func validateSemantics(f map[string]string) string {
 		}
 	}
 	if v, ok := f["resources"]; ok {
-		if _, errs := ParseResources(v); len(errs) > 0 {
+		if _, errs := parseResources(v); len(errs) > 0 {
 			return strings.Join(errs, "; ")
 		}
 	}
@@ -108,14 +108,14 @@ func validateSemantics(f map[string]string) string {
 		return "alg openpgp requires method pgp"
 	}
 	if isPgp {
-		if !FprRe.MatchString(f["fpr"]) {
+		if !fprRe.MatchString(f["fpr"]) {
 			return "pgp requires fpr: 40 or 64 upper-case hex digits"
 		}
-		if !EmailRe.MatchString(f["signer"]) {
+		if !emailRe.MatchString(f["signer"]) {
 			return "pgp signer must be a lower-case email address"
 		}
 	}
-	if f["method"] == "git-hosting" && !IsValidGitHostingSigner(f["signer"]) {
+	if f["method"] == "git-hosting" && !isValidGitHostingSigner(f["signer"]) {
 		return "git-hosting signer must be <host>/<username> with a domain name as host"
 	}
 	isWebAuthn := algOf(f) == "webauthn-es256"
@@ -135,15 +135,15 @@ func ComputeBlockHash(text string, block *ParsedBlock, hashAlg string) (computed
 	slice := text[:block.Start]
 	var input []byte
 	if scope, ok := block.Fields["scope"]; ok {
-		in, ids, se := ScopedHashInput(slice, scope)
+		in, ids, se := scopedHashInput(slice, scope)
 		if se != nil {
 			return "", nil, se
 		}
 		input, partial = []byte(in), ids
 	} else {
-		input = []byte(NormalizeDocument(slice))
+		input = []byte(normalizeDocument(slice))
 	}
-	return hashAlg + ":" + ToHex(Digest(hashAlg, input)), partial, nil
+	return hashAlg + ":" + toHex(digestBytes(hashAlg, input)), partial, nil
 }
 
 type revocationList struct {
@@ -161,13 +161,13 @@ type revocationSigner struct {
 // SPEC 5.9: computed from the payload, because sig bytes can be changed without the key
 func RevocationID(fields map[string]string) string {
 	sum := sha256.Sum256(SignedPayload(fields))
-	return ToHex(sum[:])
+	return toHex(sum[:])
 }
 
 var revokedLineRe = regexp.MustCompile(`^revoked: sha256:([0-9a-f]{64})[ \t]*$`)
 
 func loadRevocationList(ctx context.Context, url string, opts *VerifyOptions) *revocationList {
-	b, err := FetchResource(ctx, opts.FetchClient, url, MaxRevocationListBytes)
+	b, err := FetchResource(ctx, opts.FetchClient, url, maxRevocationListBytes)
 	if err == nil && !utf8.Valid(b) {
 		err = errors.New("the list is not valid UTF-8")
 	}
@@ -240,7 +240,7 @@ func checkRevocation(ctx context.Context, f map[string]string, opts *VerifyOptio
 		pk, has := f["pubkey"]
 		// SPEC 5.9: tofu ids are self-asserted, so the list must come from the same pubkey
 		pubkeyOK := f["method"] != "tofu" || (s.hasPubkey == has && s.pubkey == pk)
-		if s.method == f["method"] && SameSigner(f["method"], s.signer, f["signer"]) && pubkeyOK {
+		if s.method == f["method"] && sameSigner(f["method"], s.signer, f["signer"]) && pubkeyOK {
 			trusted = true
 			break
 		}
@@ -255,7 +255,7 @@ func checkRevocation(ctx context.Context, f map[string]string, opts *VerifyOptio
 	return &RevocationCheck{Status: RevocationNotRevoked}
 }
 
-func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *VerifyOptions) *BlockResult {
+func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *VerifyOptions) *BlockResult {
 	if opts == nil {
 		opts = &VerifyOptions{}
 	}
@@ -275,7 +275,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	if f["v"] != SpecVersion {
 		return fail(StatusUnsupported, "unsupported-version", fmt.Sprintf("unsupported version %q", f["v"]))
 	}
-	if !TSRe.MatchString(f["ts"]) {
+	if !tsRe.MatchString(f["ts"]) {
 		r.Warnings = append(r.Warnings, fmt.Sprintf("ts %q is not in YYYY-MM-DDTHH:MM:SSZ form", f["ts"]))
 	}
 	if sem := validateSemantics(f); sem != "" {
@@ -313,13 +313,13 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	if !strings.HasPrefix(sigText, "base64:") {
 		return fail(StatusMalformed, "malformed", `sig must start with "base64:"`)
 	}
-	sig, err := FromBase64(sigText[7:])
+	sig, err := fromBase64(sigText[7:])
 	if err != nil {
 		return fail(StatusMalformed, "malformed", "sig is not valid base64")
 	}
 
 	if alg == "openpgp" {
-		if pre := CheckPgpSignaturePacket(sig, f["fpr"]); !pre.OK {
+		if pre := CheckPGPSignaturePacket(sig, f["fpr"]); !pre.OK {
 			return fail(pre.Status, pre.Code, pre.Message)
 		}
 	}
@@ -347,7 +347,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	}
 	var keys []CandidateKey
 	for _, k := range res.Keys {
-		if k.Alg == KeyTypeFor(alg) {
+		if k.Alg == keyTypeFor(alg) {
 			keys = append(keys, k)
 		}
 	}
@@ -367,7 +367,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 			return fail(StatusInvalid, wa.code, wa.msg)
 		}
 		for i := range keys {
-			good, err := VerifyWebAuthnSignature(keys[i].Key, sig, wa.authData, wa.clientData)
+			good, err := verifyWebAuthnSignature(keys[i].Key, sig, wa.authData, wa.clientData)
 			if err != nil {
 				return fail(StatusMalformed, "malformed", err.Error())
 			}
@@ -389,7 +389,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 			certs[i] = pgpCertSource{bytes: k.Key, source: strings.SplitN(k.Source, " ", 2)[0]}
 		}
 		chk := verifyPgpSignature(sig, f, payload, certs, now.Unix())
-		r.Pgp = chk.info
+		r.PGP = chk.info
 		if chk.status != StatusValid {
 			return fail(chk.status, chk.code, chk.message)
 		}
@@ -405,7 +405,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 		}
 	} else {
 		for i := range keys {
-			if Ed25519Verify(keys[i].Key, sig, payload) {
+			if ed25519Verify(keys[i].Key, sig, payload) {
 				matched = &keys[i]
 				break
 			}
@@ -440,8 +440,8 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	}
 
 	if v := f["resources"]; v != "" {
-		entries, _ := ParseResources(v)
-		r.Resources = CheckResources(ctx, entries, &opts.ResourceCheckOptions)
+		entries, _ := parseResources(v)
+		r.Resources = checkResources(ctx, entries, &opts.ResourceCheckOptions)
 		firstWith := func(status string) *ResourceResult {
 			for i := range r.Resources {
 				if r.Resources[i].Status == status {
@@ -485,7 +485,7 @@ func VerifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	}
 
 	if tok := f["tsa_token"]; tok != "" && !opts.SkipTSA {
-		c := CheckTSATokenWith(UnfoldBinary(tok), sig, &opts.TSA)
+		c := CheckTSAToken(UnfoldBinary(tok), sig, &opts.TSA)
 		r.TSA = &c
 		if c.Status == TSAMismatch {
 			return fail(StatusInvalid, "bad-signature", "timestamp token does not match this signature: "+c.Detail)
@@ -531,18 +531,18 @@ func VerifyDocument(ctx context.Context, text string, opts *VerifyOptions) *Veri
 	}
 	res.OK = true
 	for _, b := range doc.Chain {
-		br := VerifyBlock(ctx, doc.Text, b, &o)
+		br := verifyBlock(ctx, doc.Text, b, &o)
 		res.Signatures = append(res.Signatures, br)
 		if br.Status != StatusValid {
 			res.OK = false
 		}
 	}
 	if !opts.skipAgreement {
-		blocks := make([]AgreementBlock, len(res.Signatures))
+		blocks := make([]agreementBlock, len(res.Signatures))
 		for i, s := range res.Signatures {
-			blocks[i] = AgreementBlock{Index: s.Index, Valid: s.Status == StatusValid, Declares: s.Status == StatusValid || s.Status == StatusUnresolved, Fields: s.Fields}
+			blocks[i] = agreementBlock{Index: s.Index, Valid: s.Status == StatusValid, Declares: s.Status == StatusValid || s.Status == StatusUnresolved, Fields: s.Fields}
 		}
-		res.Agreement = EvaluateAgreement(blocks)
+		res.Agreement = evaluateAgreement(blocks)
 	}
 	return res
 }

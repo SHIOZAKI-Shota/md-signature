@@ -17,8 +17,8 @@ const DefaultKeyserver = "https://keys.openpgp.org"
 const maxPgpKeyBytes = 1024 * 1024
 
 var (
-	FprRe   = regexp.MustCompile(`^(?:[0-9A-F]{40}|[0-9A-F]{64})$`)
-	EmailRe = regexp.MustCompile("^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\\.[a-z0-9-]+)+$")
+	fprRe   = regexp.MustCompile(`^(?:[0-9A-F]{40}|[0-9A-F]{64})$`)
+	emailRe = regexp.MustCompile("^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\\.[a-z0-9-]+)+$")
 )
 
 // --- WKD (draft-koch-openpgp-webkey-service)
@@ -57,7 +57,7 @@ func jsEncodeURIComponent(s string) string {
 }
 
 // WKD mandates SHA-1 of the lower-cased local part; this is addressing, not a signature hash
-func WKDURLs(email string) (advanced, direct string) {
+func wkdURLs(email string) (advanced, direct string) {
 	at := strings.LastIndexByte(email, '@')
 	local, domain := email, ""
 	if at >= 0 {
@@ -70,13 +70,13 @@ func WKDURLs(email string) (advanced, direct string) {
 		"https://" + domain + "/.well-known/openpgpkey/hu/" + h + "?l=" + l
 }
 
-func HKPURL(keyserver, fpr string) string {
+func hkpURL(keyserver, fpr string) string {
 	return strings.TrimRight(keyserver, "/") + "/pks/lookup?op=get&options=mr&search=0x" + fpr
 }
 
 // --- lookup (SPEC 4.3)
 
-type PgpAttempt struct {
+type pgpAttempt struct {
 	Source string // keyring, wkd, keyserver
 	URL    string
 	Result string // found, absent, error
@@ -87,7 +87,7 @@ type pgpLookupResult struct {
 	cert     []byte
 	source   string
 	url      string
-	attempts []PgpAttempt
+	attempts []pgpAttempt
 }
 
 func containsKey(b []byte, fpr string) bool {
@@ -104,41 +104,41 @@ func containsKey(b []byte, fpr string) bool {
 }
 
 func lookupPgpKey(ctx context.Context, fpr, email, keyserver string, o *ResolveOptions) pgpLookupResult {
-	var attempts []PgpAttempt
-	if o.PgpKeyring != nil {
-		b, err := o.PgpKeyring(ctx, fpr)
+	var attempts []pgpAttempt
+	if o.PGPKeyring != nil {
+		b, err := o.PGPKeyring(ctx, fpr)
 		switch {
 		case err != nil:
-			attempts = append(attempts, PgpAttempt{Source: "keyring", Result: "error", Detail: err.Error()})
+			attempts = append(attempts, pgpAttempt{Source: "keyring", Result: "error", Detail: err.Error()})
 		case b != nil && containsKey(b, fpr):
-			return pgpLookupResult{cert: b, source: "keyring", attempts: append(attempts, PgpAttempt{Source: "keyring", Result: "found"})}
+			return pgpLookupResult{cert: b, source: "keyring", attempts: append(attempts, pgpAttempt{Source: "keyring", Result: "found"})}
 		default:
-			attempts = append(attempts, PgpAttempt{Source: "keyring", Result: "absent"})
+			attempts = append(attempts, pgpAttempt{Source: "keyring", Result: "absent"})
 		}
 	}
 	if o.Offline {
-		return pgpLookupResult{attempts: append(attempts, PgpAttempt{Source: "wkd", Result: "error", Detail: "offline"})}
+		return pgpLookupResult{attempts: append(attempts, pgpAttempt{Source: "wkd", Result: "error", Detail: "offline"})}
 	}
-	client := o.PgpClient
+	client := o.PGPClient
 	if client == nil {
 		client = SafeHTTPClient(30 * time.Second)
 	}
-	try := func(source, u string) (PgpAttempt, []byte) {
+	try := func(source, u string) (pgpAttempt, []byte) {
 		b, err := FetchResource(ctx, client, u, maxPgpKeyBytes)
 		if err != nil {
-			var hs *HTTPStatusError
+			var hs *httpStatusError
 			if errors.As(err, &hs) && hs.Status == 404 {
-				return PgpAttempt{Source: source, URL: u, Result: "absent", Detail: "404"}, nil
+				return pgpAttempt{Source: source, URL: u, Result: "absent", Detail: "404"}, nil
 			}
-			return PgpAttempt{Source: source, URL: u, Result: "error", Detail: err.Error()}, nil
+			return pgpAttempt{Source: source, URL: u, Result: "error", Detail: err.Error()}, nil
 		}
 		if containsKey(b, fpr) {
-			return PgpAttempt{Source: source, URL: u, Result: "found"}, b
+			return pgpAttempt{Source: source, URL: u, Result: "found"}, b
 		}
-		return PgpAttempt{Source: source, URL: u, Result: "absent", Detail: "response has no key with this fingerprint"}, nil
+		return pgpAttempt{Source: source, URL: u, Result: "absent", Detail: "response has no key with this fingerprint"}, nil
 	}
 
-	advanced, direct := WKDURLs(email)
+	advanced, direct := wkdURLs(email)
 	a, b := try("wkd", advanced)
 	// WKD: the direct method is used when the advanced host does not answer
 	if a.Result == "error" {
@@ -155,7 +155,7 @@ func lookupPgpKey(ctx context.Context, fpr, email, keyserver string, o *ResolveO
 	if keyserver == "" {
 		keyserver = DefaultKeyserver
 	}
-	ks, kb := try("keyserver", HKPURL(keyserver, fpr))
+	ks, kb := try("keyserver", hkpURL(keyserver, fpr))
 	attempts = append(attempts, ks)
 	if kb != nil {
 		return pgpLookupResult{cert: kb, source: "keyserver", url: ks.URL, attempts: attempts}
@@ -163,7 +163,7 @@ func lookupPgpKey(ctx context.Context, fpr, email, keyserver string, o *ResolveO
 	return pgpLookupResult{attempts: attempts}
 }
 
-func DescribeAttempts(attempts []PgpAttempt) string {
+func describeAttempts(attempts []pgpAttempt) string {
 	parts := make([]string, len(attempts))
 	for i, a := range attempts {
 		label := "keyserver"
@@ -194,7 +194,7 @@ func DescribeAttempts(attempts []PgpAttempt) string {
 
 // --- document signature (SPEC 6.2)
 
-type PgpInfo struct {
+type PGPInfo struct {
 	Fpr       string
 	UID       string
 	KeyAlg    string
@@ -202,7 +202,7 @@ type PgpInfo struct {
 	Created   string
 }
 
-type PgpPacketCheck struct {
+type PGPPacketCheck struct {
 	OK      bool
 	Status  string
 	Code    string
@@ -210,9 +210,9 @@ type PgpPacketCheck struct {
 	Created string
 }
 
-func CheckPgpSignaturePacket(sigBytes []byte, fpr string) PgpPacketCheck {
-	bad := func(format string, a ...any) PgpPacketCheck {
-		return PgpPacketCheck{Status: StatusInvalid, Code: "bad-signature", Message: fmt.Sprintf(format, a...)}
+func CheckPGPSignaturePacket(sigBytes []byte, fpr string) PGPPacketCheck {
+	bad := func(format string, a ...any) PGPPacketCheck {
+		return PGPPacketCheck{Status: StatusInvalid, Code: "bad-signature", Message: fmt.Sprintf(format, a...)}
 	}
 	sig, err := readSignaturePacket(sigBytes)
 	if err != nil {
@@ -239,19 +239,19 @@ func CheckPgpSignaturePacket(sigBytes []byte, fpr string) PgpPacketCheck {
 	if !hasIssuer || len(issuer) < 2 {
 		return bad("OpenPGP signature has no hashed issuer fingerprint")
 	}
-	if got := strings.ToUpper(ToHex(issuer[1:])); got != fpr {
+	if got := strings.ToUpper(toHex(issuer[1:])); got != fpr {
 		return bad("OpenPGP signature issuer %s does not match fpr", got)
 	}
 	if crit, has := sig.unknownCritical(); has {
 		return bad("OpenPGP signature has an unknown critical subpacket %d", crit)
 	}
 	if !slices.Contains([]int{1, 19, 22, 27}, sig.pubAlgo) {
-		return PgpPacketCheck{Status: StatusUnsupported, Code: "unsupported-alg", Message: fmt.Sprintf("OpenPGP public-key algorithm %d is not supported", sig.pubAlgo)}
+		return PGPPacketCheck{Status: StatusUnsupported, Code: "unsupported-alg", Message: fmt.Sprintf("OpenPGP public-key algorithm %d is not supported", sig.pubAlgo)}
 	}
 	if sig.lib == nil {
 		return bad("OpenPGP signature packet is malformed: %s", sig.libErr.Error())
 	}
-	return PgpPacketCheck{OK: true, Created: isoSeconds(created)}
+	return PGPPacketCheck{OK: true, Created: isoSeconds(created)}
 }
 
 type pgpCertSource struct {
@@ -261,15 +261,15 @@ type pgpCertSource struct {
 
 type pgpSigCheck struct {
 	status, code, message string
-	info                  *PgpInfo
+	info                  *PGPInfo
 	warnings              []string
 }
 
 func verifyPgpSignature(sigBytes []byte, f map[string]string, payload []byte, certs []pgpCertSource, now int64) pgpSigCheck {
 	fpr := f["fpr"]
-	pre := CheckPgpSignaturePacket(sigBytes, fpr)
+	pre := CheckPGPSignaturePacket(sigBytes, fpr)
 	if !pre.OK {
-		return pgpSigCheck{status: pre.Status, code: pre.Code, message: pre.Message, info: &PgpInfo{Fpr: fpr}}
+		return pgpSigCheck{status: pre.Status, code: pre.Code, message: pre.Message, info: &PGPInfo{Fpr: fpr}}
 	}
 	sig, _ := readSignaturePacket(sigBytes)
 	var firstFail *pgpCertCheck
@@ -282,14 +282,14 @@ func verifyPgpSignature(sigBytes []byte, f map[string]string, payload []byte, ce
 			chk := checkCert(cert, fpr, f["signer"], now)
 			if !chk.ok {
 				if chk.code == "revoked" {
-					return pgpSigCheck{status: StatusInvalid, code: "revoked", message: chk.message, info: &PgpInfo{Fpr: fpr}}
+					return pgpSigCheck{status: StatusInvalid, code: "revoked", message: chk.message, info: &PGPInfo{Fpr: fpr}}
 				}
 				if !strings.HasPrefix(chk.message, "certificate has no key") && (firstFail == nil || firstFail.code == "not-found") {
 					firstFail = &chk
 				}
 				continue
 			}
-			info := &PgpInfo{Fpr: fpr, UID: chk.uid, KeyAlg: chk.key.algName(), KeySource: c.source, Created: pre.Created}
+			info := &PGPInfo{Fpr: fpr, UID: chk.uid, KeyAlg: chk.key.algName(), KeySource: c.source, Created: pre.Created}
 			if sig.pubAlgo != chk.key.algo || sig.version != chk.key.version {
 				return pgpSigCheck{status: StatusInvalid, code: "bad-signature", message: "OpenPGP signature version or algorithm does not match the key", info: info}
 			}
@@ -300,11 +300,11 @@ func verifyPgpSignature(sigBytes []byte, f map[string]string, payload []byte, ce
 		}
 	}
 	if firstFail != nil && firstFail.code == "unsupported-alg" {
-		return pgpSigCheck{status: StatusUnsupported, code: "unsupported-alg", message: firstFail.message, info: &PgpInfo{Fpr: fpr}}
+		return pgpSigCheck{status: StatusUnsupported, code: "unsupported-alg", message: firstFail.message, info: &PGPInfo{Fpr: fpr}}
 	}
 	msg := "no certificate with key " + fpr
 	if firstFail != nil {
 		msg = firstFail.message
 	}
-	return pgpSigCheck{status: StatusUnresolved, code: "not-found", message: msg, info: &PgpInfo{Fpr: fpr}}
+	return pgpSigCheck{status: StatusUnresolved, code: "not-found", message: msg, info: &PGPInfo{Fpr: fpr}}
 }

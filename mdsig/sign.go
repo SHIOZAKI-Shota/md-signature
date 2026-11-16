@@ -14,7 +14,7 @@ import (
 type SignOptions struct {
 	Signer        Signer
 	WebAuthn      WebAuthnSigner
-	Pgp           PgpSigner
+	PGP           PGPSigner
 	Method        string
 	SignerID      string
 	Selector      string
@@ -73,7 +73,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		}
 		ts = NowTS(now())
 	}
-	if !TSRe.MatchString(ts) {
+	if !tsRe.MatchString(ts) {
 		return nil, &ValueError{Msg: fmt.Sprintf("ts must be YYYY-MM-DDTHH:MM:SSZ, got %q", ts)}
 	}
 	if o.Expires != "" && !IsValidTimestamp(o.Expires) {
@@ -83,12 +83,12 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		return nil, &ValueError{Msg: "revocation URL must be https://"}
 	}
 	for k := range o.Extra {
-		if !IsExtensionKey(k) {
+		if !isExtensionKey(k) {
 			return nil, &ValueError{Msg: fmt.Sprintf("extra field %q must start with \"x_\"", k)}
 		}
 	}
 
-	isPgp := o.Pgp != nil
+	isPgp := o.PGP != nil
 	isWebAuthn := !isPgp && o.WebAuthn != nil
 	if isPgp != (o.Method == "pgp") {
 		if isPgp {
@@ -120,7 +120,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		if isWebAuthn {
 			return nil, &ValueError{Msg: "git-hosting supports only ed25519 SSH keys; use tofu or dns for passkeys"}
 		}
-		if !IsValidGitHostingSigner(o.SignerID) {
+		if !isValidGitHostingSigner(o.SignerID) {
 			return nil, &ValueError{Msg: fmt.Sprintf("git-hosting signer must be <host>/<username> with a domain name as host, got %q", o.SignerID)}
 		}
 		if !o.OmitKeyFP {
@@ -135,18 +135,18 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		if isWebAuthn {
 			kt = "es256"
 		}
-		fields["pubkey"] = kt + ":" + ToBase64(pub)
+		fields["pubkey"] = kt + ":" + toBase64(pub)
 	}
 	if isPgp {
 		email := strings.ToLower(o.SignerID)
-		if !EmailRe.MatchString(email) {
+		if !emailRe.MatchString(email) {
 			return nil, &ValueError{Msg: fmt.Sprintf("pgp signer must be an email address, got %q", o.SignerID)}
 		}
-		if emails := o.Pgp.Emails(); len(emails) > 0 && !slices.Contains(emails, email) {
+		if emails := o.PGP.Emails(); len(emails) > 0 && !slices.Contains(emails, email) {
 			return nil, &ValueError{Msg: fmt.Sprintf("the OpenPGP key has no user ID with <%s> (has: %s)", email, strings.Join(emails, ", "))}
 		}
 		fields["signer"] = email
-		fields["fpr"] = o.Pgp.Fpr()
+		fields["fpr"] = o.PGP.Fpr()
 	}
 	if isWebAuthn {
 		fields["rp_id"] = o.WebAuthn.RPID()
@@ -178,7 +178,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		}
 	}
 	if len(o.Resources) > 0 {
-		v, err := FormatResources(o.Resources)
+		v, err := formatResources(o.Resources)
 		if err != nil {
 			return nil, &ValueError{Msg: "resources: " + err.Error()}
 		}
@@ -190,18 +190,18 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 	fields["alg"] = alg
 
 	if sc, ok := fields["scope"]; ok {
-		in, _, se := ScopedHashInput(NormalizeNewlines(text), sc)
+		in, _, se := scopedHashInput(normalizeNewlines(text), sc)
 		if se != nil {
 			return nil, &ValueError{Msg: se.Msg}
 		}
 		sum := sha256.Sum256([]byte(in))
-		fields["hash"] = "sha256:" + ToHex(sum[:])
+		fields["hash"] = "sha256:" + toHex(sum[:])
 	} else {
-		fields["hash"] = NormalizedHash(text)
+		fields["hash"] = normalizedHash(text)
 	}
 
 	for _, k := range orderedKeys(fields) {
-		if e := ValidateKey(k); e != "" {
+		if e := validateKey(k); e != "" {
 			return nil, &ValueError{Msg: e}
 		}
 		if e := validateValue(fields[k], k == "require" || k == "resources"); e != "" {
@@ -224,11 +224,11 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 			return nil, err
 		}
 		sig = a.Signature
-		fields["webauthn_authenticator_data"] = ToBase64(a.AuthenticatorData)
-		fields["webauthn_client_data"] = ToBase64(a.ClientDataJSON)
+		fields["webauthn_authenticator_data"] = toBase64(a.AuthenticatorData)
+		fields["webauthn_client_data"] = toBase64(a.ClientDataJSON)
 	} else if isPgp {
 		var err error
-		if sig, err = o.Pgp.Sign(payload); err != nil {
+		if sig, err = o.PGP.Sign(payload); err != nil {
 			return nil, err
 		}
 	} else {
@@ -238,9 +238,9 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 			return nil, err
 		}
 	}
-	fields["sig"] = "base64:" + ToBase64(sig)
+	fields["sig"] = "base64:" + toBase64(sig)
 	if o.TSAURL != "" {
-		tok, err := RequestTimestampWith(ctx, sig, o.TSAURL, o.HTTPClient, &o.TSA)
+		tok, err := RequestTimestamp(ctx, sig, o.TSAURL, o.HTTPClient, &o.TSA)
 		if err != nil {
 			return nil, fmt.Errorf("timestamp request to %s failed: %w", o.TSAURL, err)
 		}
@@ -248,7 +248,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		fields["tsa_token"] = tok
 	}
 
-	block, err := SerializeBlock(fields)
+	block, err := serializeBlock(fields)
 	if err != nil {
 		return nil, &ValueError{Msg: err.Error()}
 	}

@@ -15,10 +15,10 @@ import (
 	"unicode/utf8"
 )
 
-func ToBase64URL(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
+func toBase64URL(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 
 // strict DER: no long-form lengths, no non-minimal or negative INTEGERs, at most 33 bytes each
-func DERToP1363(der []byte) ([]byte, error) {
+func derToP1363(der []byte) ([]byte, error) {
 	fail := func(m string) ([]byte, error) { return nil, errors.New("malformed DER signature: " + m) }
 	if len(der) < 8 || der[0] != 0x30 {
 		return fail("not a SEQUENCE")
@@ -68,7 +68,7 @@ func DERToP1363(der []byte) ([]byte, error) {
 	return out, nil
 }
 
-func P1363ToDER(sig []byte) ([]byte, error) {
+func p1363ToDER(sig []byte) ([]byte, error) {
 	if len(sig) != 64 {
 		return nil, errors.New("P-256 signature must be 64 bytes")
 	}
@@ -89,7 +89,7 @@ func P1363ToDER(sig []byte) ([]byte, error) {
 
 var spkiP256Prefix = []byte{0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00}
 
-func ES256SPKI(b []byte) ([]byte, error) {
+func es256SPKI(b []byte) ([]byte, error) {
 	if len(b) == 91 && bytes.Equal(b[:26], spkiP256Prefix) {
 		return b, nil
 	}
@@ -100,7 +100,7 @@ func ES256SPKI(b []byte) ([]byte, error) {
 }
 
 func parseES256(key []byte) (*ecdsa.PublicKey, error) {
-	spki, err := ES256SPKI(key)
+	spki, err := es256SPKI(key)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +144,8 @@ func jsHostname(origin string) (host, scheme string, ok bool) {
 
 func checkWebAuthnData(fields map[string]string, payload []byte) webAuthnCheck {
 	rpID := fields["rp_id"]
-	authData, err1 := FromBase64(fields["webauthn_authenticator_data"])
-	clientData, err2 := FromBase64(fields["webauthn_client_data"])
+	authData, err1 := fromBase64(fields["webauthn_authenticator_data"])
+	clientData, err2 := fromBase64(fields["webauthn_client_data"])
 	if err1 != nil || err2 != nil {
 		return webAuthnCheck{code: "malformed", msg: "webauthn fields are not valid base64"}
 	}
@@ -166,7 +166,7 @@ func checkWebAuthnData(fields map[string]string, payload []byte) webAuthnCheck {
 		return bad("bad-signature", fmt.Sprintf("clientDataJSON type is %s, expected \"webauthn.get\"", jsJSON(cd["type"])))
 	}
 	sum := sha256.Sum256(payload)
-	if ch, ok := cd["challenge"].(string); !ok || ch != ToBase64URL(sum[:]) {
+	if ch, ok := cd["challenge"].(string); !ok || ch != toBase64URL(sum[:]) {
 		return bad("bad-signature", "challenge does not match the signed payload")
 	}
 	host, scheme, ok := jsHostname(origin)
@@ -203,8 +203,8 @@ func jsJSON(v any) string {
 	return string(b)
 }
 
-func VerifyWebAuthnSignature(key, derSig, authData, clientData []byte) (bool, error) {
-	rs, err := DERToP1363(derSig)
+func verifyWebAuthnSignature(key, derSig, authData, clientData []byte) (bool, error) {
+	rs, err := derToP1363(derSig)
 	if err != nil {
 		return false, err
 	}

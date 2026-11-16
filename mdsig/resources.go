@@ -26,7 +26,7 @@ const (
 	ResourceNotChecked  = "not-checked"
 )
 
-type ResourceEntry struct {
+type resourceEntry struct {
 	Hash   string
 	Ref    string
 	Remote bool
@@ -78,8 +78,8 @@ func ValidateResourceRef(ref string) string {
 	return ""
 }
 
-func ParseResources(value string) ([]ResourceEntry, []string) {
-	var entries []ResourceEntry
+func parseResources(value string) ([]resourceEntry, []string) {
+	var entries []resourceEntry
 	var errs []string
 	for _, line := range strings.Split(value, "\n") {
 		m := resourceLineRe.FindStringSubmatch(line)
@@ -91,30 +91,30 @@ func ParseResources(value string) ([]ResourceEntry, []string) {
 		if e := ValidateResourceRef(ref); e != "" {
 			errs = append(errs, "resources: "+e)
 		}
-		entries = append(entries, ResourceEntry{Hash: m[1], Ref: ref, Remote: httpsPrefixRe.MatchString(ref)})
+		entries = append(entries, resourceEntry{Hash: m[1], Ref: ref, Remote: httpsPrefixRe.MatchString(ref)})
 	}
 	return entries, errs
 }
 
-func FormatResources(items []ResourceItem) (string, error) {
+func formatResources(items []ResourceItem) (string, error) {
 	lines := make([]string, 0, len(items))
 	for _, it := range items {
 		if e := ValidateResourceRef(it.Ref); e != "" {
 			return "", errors.New(e)
 		}
 		sum := sha256.Sum256(it.Bytes)
-		lines = append(lines, "sha256:"+ToHex(sum[:])+" "+it.Ref)
+		lines = append(lines, "sha256:"+toHex(sum[:])+" "+it.Ref)
 	}
 	return strings.Join(lines, "\n"), nil
 }
 
 const MaxResourceBytes = 50 * 1024 * 1024
 
-const MaxRevocationListBytes = 5 * 1024 * 1024
+const maxRevocationListBytes = 5 * 1024 * 1024
 
-type HTTPStatusError struct{ Status int }
+type httpStatusError struct{ Status int }
 
-func (e *HTTPStatusError) Error() string { return fmt.Sprintf("HTTP %d", e.Status) }
+func (e *httpStatusError) Error() string { return fmt.Sprintf("HTTP %d", e.Status) }
 
 func FetchResource(ctx context.Context, client *http.Client, url string, maxBytes int64) ([]byte, error) {
 	if !httpsPrefixRe.MatchString(url) {
@@ -136,7 +136,7 @@ func FetchResource(ctx context.Context, client *http.Client, url string, maxByte
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return nil, &HTTPStatusError{Status: res.StatusCode}
+		return nil, &httpStatusError{Status: res.StatusCode}
 	}
 	if res.Request != nil && res.Request.URL != nil && res.Request.URL.Scheme != "https" {
 		return nil, errors.New("redirected to a non-https URL")
@@ -156,7 +156,7 @@ func FetchResource(ctx context.Context, client *http.Client, url string, maxByte
 
 var ErrForbiddenAddress = errors.New("refusing to connect to a private, loopback, or link-local address")
 
-func IsForbiddenIP(ip netip.Addr) bool {
+func isForbiddenIP(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	if !ip.IsValid() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 		ip.IsInterfaceLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
@@ -171,7 +171,7 @@ func IsForbiddenIP(ip netip.Addr) bool {
 	for _, e := range embeddedIPv4Prefixes {
 		if e.prefix.Contains(ip) {
 			b := ip.As16()
-			return IsForbiddenIP(netip.AddrFrom4([4]byte(b[e.offset : e.offset+4])))
+			return isForbiddenIP(netip.AddrFrom4([4]byte(b[e.offset : e.offset+4])))
 		}
 	}
 	return false
@@ -205,7 +205,7 @@ func safeDialControl(_, address string, _ syscall.RawConn) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrForbiddenAddress, address)
 	}
-	if IsForbiddenIP(ap.Addr()) {
+	if isForbiddenIP(ap.Addr()) {
 		return fmt.Errorf("%w: %s", ErrForbiddenAddress, ap.Addr())
 	}
 	return nil
@@ -247,7 +247,7 @@ type ResourceCheckOptions struct {
 	MaxResourceBytes int64
 }
 
-func CheckResources(ctx context.Context, entries []ResourceEntry, o *ResourceCheckOptions) []ResourceResult {
+func checkResources(ctx context.Context, entries []resourceEntry, o *ResourceCheckOptions) []ResourceResult {
 	out := []ResourceResult{}
 	for _, e := range entries {
 		var data []byte
@@ -279,7 +279,7 @@ func CheckResources(ctx context.Context, entries []ResourceEntry, o *ResourceChe
 			data = b
 		}
 		sum := sha256.Sum256(data)
-		got := ToHex(sum[:])
+		got := toHex(sum[:])
 		if got == e.Hash {
 			out = append(out, ResourceResult{Ref: e.Ref, Status: ResourceOK})
 		} else {
@@ -307,7 +307,7 @@ func FindLocalImages(markdown string) []string {
 		}
 	}
 	// same order as the TS core: all ![..](..) matches, then <img>, per line
-	for _, fl := range LinesWithFence(markdown) {
+	for _, fl := range linesWithFence(markdown) {
 		if fl.InFence {
 			continue
 		}

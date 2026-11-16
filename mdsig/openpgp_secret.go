@@ -27,31 +27,31 @@ func decryptSecret(k *pgpKey, passphrase []byte) (*packet.PrivateKey, error) {
 	p, err := packet.Read(bytes.NewReader(k.raw))
 	priv, ok := p.(*packet.PrivateKey)
 	if err != nil || !ok {
-		return nil, &PgpError{Msg: "not an OpenPGP secret key"}
+		return nil, &PGPError{Msg: "not an OpenPGP secret key"}
 	}
 	if priv.Dummy() {
-		return nil, &PgpError{Msg: pgpStubMessage}
+		return nil, &PGPError{Msg: pgpStubMessage}
 	}
 	if !priv.Encrypted {
 		return priv, nil
 	}
 	if passphrase == nil {
-		return nil, &PgpError{Msg: "this OpenPGP key is protected; a passphrase is required"}
+		return nil, &PGPError{Msg: "this OpenPGP key is protected; a passphrase is required"}
 	}
 	if err := priv.Decrypt(passphrase); err != nil {
 		var unsupported pgperrors.UnsupportedError
 		var invalidKey pgperrors.KeyInvalidError
 		if errors.As(err, &unsupported) || errors.As(err, &invalidKey) {
-			return nil, &PgpError{Msg: err.Error()}
+			return nil, &PGPError{Msg: err.Error()}
 		}
 		// go-crypto reports a failed integrity check of the unwrapped key as a structural or AEAD error
-		return nil, &PgpError{Msg: "wrong passphrase"}
+		return nil, &PGPError{Msg: "wrong passphrase"}
 	}
 	return priv, nil
 }
 
 func importSigning(k *pgpKey, priv *packet.PrivateKey) (*pgpSigningKey, error) {
-	invalid := &PgpError{Msg: fmt.Sprintf("invalid %s secret key", k.algName())}
+	invalid := &PGPError{Msg: fmt.Sprintf("invalid %s secret key", k.algName())}
 	switch k.kind {
 	case "rsa":
 		key, ok := priv.PrivateKey.(*rsa.PrivateKey)
@@ -100,12 +100,12 @@ func importSigning(k *pgpKey, priv *packet.PrivateKey) (*pgpSigningKey, error) {
 			return concatBytes(encodeMpi(r), encodeMpi(s)), nil
 		}}, nil
 	}
-	return nil, &PgpError{Msg: fmt.Sprintf("OpenPGP key algorithm %s cannot sign here", k.algName())}
+	return nil, &PGPError{Msg: fmt.Sprintf("OpenPGP key algorithm %s cannot sign here", k.algName())}
 }
 
 // --- public API
 
-type PgpSecretKeyInfo struct {
+type PGPSecretKeyInfo struct {
 	Fpr        string
 	PrimaryFpr string
 	KeyAlg     string
@@ -116,7 +116,7 @@ type PgpSecretKeyInfo struct {
 	key        *pgpKey
 }
 
-func ReadPgpSecretKey(input []byte, now time.Time) (*PgpSecretKeyInfo, error) {
+func ReadPGPSecretKey(input []byte, now time.Time) (*PGPSecretKeyInfo, error) {
 	all, refused, err := parseCertsDetail(input)
 	if err != nil {
 		return nil, err
@@ -129,9 +129,9 @@ func ReadPgpSecretKey(input []byte, now time.Time) (*PgpSecretKeyInfo, error) {
 	}
 	if len(certs) == 0 {
 		if len(refused) > 0 {
-			return nil, &PgpError{Msg: "cannot read the OpenPGP secret key: " + refused[0].Error()}
+			return nil, &PGPError{Msg: "cannot read the OpenPGP secret key: " + refused[0].Error()}
 		}
-		return nil, &PgpError{Msg: "no OpenPGP secret key found"}
+		return nil, &PGPError{Msg: "no OpenPGP secret key found"}
 	}
 	var errs []string
 	for _, c := range certs {
@@ -154,7 +154,7 @@ func ReadPgpSecretKey(input []byte, now time.Time) (*PgpSecretKeyInfo, error) {
 			for _, u := range validUIDs(c, now.Unix()) {
 				uids = append(uids, u.uid)
 			}
-			return &PgpSecretKeyInfo{
+			return &PGPSecretKeyInfo{
 				Fpr: k.fprHex(), PrimaryFpr: c.primary.fprHex(), KeyAlg: k.algName(), Version: k.version,
 				UIDs: uids, Emails: uniqueEmails(uids), Protected: k.priv.Encrypted, key: k,
 			}, nil
@@ -167,17 +167,17 @@ func ReadPgpSecretKey(input []byte, now time.Time) (*PgpSecretKeyInfo, error) {
 	if len(errs) > 0 {
 		msg += " (" + strings.Join(errs, "; ") + ")"
 	}
-	return nil, &PgpError{Msg: msg}
+	return nil, &PGPError{Msg: msg}
 }
 
-type PgpSigner interface {
+type PGPSigner interface {
 	Fpr() string
 	Emails() []string
 	// returns one binary OpenPGP signature packet over the payload (SPEC 6.2)
 	Sign(payload []byte) ([]byte, error)
 }
 
-type PgpKeySigner struct {
+type PGPKeySigner struct {
 	fpr, keyAlg string
 	uids        []string
 	emails      []string
@@ -187,16 +187,16 @@ type PgpKeySigner struct {
 	sk          *pgpSigningKey
 }
 
-type PgpUnlockOptions struct {
+type PGPUnlockOptions struct {
 	Hash string // sha256 (default), sha384, sha512
 	Now  func() time.Time
 }
 
-// UnlockPgpSecretKey decrypts the key; a nil passphrase means none was given.
-func UnlockPgpSecretKey(info *PgpSecretKeyInfo, passphrase []byte, o PgpUnlockOptions) (*PgpKeySigner, error) {
+// UnlockPGPSecretKey decrypts the key; a nil passphrase means none was given.
+func UnlockPGPSecretKey(info *PGPSecretKeyInfo, passphrase []byte, o PGPUnlockOptions) (*PGPKeySigner, error) {
 	hashAlgo := map[string]int{"": pgpHashSHA256, "sha256": pgpHashSHA256, "sha384": pgpHashSHA384, "sha512": pgpHashSHA512}[o.Hash]
 	if hashAlgo == 0 {
-		return nil, &PgpError{Msg: fmt.Sprintf("unsupported hash %q", o.Hash)}
+		return nil, &PGPError{Msg: fmt.Sprintf("unsupported hash %q", o.Hash)}
 	}
 	priv, err := decryptSecret(info.key, passphrase)
 	if err != nil {
@@ -210,20 +210,20 @@ func UnlockPgpSecretKey(info *PgpSecretKeyInfo, passphrase []byte, o PgpUnlockOp
 	if now == nil {
 		now = time.Now
 	}
-	return &PgpKeySigner{fpr: info.Fpr, keyAlg: info.KeyAlg, uids: info.UIDs, emails: info.Emails, hashAlgo: hashAlgo, now: now, sk: sk}, nil
+	return &PGPKeySigner{fpr: info.Fpr, keyAlg: info.KeyAlg, uids: info.UIDs, emails: info.Emails, hashAlgo: hashAlgo, now: now, sk: sk}, nil
 }
 
-func (s *PgpKeySigner) Fpr() string      { return s.fpr }
-func (s *PgpKeySigner) KeyAlg() string   { return s.keyAlg }
-func (s *PgpKeySigner) UIDs() []string   { return s.uids }
-func (s *PgpKeySigner) Emails() []string { return s.emails }
+func (s *PGPKeySigner) Fpr() string      { return s.fpr }
+func (s *PGPKeySigner) KeyAlg() string   { return s.keyAlg }
+func (s *PGPKeySigner) UIDs() []string   { return s.uids }
+func (s *PGPKeySigner) Emails() []string { return s.emails }
 
-func (s *PgpKeySigner) Sign(payload []byte) ([]byte, error) {
+func (s *PGPKeySigner) Sign(payload []byte) ([]byte, error) {
 	s.mu.Lock()
 	sk := s.sk
 	s.mu.Unlock()
 	if sk == nil {
-		return nil, &PgpError{Msg: "this signer has been disposed"}
+		return nil, &PGPError{Msg: "this signer has been disposed"}
 	}
 	body, err := createSignature(sk, sigBinary, payload, pgpSigOptions{hashAlgo: s.hashAlgo, created: s.now().Unix()})
 	if err != nil {
@@ -232,12 +232,12 @@ func (s *PgpKeySigner) Sign(payload []byte) ([]byte, error) {
 	out := encodePacket(pgpTagSignature, body)
 	// the packet is assembled here (SPEC vectors fix its layout), so it is checked with go-crypto before it leaves
 	if sig, err := readSignaturePacket(out); err != nil || !verifyRaw(sk.key, sig, subjectBytes(payload)) {
-		return nil, &PgpError{Msg: "the signature just created does not verify"}
+		return nil, &PGPError{Msg: "the signature just created does not verify"}
 	}
 	return out, nil
 }
 
-func (s *PgpKeySigner) Dispose() {
+func (s *PGPKeySigner) Dispose() {
 	s.mu.Lock()
 	s.sk = nil
 	s.mu.Unlock()

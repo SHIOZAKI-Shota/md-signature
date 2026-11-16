@@ -26,11 +26,11 @@ type ParsedDocument struct {
 	StrayMarkerLine int
 }
 
-var RequiredKeys = []string{"v", "method", "signer", "ts", "hash", "sig"}
+var requiredKeys = []string{"v", "method", "signer", "ts", "hash", "sig"}
 
 func isBlank(l string) bool { return strings.Trim(l, " \t") == "" }
-func isOpen(l string) bool  { return strings.TrimRight(l, " \t") == OpenLine }
-func isClose(l string) bool { return strings.TrimRight(l, " \t") == CloseLine }
+func isOpen(l string) bool  { return strings.TrimRight(l, " \t") == openLine }
+func isClose(l string) bool { return strings.TrimRight(l, " \t") == closeLine }
 
 func noLineTerminator(s string) bool {
 	return !strings.ContainsFunc(s, isJSLineTerminator)
@@ -82,7 +82,7 @@ func jsonString(s string) string {
 	return strings.TrimSuffix(b.String(), "\n")
 }
 
-func ParseFields(lines []string) (map[string]string, []string, []string) {
+func parseFields(lines []string) (map[string]string, []string, []string) {
 	fields := map[string]string{}
 	var errs, unknown []string
 	i := 0
@@ -116,7 +116,7 @@ func ParseFields(lines []string) (map[string]string, []string, []string) {
 			errs = append(errs, fmt.Sprintf("duplicate key %q", key))
 			continue
 		}
-		if !knownKeys[key] && !IsExtensionKey(key) {
+		if !knownKeys[key] && !isExtensionKey(key) {
 			unknown = append(unknown, key)
 			errs = append(errs, fmt.Sprintf("unknown field %q (extension fields must start with \"x_\")", key))
 		}
@@ -125,7 +125,7 @@ func ParseFields(lines []string) (map[string]string, []string, []string) {
 		}
 		fields[key] = value
 	}
-	for _, k := range RequiredKeys {
+	for _, k := range requiredKeys {
 		if _, ok := fields[k]; !ok {
 			errs = append(errs, fmt.Sprintf("missing required field %q", k))
 		}
@@ -134,7 +134,7 @@ func ParseFields(lines []string) (map[string]string, []string, []string) {
 }
 
 func ParseDocument(input string) *ParsedDocument {
-	text := NormalizeNewlines(input)
+	text := normalizeNewlines(input)
 	lines := strings.Split(text, "\n")
 	offsets := make([]int, len(lines))
 	o := 0
@@ -159,7 +159,7 @@ func ParseDocument(input string) *ParsedDocument {
 		if j < 0 || !isOpen(lines[j]) {
 			break
 		}
-		fields, errs, unknown := ParseFields(lines[j+1 : i])
+		fields, errs, unknown := parseFields(lines[j+1 : i])
 		start := offsets[j]
 		end := offsets[i] + len(lines[i])
 		found = append(found, &ParsedBlock{Start: start, End: end, Line: j + 1, Raw: text[start:end], Fields: fields, Errors: errs, UnknownKeys: unknown})
@@ -195,14 +195,14 @@ func ParseDocument(input string) *ParsedDocument {
 	return &ParsedDocument{Text: text, Body: body, Chain: chain, StrayMarker: stray != 0, StrayMarkerLine: stray}
 }
 
-type FenceLine struct {
+type fenceLine struct {
 	Line          string
 	Index, Offset int
 	InFence       bool
 }
 
-func LinesWithFence(text string) []FenceLine {
-	var out []FenceLine
+func linesWithFence(text string) []fenceLine {
+	var out []fenceLine
 	fence := ""
 	offset := 0
 	for k, l := range strings.Split(text, "\n") {
@@ -215,7 +215,7 @@ func LinesWithFence(text string) []FenceLine {
 			}
 			inFence = true
 		}
-		out = append(out, FenceLine{Line: l, Index: k, Offset: offset, InFence: inFence})
+		out = append(out, fenceLine{Line: l, Index: k, Offset: offset, InFence: inFence})
 		offset += len(l) + 1
 	}
 	return out

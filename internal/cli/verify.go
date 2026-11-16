@@ -176,7 +176,7 @@ func runVerify(o *verifyOptions, files []string) error {
 		vo := &mdsig.VerifyOptions{
 			ResolveOptions: mdsig.ResolveOptions{
 				Offline: o.offline, TofuStore: store, AcceptNewTofuKey: o.acceptNewKey, HTTPClient: resolveClient,
-				PgpKeyring: keyring, PgpClient: fetchClient, Keyserver: o.keyserver,
+				PGPKeyring: keyring, PGPClient: fetchClient, Keyserver: o.keyserver,
 			},
 			ResourceCheckOptions: mdsig.ResourceCheckOptions{
 				LoadResource:   mdsig.DirResourceLoader(filepath.Dir(file)),
@@ -295,7 +295,7 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 		if s.Status != mdsig.StatusValid {
 			fmt.Fprintf(w, "      %s\n", describeFailure(s))
 		}
-		if s.Pgp != nil {
+		if s.PGP != nil {
 			printPgpHuman(w, s)
 		}
 		if s.Partial != nil {
@@ -383,7 +383,7 @@ func describeFailure(s *mdsig.BlockResult) string {
 
 // SPEC 6.2: the packet creation time is the signer's claim and is shown apart from ts and the TSA time
 func printPgpHuman(w io.Writer, s *mdsig.BlockResult) {
-	p := s.Pgp
+	p := s.PGP
 	line := "OpenPGP " + safeText(p.Fpr)
 	if p.UID != "" {
 		line += "  " + safeText(p.UID)

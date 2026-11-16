@@ -14,9 +14,9 @@ import (
 const (
 	// must match packages/core canonical.ts
 	SpecVersion   = "0.0.1"
-	PayloadDomain = "md-signature/v1"
-	OpenLine      = "<!-- md-signature"
-	CloseLine     = "-->"
+	payloadDomain = "md-signature/v1"
+	openLine      = "<!-- md-signature"
+	closeLine     = "-->"
 	foldWidth     = 76
 )
 
@@ -38,29 +38,29 @@ var knownKeys = func() map[string]bool {
 	return m
 }()
 
-func IsKnownKey(key string) bool { return knownKeys[key] }
+func isKnownKey(key string) bool { return knownKeys[key] }
 
-func IsExtensionKey(key string) bool { return strings.HasPrefix(key, "x_") }
+func isExtensionKey(key string) bool { return strings.HasPrefix(key, "x_") }
 
 var binaryKeys = map[string]bool{"sig": true, "tsa_token": true, "webauthn_authenticator_data": true, "webauthn_client_data": true}
 
-var TSRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
+var tsRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
 
 var keyRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-func NormalizeNewlines(text string) string {
+func normalizeNewlines(text string) string {
 	text = strings.TrimPrefix(text, bom)
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	return strings.ReplaceAll(text, "\r", "\n")
 }
 
-func NormalizeDocument(text string) string {
-	return strings.TrimRight(NormalizeNewlines(text), "\n \t") + "\n"
+func normalizeDocument(text string) string {
+	return strings.TrimRight(normalizeNewlines(text), "\n \t") + "\n"
 }
 
-func NormalizedHash(text string) string {
-	sum := sha256.Sum256([]byte(NormalizeDocument(text)))
-	return "sha256:" + ToHex(sum[:])
+func normalizedHash(text string) string {
+	sum := sha256.Sum256([]byte(normalizeDocument(text)))
+	return "sha256:" + toHex(sum[:])
 }
 
 func SignedPayload(fields map[string]string) []byte {
@@ -73,7 +73,7 @@ func SignedPayload(fields map[string]string) []byte {
 	// byte-wise, same as JS < for ASCII keys
 	sort.Strings(keys)
 	var b strings.Builder
-	b.WriteString(PayloadDomain)
+	b.WriteString(payloadDomain)
 	b.WriteString("\n")
 	for i, k := range keys {
 		if i > 0 {
@@ -93,7 +93,7 @@ func isForbiddenRune(r rune) bool {
 	return r <= 0x1f || (r >= 0x7f && r <= 0x9f) || r == 0x2028 || r == 0x2029 || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
 }
 
-func ValidateLine(value string) string {
+func validateLine(value string) string {
 	if value == "" {
 		return "value is empty"
 	}
@@ -113,7 +113,7 @@ func ValidateLine(value string) string {
 
 func ValidateValue(value string) string { return validateValue(value, false) }
 
-func ValidateValueMultiline(value string) string { return validateValue(value, true) }
+func validateValueMultiline(value string) string { return validateValue(value, true) }
 
 func validateValue(value string, allowMultiline bool) string {
 	if strings.Contains(value, "\n") {
@@ -121,16 +121,16 @@ func validateValue(value string, allowMultiline bool) string {
 			return msgControl
 		}
 		for _, line := range strings.Split(value, "\n") {
-			if e := ValidateLine(line); e != "" {
+			if e := validateLine(line); e != "" {
 				return e
 			}
 		}
 		return ""
 	}
-	return ValidateLine(value)
+	return validateLine(value)
 }
 
-func ValidateKey(key string) string {
+func validateKey(key string) string {
 	if keyRe.MatchString(key) {
 		return ""
 	}
@@ -165,14 +165,14 @@ func orderedKeys(fields map[string]string) []string {
 	return append(out, known[at:]...)
 }
 
-func SerializeBlock(fields map[string]string) (string, error) {
-	lines := []string{OpenLine}
+func serializeBlock(fields map[string]string) (string, error) {
+	lines := []string{openLine}
 	for _, k := range orderedKeys(fields) {
 		v := fields[k]
-		if e := ValidateKey(k); e != "" {
+		if e := validateKey(k); e != "" {
 			return "", errors.New(e)
 		}
-		if e := ValidateValueMultiline(v); e != "" {
+		if e := validateValueMultiline(v); e != "" {
 			return "", fmt.Errorf("%s: %s", k, e)
 		}
 		switch {
@@ -190,7 +190,7 @@ func SerializeBlock(fields map[string]string) (string, error) {
 			lines = append(lines, k+": "+v)
 		}
 	}
-	lines = append(lines, CloseLine)
+	lines = append(lines, closeLine)
 	return strings.Join(lines, "\n"), nil
 }
 
@@ -232,7 +232,7 @@ func chunkUTF16(s string, width int) []string {
 
 // must round-trip, so 2026-02-30 and 24:00:00 are rejected
 func IsValidTimestamp(s string) bool {
-	if !TSRe.MatchString(s) {
+	if !tsRe.MatchString(s) {
 		return false
 	}
 	t, err := time.Parse(tsLayout, s)

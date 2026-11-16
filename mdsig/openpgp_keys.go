@@ -64,7 +64,7 @@ func parseKeyPacket(tag int, body []byte) (*pgpKey, error) {
 	raw := encodePacket(tag, body)
 	p, err := packet.Read(bytes.NewReader(raw))
 	if err != nil {
-		return nil, &PgpError{Msg: err.Error()}
+		return nil, &PGPError{Msg: err.Error()}
 	}
 	k := &pgpKey{tag: tag}
 	switch v := p.(type) {
@@ -73,22 +73,22 @@ func parseKeyPacket(tag int, body []byte) (*pgpKey, error) {
 	case *packet.PublicKey:
 		k.pub = v
 	default:
-		return nil, &PgpError{Msg: "not a key packet"}
+		return nil, &PGPError{Msg: "not a key packet"}
 	}
 	if k.pub.Version != 4 && k.pub.Version != 6 {
-		return nil, &PgpError{Msg: fmt.Sprintf("unsupported key version %d", k.pub.Version)}
+		return nil, &PGPError{Msg: fmt.Sprintf("unsupported key version %d", k.pub.Version)}
 	}
 	// the fingerprint must be over the bytes that were read: go-crypto hashes its own re-encoding of the key
 	var canon bytes.Buffer
 	if err := k.pub.SerializeForHash(&canon); err != nil {
-		return nil, &PgpError{Msg: err.Error()}
+		return nil, &PGPError{Msg: err.Error()}
 	}
 	prefix := 3
 	if k.pub.Version == 6 {
 		prefix = 5
 	}
 	if canon.Len() < prefix || !bytes.HasPrefix(body, canon.Bytes()[prefix:]) {
-		return nil, &PgpError{Msg: "key packet is not in canonical form"}
+		return nil, &PGPError{Msg: "key packet is not in canonical form"}
 	}
 	k.version = k.pub.Version
 	k.created = k.pub.CreationTime.Unix()
@@ -101,7 +101,7 @@ func parseKeyPacket(tag int, body []byte) (*pgpKey, error) {
 
 func (k *pgpKey) hasSecret() bool { return k.priv != nil }
 
-func (k *pgpKey) fprHex() string { return strings.ToUpper(ToHex(k.fingerprint)) }
+func (k *pgpKey) fprHex() string { return strings.ToUpper(toHex(k.fingerprint)) }
 
 func (k *pgpKey) algName() string {
 	switch k.kind {
@@ -413,39 +413,39 @@ func keyFlagsOf(s *pgpSignature) (int, bool) {
 	return s.keyFlags()
 }
 
-type PgpPublicKeyInfo struct {
+type PGPPublicKeyInfo struct {
 	Fpr     string
 	KeyAlg  string
 	Version int
 	UIDs    []string
-	Subkeys []PgpSubkeyInfo
+	Subkeys []PGPSubkeyInfo
 }
 
-type PgpSubkeyInfo struct {
+type PGPSubkeyInfo struct {
 	Fpr    string
 	KeyAlg string
 }
 
-func ReadPgpPublicKey(input []byte, now time.Time) ([]PgpPublicKeyInfo, error) {
+func ReadPGPPublicKey(input []byte, now time.Time) ([]PGPPublicKeyInfo, error) {
 	certs, err := parseCerts(input)
 	if err != nil {
 		return nil, err
 	}
-	out := []PgpPublicKeyInfo{}
+	out := []PGPPublicKeyInfo{}
 	for _, c := range certs {
-		info := PgpPublicKeyInfo{Fpr: c.primary.fprHex(), KeyAlg: c.primary.algName(), Version: c.primary.version, UIDs: []string{}, Subkeys: []PgpSubkeyInfo{}}
+		info := PGPPublicKeyInfo{Fpr: c.primary.fprHex(), KeyAlg: c.primary.algName(), Version: c.primary.version, UIDs: []string{}, Subkeys: []PGPSubkeyInfo{}}
 		for _, u := range validUIDs(c, now.Unix()) {
 			info.UIDs = append(info.UIDs, u.uid)
 		}
 		for _, s := range c.subkeys {
-			info.Subkeys = append(info.Subkeys, PgpSubkeyInfo{Fpr: s.key.fprHex(), KeyAlg: s.key.algName()})
+			info.Subkeys = append(info.Subkeys, PGPSubkeyInfo{Fpr: s.key.fprHex(), KeyAlg: s.key.algName()})
 		}
 		out = append(out, info)
 	}
 	return out, nil
 }
 
-type PgpKeyInfo struct {
+type PGPKeyInfo struct {
 	Fpr        string
 	PrimaryFpr string
 	KeyAlg     string
@@ -453,8 +453,8 @@ type PgpKeyInfo struct {
 	Emails     []string
 }
 
-// CheckPgpKey applies the SPEC 4.3 rules (without the user ID condition) to the key fpr in a certificate.
-func CheckPgpKey(cert []byte, fpr string, now time.Time) (*PgpKeyInfo, error) {
+// CheckPGPKey applies the SPEC 4.3 rules (without the user ID condition) to the key fpr in a certificate.
+func CheckPGPKey(cert []byte, fpr string, now time.Time) (*PGPKeyInfo, error) {
 	certs, err := parseCerts(cert)
 	if err != nil {
 		return nil, err
@@ -472,7 +472,7 @@ func CheckPgpKey(cert []byte, fpr string, now time.Time) (*PgpKeyInfo, error) {
 		for _, u := range validUIDs(c, now.Unix()) {
 			uids = append(uids, u.uid)
 		}
-		return &PgpKeyInfo{Fpr: chk.key.fprHex(), PrimaryFpr: c.primary.fprHex(), KeyAlg: chk.key.algName(), UIDs: uids, Emails: chk.emails}, nil
+		return &PGPKeyInfo{Fpr: chk.key.fprHex(), PrimaryFpr: c.primary.fprHex(), KeyAlg: chk.key.algName(), UIDs: uids, Emails: chk.emails}, nil
 	}
-	return nil, &PgpError{Msg: msg}
+	return nil, &PGPError{Msg: msg}
 }

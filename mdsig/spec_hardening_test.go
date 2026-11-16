@@ -28,7 +28,7 @@ func TestTofuBindingStoredOnlyAfterVerification(t *testing.T) {
 }
 
 func TestTSATokenBounds(t *testing.T) {
-	bomb := CheckTSAToken("gzip+base64:"+ToBase64(Gzip(make([]byte, 8<<20))), make([]byte, 64))
+	bomb := CheckTSAToken("gzip+base64:"+toBase64(gzipBytes(make([]byte, 8<<20))), make([]byte, 64), nil)
 	if bomb.Status != TSAError || !strings.Contains(bomb.Detail, "larger than") {
 		t.Errorf("bomb: %+v", bomb)
 	}
@@ -36,7 +36,7 @@ func TestTSATokenBounds(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		deep[2*i], deep[2*i+1] = 0x30, byte(98-2*i)
 	}
-	nested := CheckTSAToken("base64:"+ToBase64(deep), make([]byte, 64))
+	nested := CheckTSAToken("base64:"+toBase64(deep), make([]byte, 64), nil)
 	if nested.Status != TSAError || !strings.Contains(nested.Detail, "nested too deeply") {
 		t.Errorf("nested: %+v", nested)
 	}
@@ -44,12 +44,12 @@ func TestTSATokenBounds(t *testing.T) {
 
 func TestGitHostingSignerHost(t *testing.T) {
 	for _, s := range []string{"127.0.0.1/a", "localhost/a", "2130706433/a", "[::1]/a", "github.com./a", "-x.com/a"} {
-		if IsValidGitHostingSigner(s) {
+		if isValidGitHostingSigner(s) {
 			t.Errorf("%q accepted", s)
 		}
 	}
 	for _, s := range []string{"github.com/alice", "git.example.co.jp/bob_1", "GitLab.com/x"} {
-		if !IsValidGitHostingSigner(s) {
+		if !isValidGitHostingSigner(s) {
 			t.Errorf("%q rejected", s)
 		}
 	}
@@ -57,11 +57,11 @@ func TestGitHostingSignerHost(t *testing.T) {
 
 func TestForbiddenRunesInValues(t *testing.T) {
 	for _, r := range []rune{0x1b, 0x7f, 0x9b, 0x2028, 0x2029, 0x202e, 0x2066} {
-		if ValidateLine("a"+string(r)+"b") == "" {
+		if validateLine("a"+string(r)+"b") == "" {
 			t.Errorf("U+%04X accepted", r)
 		}
 	}
-	if ValidateLine("日本語 ok") != "" {
+	if validateLine("日本語 ok") != "" {
 		t.Error("ordinary text rejected")
 	}
 }

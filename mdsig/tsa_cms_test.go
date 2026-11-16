@@ -43,7 +43,7 @@ func sslcomRoots(t *testing.T) *x509.CertPool {
 func exampleToken(t *testing.T) (token string, sig []byte) {
 	t.Helper()
 	b := ParseDocument(readExample(t, "valid-cosigned.md")).Chain[1]
-	sig, err := FromBase64(UnfoldBinary(b.Fields["sig"])[7:])
+	sig, err := fromBase64(UnfoldBinary(b.Fields["sig"])[7:])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +59,8 @@ func wantTSAError(t *testing.T, name string, c TSACheck, substr string) {
 
 func TestTSARealTokenVerifies(t *testing.T) {
 	token, sig := exampleToken(t)
-	c := CheckTSATokenWith(token, sig, &TSAVerifyOptions{Roots: sslcomRoots(t)})
-	if c.Status != TSAOk || !c.Verified || c.Signer != "SSL.com Timestamping Unit 2026 E1" || !TSRe.MatchString(c.GenTime) {
+	c := CheckTSAToken(token, sig, &TSAVerifyOptions{Roots: sslcomRoots(t)})
+	if c.Status != TSAOK || !c.Verified || c.Signer != "SSL.com Timestamping Unit 2026 E1" || !tsRe.MatchString(c.GenTime) {
 		t.Fatalf("%+v", c)
 	}
 	if c.Detail != "imprint matched; TSA signature verified (SSL.com Timestamping Unit 2026 E1)" {
@@ -71,11 +71,11 @@ func TestTSARealTokenVerifies(t *testing.T) {
 func TestTSARealTokenRejected(t *testing.T) {
 	token, sig := exampleToken(t)
 	roots := &TSAVerifyOptions{Roots: sslcomRoots(t)}
-	wantTSAError(t, "empty pool", CheckTSATokenWith(token, sig, &TSAVerifyOptions{Roots: x509.NewCertPool()}), "does not chain to a trusted root")
+	wantTSAError(t, "empty pool", CheckTSAToken(token, sig, &TSAVerifyOptions{Roots: x509.NewCertPool()}), "does not chain to a trusted root")
 
 	other := append([]byte{}, sig...)
 	other[0] ^= 1
-	if c := CheckTSATokenWith(token, other, roots); c.Status != TSAMismatch || c.GenTime != "" || c.Verified {
+	if c := CheckTSAToken(token, other, roots); c.Status != TSAMismatch || c.GenTime != "" || c.Verified {
 		t.Errorf("other imprint: %+v", c)
 	}
 
@@ -83,20 +83,20 @@ func TestTSARealTokenRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := ParseTimeStampResp(raw)
+	info, err := parseTimeStampResp(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	at := bytes.Index(raw, info.eContent)
-	serial, _ := FromHex(info.Serial)
+	serial, _ := fromHex(info.Serial)
 	inSerial := at + bytes.Index(info.eContent, serial) + len(serial) - 1
 	mutate := func(i int) string {
 		b := append([]byte{}, raw...)
 		b[i] ^= 0x01
-		return "base64:" + ToBase64(b)
+		return "base64:" + toBase64(b)
 	}
-	wantTSAError(t, "eContent byte", CheckTSATokenWith(mutate(inSerial), sig, roots), "message-digest does not match")
-	wantTSAError(t, "signature byte", CheckTSATokenWith(mutate(len(raw)-1), sig, roots), "signature does not verify")
+	wantTSAError(t, "eContent byte", CheckTSAToken(mutate(inSerial), sig, roots), "message-digest does not match")
+	wantTSAError(t, "signature byte", CheckTSAToken(mutate(len(raw)-1), sig, roots), "signature does not verify")
 }
 
 // --- a TSA built in the test
@@ -263,7 +263,7 @@ func (ts *testTSA) response(t *testing.T, imprint []byte, spec tokenSpec) []byte
 func (ts *testTSA) check(t *testing.T, sig []byte, spec tokenSpec, o *TSAVerifyOptions) TSACheck {
 	t.Helper()
 	sum := sha256.Sum256(sig)
-	return CheckTSATokenWith("base64:"+ToBase64(ts.response(t, sum[:], spec)), sig, o)
+	return CheckTSAToken("base64:"+toBase64(ts.response(t, sum[:], spec)), sig, o)
 }
 
 var timeStamping = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
@@ -274,7 +274,7 @@ func TestTSASyntheticTokens(t *testing.T) {
 	trusted := &TSAVerifyOptions{Roots: ec.roots}
 
 	ok := ec.check(t, sig, tokenSpec{}, trusted)
-	if ok.Status != TSAOk || !ok.Verified || ok.Signer != "Test TSA Unit" || ok.GenTime != "2026-06-01T12:00:00Z" {
+	if ok.Status != TSAOK || !ok.Verified || ok.Signer != "Test TSA Unit" || ok.GenTime != "2026-06-01T12:00:00Z" {
 		t.Fatalf("ecdsa: %+v", ok)
 	}
 
@@ -289,7 +289,7 @@ func TestTSASyntheticTokens(t *testing.T) {
 	wantTSAError(t, "status rejection", ec.check(t, sig, tokenSpec{status: 2}, trusted), "not granted")
 
 	skip := ec.check(t, sig, tokenSpec{}, &TSAVerifyOptions{Roots: x509.NewCertPool(), skipChain: true})
-	if skip.Status != TSAOk || !skip.Verified {
+	if skip.Status != TSAOK || !skip.Verified {
 		t.Errorf("skipChain: %+v", skip)
 	}
 
@@ -300,7 +300,7 @@ func TestTSASyntheticTokens(t *testing.T) {
 
 	rs := newTestTSA(t, timeStamping, true)
 	for name, spec := range map[string]tokenSpec{"rsa pkcs1": {}, "rsa pss": {pss: true}} {
-		if c := rs.check(t, sig, spec, &TSAVerifyOptions{Roots: rs.roots}); c.Status != TSAOk || !c.Verified {
+		if c := rs.check(t, sig, spec, &TSAVerifyOptions{Roots: rs.roots}); c.Status != TSAOK || !c.Verified {
 			t.Errorf("%s: %+v", name, c)
 		}
 	}
@@ -315,12 +315,12 @@ func TestTSASyntheticTamper(t *testing.T) {
 	flip := func(i int) TSACheck {
 		b := append([]byte{}, resp...)
 		b[i] ^= 0x01
-		return CheckTSATokenWith("base64:"+ToBase64(b), sig, trusted)
+		return CheckTSAToken("base64:"+toBase64(b), sig, trusted)
 	}
 	wantTSAError(t, "genTime digit", flip(bytes.Index(resp, []byte("20260601120000Z"))+13), "message-digest does not match")
 	wantTSAError(t, "signature", flip(len(resp)-1), "")
 	other := newTestTSA(t, timeStamping, false)
-	wantTSAError(t, "signed by another TSA with the same names", CheckTSATokenWith("base64:"+ToBase64(other.response(t, sum[:], tokenSpec{})), sig, trusted), "does not chain to a trusted root")
+	wantTSAError(t, "signed by another TSA with the same names", CheckTSAToken("base64:"+toBase64(other.response(t, sum[:], tokenSpec{})), sig, trusted), "does not chain to a trusted root")
 }
 
 // --- generator
@@ -346,11 +346,11 @@ func TestRequestTimestampVerifiesResponse(t *testing.T) {
 	ctx := context.Background()
 	echo := func(sent []byte) []byte { return sent }
 
-	tok, err := RequestTimestampWith(ctx, sig, tsaServer(t, ts, echo).URL, nil, trusted)
+	tok, err := RequestTimestamp(ctx, sig, tsaServer(t, ts, echo).URL, nil, trusted)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := CheckTSATokenWith(tok, sig, trusted); c.Status != TSAOk || !c.Verified {
+	if c := CheckTSAToken(tok, sig, trusted); c.Status != TSAOK || !c.Verified {
 		t.Fatalf("round trip: %+v", c)
 	}
 
@@ -364,7 +364,7 @@ func TestRequestTimestampVerifiesResponse(t *testing.T) {
 		"no nonce":      {func([]byte) []byte { return nil }, trusted, "nonce does not match"},
 	}
 	for name, c := range cases {
-		if _, err := RequestTimestampWith(ctx, sig, tsaServer(t, ts, c.nonce).URL, nil, c.opts); err == nil || !strings.Contains(err.Error(), c.want) {
+		if _, err := RequestTimestamp(ctx, sig, tsaServer(t, ts, c.nonce).URL, nil, c.opts); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
@@ -376,7 +376,7 @@ func TestTSAExtraRoots(t *testing.T) {
 	other := newTestTSA(t, timeStamping, false)
 
 	added := ec.check(t, sig, tokenSpec{}, &TSAVerifyOptions{Roots: other.roots, ExtraRoots: []*x509.Certificate{ec.caCert}})
-	if added.Status != TSAOk || !added.Verified {
+	if added.Status != TSAOK || !added.Verified {
 		t.Fatalf("extra root not used: %+v", added)
 	}
 	wantTSAError(t, "caller's pool unchanged", ec.check(t, sig, tokenSpec{}, &TSAVerifyOptions{Roots: other.roots}), "does not chain to a trusted root")

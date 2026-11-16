@@ -219,7 +219,7 @@ func (s *gpgSigner) Sign(payload []byte) ([]byte, error) {
 			sig = blocks[0]
 		}
 	}
-	if chk := mdsig.CheckPgpSignaturePacket(sig, s.fpr); !chk.OK {
+	if chk := mdsig.CheckPGPSignaturePacket(sig, s.fpr); !chk.OK {
 		return nil, &mdsig.ValueError{Msg: i18n.T("sign.gpg_bad_output", chk.Message, s.fpr)}
 	}
 	return sig, nil
@@ -231,7 +231,7 @@ type pgpKeyChoice struct {
 	fpr    string
 	keyAlg string
 	emails []string
-	file   *mdsig.PgpSecretKeyInfo
+	file   *mdsig.PGPSecretKeyInfo
 }
 
 func loadPgpKey(ctx context.Context, o *signOptions, now time.Time) (*pgpKeyChoice, error) {
@@ -240,7 +240,7 @@ func loadPgpKey(ctx context.Context, o *signOptions, now time.Time) (*pgpKeyChoi
 		if err != nil {
 			return nil, exitf(exitIO, "%v", err)
 		}
-		info, err := mdsig.ReadPgpSecretKey(data, now)
+		info, err := mdsig.ReadPGPSecretKey(data, now)
 		if err != nil {
 			return nil, exitf(exitIO, "%s: %v", o.pgpKey, err)
 		}
@@ -280,7 +280,7 @@ func loadPgpKey(ctx context.Context, o *signOptions, now time.Time) (*pgpKeyChoi
 	if err != nil || len(cert) == 0 {
 		return nil, exitf(exitUsage, "%s", i18n.T("sign.gpg_export_failed", key.fpr, err))
 	}
-	info, err := mdsig.CheckPgpKey(cert, fpr, now)
+	info, err := mdsig.CheckPGPKey(cert, fpr, now)
 	if err != nil {
 		return nil, exitf(exitUsage, "%s: %v", fpr, err)
 	}
@@ -301,7 +301,7 @@ func pgpPassphrase(path string) ([]byte, error) {
 }
 
 // returns the signer and a function that drops the secret key material
-func (c *pgpKeyChoice) signer(o *signOptions) (mdsig.PgpSigner, func(), error) {
+func (c *pgpKeyChoice) signer(o *signOptions) (mdsig.PGPSigner, func(), error) {
 	if c.file == nil {
 		return &gpgSigner{fpr: c.fpr, localUser: o.localUser, emails: c.emails}, func() {}, nil
 	}
@@ -316,7 +316,7 @@ func (c *pgpKeyChoice) signer(o *signOptions) (mdsig.PgpSigner, func(), error) {
 		}
 		pass = p
 	}
-	s, err := mdsig.UnlockPgpSecretKey(c.file, pass, mdsig.PgpUnlockOptions{})
+	s, err := mdsig.UnlockPGPSecretKey(c.file, pass, mdsig.PGPUnlockOptions{})
 	clear(pass)
 	if err != nil {
 		return nil, nil, exitf(exitIO, "%s: %v", o.pgpKey, err)

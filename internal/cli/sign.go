@@ -140,7 +140,7 @@ func runSign(o *signOptions, file string) error {
 	}
 
 	var signer mdsig.Signer
-	var pgpSigner mdsig.PgpSigner
+	var pgpSigner mdsig.PGPSigner
 	if isPgp {
 		key, err := loadPgpKey(ctx, o, time.Now())
 		if err != nil {
@@ -162,7 +162,7 @@ func runSign(o *signOptions, file string) error {
 	}
 
 	res, err := mdsig.SignDocument(ctx, text, mdsig.SignOptions{
-		Signer: signer, Pgp: pgpSigner, Method: o.method, SignerID: o.signer, Selector: o.selector,
+		Signer: signer, PGP: pgpSigner, Method: o.method, SignerID: o.signer, Selector: o.selector,
 		Role: o.role, Reason: o.reason, TSAURL: o.tsa, TSA: mdsig.TSAVerifyOptions{ExtraRoots: tsaRoots}, Force: o.force,
 		Scope: ext.scope, Require: o.require, Expires: ext.expires, RevocationURL: o.revocationURL, Resources: items,
 		HTTPClient: httpClientWithTimeout(30 * time.Second),

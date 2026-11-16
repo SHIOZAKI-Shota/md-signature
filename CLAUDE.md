@@ -103,6 +103,15 @@ The user asked to move hand-written crypto to libraries where a library can do t
 - **TS X.509/CMS**: kept. pkijs accepted 11 of the 24 forged tokens in `test/tsa.test.ts` and failed a real DigiCert token.
 - **TS OpenPGP**: kept. OpenPGP.js agrees with our code on the vectors but is LGPL-3.0+, which would put LGPL code in an MIT package and in `docs/vendor/core`. Using it as a dev-only oracle for differential tests has no licence problem and is an open item.
 
+## Go public API (2026-11-17)
+
+`mdsig` exports 127 identifiers (195 before the cleanup). The rule: export what `internal/cli`, `mdsig/server` or a library user needs; everything else is unexported, because adding an export later is compatible and removing one is not.
+
+- Exported: signing and verifying (`SignDocument`, `VerifyDocument`, their options and results, status/code constants), extension points (`Resolver`, `TofuStore`, `ResourceLoader`, `SafeHTTPClient`, `TSAVerifyOptions`, `LoadTSARoots`, `DefaultResolvers`), signers, document inspection (`ParseDocument`, `ComputeBlockHash`, `SignedPayload`, `RevocationID`, scope/require helpers), key helpers the CLI uses, the JSON shape (`ToJSON`), and building blocks for custom resolvers (`DNSName`, `DNSKeysFromRecords`, `GitHostingKeysFromText`).
+- Unexported: encoding helpers (use `encoding/base64` and `encoding/hex`), normalisation and serialisation internals, DER/CMS/TimeStampReq, WebAuthn encoding helpers, the individual resolvers, the fence scanner, regex variables.
+- Naming: initialisms are upper case (`PGPSigner`, `ResolveOptions.PGPClient`, `TSAOK`). One function per job with an optional options pointer (`CheckTSAToken(token, sig, nil)`, `RequestTimestamp(ctx, sig, url, client, nil)`), no `…With` variants.
+- No exported function, method or field mentions an unexported type, and the only exported variable is the sentinel `ErrForbiddenAddress`.
+
 ## Open items / next steps
 
 - npm wrapper package `mdsig` (JS CLI with `@clack/prompts`), or npm distribution of the Go binary.

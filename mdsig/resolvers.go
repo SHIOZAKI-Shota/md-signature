@@ -70,10 +70,10 @@ type ResolveOptions struct {
 	TofuStore    TofuStore
 	// SPEC 4.4: replace a stored binding instead of failing with key-changed
 	AcceptNewTofuKey bool
-	// PgpKeyring returns the local certificate for fpr, or nil when the keyring has none
-	PgpKeyring func(ctx context.Context, fpr string) ([]byte, error)
-	// PgpClient fetches WKD and keyserver URLs; nil means SafeHTTPClient
-	PgpClient *http.Client
+	// PGPKeyring returns the local certificate for fpr, or nil when the keyring has none
+	PGPKeyring func(ctx context.Context, fpr string) ([]byte, error)
+	// PGPClient fetches WKD and keyserver URLs; nil means SafeHTTPClient
+	PGPClient *http.Client
 	// SPEC 4.3: chosen by the verifier, never taken from the block; empty means DefaultKeyserver
 	Keyserver string
 }
@@ -88,14 +88,14 @@ func (f ResolverFunc) Resolve(ctx context.Context, fields map[string]string, opt
 	return f(ctx, fields, opts)
 }
 
-var DefaultDoH = []string{"https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"}
+var defaultDoH = []string{"https://cloudflare-dns.com/dns-query", "https://dns.google/resolve"}
 
 func DefaultResolvers() map[string]Resolver {
 	return map[string]Resolver{
-		"dns":         ResolverFunc(ResolveDNS),
-		"git-hosting": ResolverFunc(ResolveGitHosting),
-		"tofu":        ResolverFunc(ResolveTofu),
-		"pgp":         ResolverFunc(ResolvePgp),
+		"dns":         ResolverFunc(resolveDNS),
+		"git-hosting": ResolverFunc(resolveGitHosting),
+		"tofu":        ResolverFunc(resolveTofu),
+		"pgp":         ResolverFunc(resolvePGP),
 	}
 }
 
@@ -106,7 +106,7 @@ func algOf(f map[string]string) string {
 	return "ed25519"
 }
 
-func KeyTypeFor(alg string) string {
+func keyTypeFor(alg string) string {
 	switch alg {
 	case "ed25519":
 		return "ed25519"
@@ -119,19 +119,19 @@ func KeyTypeFor(alg string) string {
 }
 
 func keyTypeOf(f map[string]string) string {
-	if k := KeyTypeFor(algOf(f)); k != "" {
+	if k := keyTypeFor(algOf(f)); k != "" {
 		return k
 	}
 	return algOf(f)
 }
 
 // as in the TS core, an es256 point is only checked when the key is used
-func DecodePublicKey(keyType string, b []byte) ([]byte, error) {
+func decodePublicKey(keyType string, b []byte) ([]byte, error) {
 	switch keyType {
 	case "ed25519":
-		return RawEd25519PublicKey(b)
+		return rawEd25519PublicKey(b)
 	case "es256":
-		return ES256SPKI(b)
+		return es256SPKI(b)
 	}
 	return nil, fmt.Errorf("unsupported key type %q", keyType)
 }
@@ -143,7 +143,7 @@ func httpClient(o *ResolveOptions) *http.Client {
 	return SafeHTTPClient(15 * time.Second)
 }
 
-func ParseDNSRecord(txt string) (k, p string, ok bool) {
+func parseDNSRecord(txt string) (k, p string, ok bool) {
 	tags := map[string]string{}
 	for _, part := range strings.Split(txt, ";") {
 		i := strings.IndexByte(part, '=')
@@ -170,7 +170,7 @@ func DNSName(fields map[string]string) string {
 	return "_mdsig." + domain
 }
 
-func JoinTXT(data string) string {
+func joinTXT(data string) string {
 	re := regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`)
 	parts := re.FindAllStringSubmatch(data, -1)
 	if parts == nil {
@@ -184,7 +184,7 @@ func JoinTXT(data string) string {
 	return b.String()
 }
 
-func LookupTXT(ctx context.Context, name string, o *ResolveOptions) ([]string, error) {
+func lookupTXT(ctx context.Context, name string, o *ResolveOptions) ([]string, error) {
 	lookup := o.LookupTXT
 	if lookup == nil {
 		lookup = net.DefaultResolver.LookupTXT
@@ -201,7 +201,7 @@ func LookupTXT(ctx context.Context, name string, o *ResolveOptions) ([]string, e
 	sysErr := err
 	eps := o.DoHEndpoints
 	if eps == nil {
-		eps = DefaultDoH
+		eps = defaultDoH
 	}
 	lastErr := sysErr
 	for _, ep := range eps {
@@ -247,18 +247,18 @@ func dohTXT(ctx context.Context, ep, name string, o *ResolveOptions) ([]string, 
 	var out []string
 	for _, a := range j.Answer {
 		if a.Type == 16 {
-			out = append(out, JoinTXT(a.Data))
+			out = append(out, joinTXT(a.Data))
 		}
 	}
 	return out, nil
 }
 
-func ResolveDNS(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
+func resolveDNS(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
 	if o.Offline {
 		return ResolveResult{}, resErr(KindOffline, "offline mode")
 	}
 	name := DNSName(fields)
-	records, err := LookupTXT(ctx, name, o)
+	records, err := lookupTXT(ctx, name, o)
 	if err != nil {
 		return ResolveResult{}, err
 	}
@@ -269,15 +269,15 @@ func DNSKeysFromRecords(fields map[string]string, name string, records []string)
 	var keys []CandidateKey
 	kt := keyTypeOf(fields)
 	for _, r := range records {
-		k, p, ok := ParseDNSRecord(r)
+		k, p, ok := parseDNSRecord(r)
 		if !ok || k != kt {
 			continue
 		}
-		b, err := FromBase64(p)
+		b, err := fromBase64(p)
 		if err != nil {
 			continue
 		}
-		key, err := DecodePublicKey(k, b)
+		key, err := decodePublicKey(k, b)
 		if err != nil {
 			continue
 		}
@@ -289,15 +289,15 @@ func DNSKeysFromRecords(fields map[string]string, name string, records []string)
 	return ResolveResult{Keys: keys, Warnings: []string{"key resolved from current DNS; it may differ from the key at signing time"}}, nil
 }
 
-func KeysURL(signer string) string { return "https://" + signer + ".keys" }
+func keysURL(signer string) string { return "https://" + signer + ".keys" }
 
 // SPEC 4.2: the host is a domain name of two or more labels, never an IP address
 var gitSignerRe = regexp.MustCompile(`(?i)^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?/[A-Za-z0-9._-]+$`)
 
-func IsValidGitHostingSigner(s string) bool { return gitSignerRe.MatchString(s) }
+func isValidGitHostingSigner(s string) bool { return gitSignerRe.MatchString(s) }
 
 func FetchKeysFile(ctx context.Context, signer string, o *ResolveOptions) (string, error) {
-	u := KeysURL(signer)
+	u := keysURL(signer)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return "", resErr(KindNetwork, "fetching %s failed: %v", u, err)
@@ -320,7 +320,7 @@ func FetchKeysFile(ctx context.Context, signer string, o *ResolveOptions) (strin
 	return string(b), nil
 }
 
-func ResolveGitHosting(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
+func resolveGitHosting(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
 	if o.Offline {
 		return ResolveResult{}, resErr(KindOffline, "offline mode")
 	}
@@ -332,7 +332,7 @@ func ResolveGitHosting(ctx context.Context, fields map[string]string, o *Resolve
 	if err != nil {
 		return ResolveResult{}, err
 	}
-	return GitHostingKeysFromText(fields, KeysURL(signer), text)
+	return GitHostingKeysFromText(fields, keysURL(signer), text)
 }
 
 func GitHostingKeysFromText(fields map[string]string, source, text string) (ResolveResult, error) {
@@ -360,7 +360,7 @@ func GitHostingKeysFromText(fields map[string]string, source, text string) (Reso
 	return ResolveResult{Keys: keys, Warnings: []string{"key list reflects the account's current keys, not the keys at signing time"}}, nil
 }
 
-func ResolveTofu(_ context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
+func resolveTofu(_ context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
 	pk, ok := fields["pubkey"]
 	if !ok || pk == "" {
 		return ResolveResult{}, resErr(KindNotFound, `tofu block has no "pubkey"`)
@@ -375,11 +375,11 @@ func ResolveTofu(_ context.Context, fields map[string]string, o *ResolveOptions)
 	if i < 0 || kalg != keyTypeOf(fields) {
 		return ResolveResult{}, resErr(KindMalformed, "pubkey key type %s does not match alg %s", jsonString(kalg), jsonString(algOf(fields)))
 	}
-	b, err := FromBase64(pk[i+1:])
+	b, err := fromBase64(pk[i+1:])
 	if err != nil {
 		return ResolveResult{}, resErr(KindMalformed, "invalid pubkey: %v", err)
 	}
-	key, err := DecodePublicKey(kalg, b)
+	key, err := decodePublicKey(kalg, b)
 	if err != nil {
 		return ResolveResult{}, resErr(KindMalformed, "invalid pubkey: %v", err)
 	}
@@ -388,16 +388,16 @@ func ResolveTofu(_ context.Context, fields map[string]string, o *ResolveOptions)
 }
 
 // SPEC 4.3: keyring, then WKD, then the keyserver; candidate "keys" are whole certificates
-func ResolvePgp(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
+func resolvePGP(ctx context.Context, fields map[string]string, o *ResolveOptions) (ResolveResult, error) {
 	fpr := fields["fpr"]
 	if o.Keyserver != "" && !IsValidRevocationURL(o.Keyserver) {
 		return ResolveResult{}, resErr(KindUnsupported, "keyserver must be an https:// URL")
 	}
 	r := lookupPgpKey(ctx, fpr, fields["signer"], o.Keyserver, o)
-	tried := DescribeAttempts(r.attempts)
+	tried := describeAttempts(r.attempts)
 	if r.cert == nil {
 		kind := KindNotFound
-		if slices.ContainsFunc(r.attempts, func(a PgpAttempt) bool { return a.Result == "error" }) {
+		if slices.ContainsFunc(r.attempts, func(a pgpAttempt) bool { return a.Result == "error" }) {
 			kind = KindNetwork
 			if o.Offline {
 				kind = KindOffline

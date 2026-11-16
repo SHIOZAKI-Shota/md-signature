@@ -94,7 +94,7 @@ func (d *der) child(i int) *der {
 	return d.children[i]
 }
 
-type TSTInfo struct {
+type tstInfo struct {
 	Status  int
 	HashOID string
 	Imprint []byte
@@ -134,7 +134,7 @@ func parseGeneralizedTime(s string) (string, error) {
 	return fmt.Sprintf("%s-%s-%sT%s:%s:%s%sZ", m[1], m[2], m[3], m[4], m[5], m[6], m[7]), nil
 }
 
-func ParseTimeStampResp(b []byte) (*TSTInfo, error) {
+func parseTimeStampResp(b []byte) (*tstInfo, error) {
 	root, _, err := parseDer(b, 0)
 	if err != nil {
 		return nil, err
@@ -179,11 +179,11 @@ func ParseTimeStampResp(b []byte) (*TSTInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := &TSTInfo{
+	info := &tstInfo{
 		Status:   status,
 		GenTime:  genTime,
 		Policy:   oidToString(policy.content),
-		Serial:   ToHex(serial.content),
+		Serial:   toHex(serial.content),
 		token:    token.raw,
 		eContent: octets.content,
 	}
@@ -204,7 +204,7 @@ func ParseTimeStampResp(b []byte) (*TSTInfo, error) {
 }
 
 const (
-	TSAOk       = "ok"
+	TSAOK       = "ok"
 	TSAMismatch = "mismatch"
 	TSAError    = "error"
 )
@@ -218,11 +218,8 @@ type TSACheck struct {
 	Signer   string
 }
 
-func CheckTSAToken(tsaToken string, sigBytes []byte) TSACheck {
-	return CheckTSATokenWith(tsaToken, sigBytes, nil)
-}
-
-func CheckTSATokenWith(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TSACheck {
+// CheckTSAToken verifies a tsa_token against the signature bytes it should cover; o may be nil
+func CheckTSAToken(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TSACheck {
 	b, err := DecodePrefixedBinary(tsaToken)
 	if err != nil {
 		return TSACheck{Status: TSAError, Detail: err.Error()}
@@ -239,7 +236,7 @@ func CheckTSATokenWith(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TS
 		return TSACheck{Status: TSAError, Detail: err.Error()}
 	}
 	signer := certDisplayName(cert)
-	return TSACheck{Status: TSAOk, GenTime: info.GenTime, Verified: true, Signer: signer, Detail: "imprint matched; TSA signature verified (" + signer + ")"}
+	return TSACheck{Status: TSAOK, GenTime: info.GenTime, Verified: true, Signer: signer, Detail: "imprint matched; TSA signature verified (" + signer + ")"}
 }
 
 type tsaImprintError struct{}
@@ -247,8 +244,8 @@ type tsaImprintError struct{}
 func (*tsaImprintError) Error() string { return "TSA token is for a different imprint" }
 
 // info is non-nil once the imprint matched, also when the CMS check then fails
-func verifyTimeStampResp(resp, imprint []byte, o *TSAVerifyOptions) (*TSTInfo, *x509.Certificate, error) {
-	info, err := ParseTimeStampResp(resp)
+func verifyTimeStampResp(resp, imprint []byte, o *TSAVerifyOptions) (*tstInfo, *x509.Certificate, error) {
+	info, err := parseTimeStampResp(resp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -291,7 +288,7 @@ type timeStampReq struct {
 	CertReq        bool
 }
 
-func BuildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
+func buildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
 	if nonce == nil {
 		nonce = make([]byte, 8)
 		if _, err := rand.Read(nonce); err != nil {
@@ -308,11 +305,8 @@ func BuildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
 	return asn1.Marshal(r)
 }
 
-func RequestTimestamp(ctx context.Context, sigBytes []byte, tsaURL string, client *http.Client) (string, error) {
-	return RequestTimestampWith(ctx, sigBytes, tsaURL, client, nil)
-}
-
-func RequestTimestampWith(ctx context.Context, sigBytes []byte, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
+// RequestTimestamp asks a TSA for a token over the signature bytes and verifies the response; client and o may be nil
+func RequestTimestamp(ctx context.Context, sigBytes []byte, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
 	if tsaURL == "" {
 		tsaURL = DefaultTSAURL
 	}
@@ -321,7 +315,7 @@ func RequestTimestampWith(ctx context.Context, sigBytes []byte, tsaURL string, c
 	if _, err := rand.Read(nonce); err != nil {
 		return "", err
 	}
-	reqDer, err := BuildTimeStampReq(sum[:], nonce)
+	reqDer, err := buildTimeStampReq(sum[:], nonce)
 	if err != nil {
 		return "", err
 	}
@@ -357,5 +351,5 @@ func RequestTimestampWith(ctx context.Context, sigBytes []byte, tsaURL string, c
 	if len(info.Nonce) == 0 || new(big.Int).SetBytes(info.Nonce).Cmp(new(big.Int).SetBytes(nonce)) != 0 || info.Nonce[0]&0x80 != 0 {
 		return "", errors.New("TSA response rejected: nonce does not match the request")
 	}
-	return "gzip+base64:" + ToBase64(Gzip(body)), nil
+	return "gzip+base64:" + toBase64(gzipBytes(body)), nil
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -195,7 +196,7 @@ func runRevoke(o *revokeOptions, file string) error {
 	pub := signer.PublicKey()
 	// SPEC 5.9: tofu lists are trusted only with the same pubkey, git-hosting/dns by method + signer
 	for _, f := range keyHints {
-		if o.method == "tofu" && f["pubkey"] != "ed25519:"+mdsig.ToBase64(pub) {
+		if o.method == "tofu" && f["pubkey"] != "ed25519:"+base64.StdEncoding.EncodeToString(pub) {
 			return exitf(exitUsage, "%s", i18n.T("revoke.tofu_key_mismatch", f["pubkey"]))
 		}
 	}
@@ -236,7 +237,7 @@ func signPgpRevocation(o *revokeOptions, so *signOptions, key *pgpKeyChoice, fil
 		return err
 	}
 	defer dispose()
-	res, err := mdsig.SignDocument(context.Background(), body, mdsig.SignOptions{Pgp: ps, Method: "pgp", SignerID: o.signer})
+	res, err := mdsig.SignDocument(context.Background(), body, mdsig.SignOptions{PGP: ps, Method: "pgp", SignerID: o.signer})
 	if err != nil {
 		var ve *mdsig.ValueError
 		var se *mdsig.SignError

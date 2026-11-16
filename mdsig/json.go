@@ -20,7 +20,7 @@ type JSONWebAuthn struct {
 	UserVerified bool   `json:"user_verified"`
 }
 
-type JSONPgp struct {
+type JSONPGP struct {
 	Fpr       string  `json:"fpr"`
 	UID       *string `json:"uid"`
 	KeyAlg    *string `json:"key_alg"`
@@ -50,7 +50,7 @@ type JSONSignature struct {
 	Partial    *JSONPartial      `json:"partial"`
 	KeySource  *string           `json:"key_source"`
 	WebAuthn   *JSONWebAuthn     `json:"webauthn"`
-	Pgp        *JSONPgp          `json:"pgp"`
+	PGP        *JSONPGP          `json:"pgp"`
 	Resources  []JSONResource    `json:"resources"`
 	Revocation *JSONRevocation   `json:"revocation"`
 	TSA        *JSONTSA          `json:"tsa"`
@@ -116,8 +116,8 @@ func toJSONSignature(s *BlockResult) JSONSignature {
 	if s.WebAuthn != nil {
 		js.WebAuthn = &JSONWebAuthn{RPID: s.WebAuthn.RPID, Origin: s.WebAuthn.Origin, UserVerified: s.WebAuthn.UserVerified}
 	}
-	if s.Pgp != nil {
-		js.Pgp = &JSONPgp{Fpr: s.Pgp.Fpr, UID: strPtr(s.Pgp.UID), KeyAlg: strPtr(s.Pgp.KeyAlg), KeySource: strPtr(s.Pgp.KeySource), Created: strPtr(s.Pgp.Created)}
+	if s.PGP != nil {
+		js.PGP = &JSONPGP{Fpr: s.PGP.Fpr, UID: strPtr(s.PGP.UID), KeyAlg: strPtr(s.PGP.KeyAlg), KeySource: strPtr(s.PGP.KeySource), Created: strPtr(s.PGP.Created)}
 	}
 	if s.Resources != nil {
 		js.Resources = []JSONResource{}

@@ -53,14 +53,14 @@ func ParseRequire(value string, declaredBy int) ([]Requirement, []string) {
 func jsNonSpace(s string) bool { return !strings.ContainsFunc(s, isJSSpace) }
 
 // SPEC 5.8/5.9: dns signers compare case-insensitively, ignoring a trailing dot
-func SameSigner(method, a, b string) bool {
+func sameSigner(method, a, b string) bool {
 	if method == "dns" {
 		return strings.TrimSuffix(strings.ToLower(a), ".") == strings.TrimSuffix(strings.ToLower(b), ".")
 	}
 	return a == b
 }
 
-type AgreementBlock struct {
+type agreementBlock struct {
 	Index    int
 	Valid    bool
 	Declares bool
@@ -68,7 +68,7 @@ type AgreementBlock struct {
 }
 
 // SPEC 5.8: unresolved blocks still declare requirements but only valid blocks satisfy them
-func EvaluateAgreement(blocks []AgreementBlock) Agreement {
+func evaluateAgreement(blocks []agreementBlock) Agreement {
 	required := []Requirement{}
 	for _, b := range blocks {
 		if !b.Declares || b.Fields["require"] == "" {
@@ -85,7 +85,7 @@ func EvaluateAgreement(blocks []AgreementBlock) Agreement {
 		satisfied := false
 		for _, b := range blocks {
 			// SPEC 5.8: a block with scope does not cover the declaring block, so it never satisfies
-			if _, scoped := b.Fields["scope"]; !scoped && b.Valid && b.Index > r.DeclaredBy && b.Fields["method"] == r.Method && SameSigner(r.Method, b.Fields["signer"], r.Signer) && (r.Role == "" || b.Fields["role"] == r.Role) {
+			if _, scoped := b.Fields["scope"]; !scoped && b.Valid && b.Index > r.DeclaredBy && b.Fields["method"] == r.Method && sameSigner(r.Method, b.Fields["signer"], r.Signer) && (r.Role == "" || b.Fields["role"] == r.Role) {
 				satisfied = true
 				break
 			}

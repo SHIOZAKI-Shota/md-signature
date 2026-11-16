@@ -201,7 +201,7 @@ func TestTSAEndpoint(t *testing.T) {
 		return out
 	}
 	ok := post(NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: roots}}), sig)
-	if ok.Status != mdsig.TSAOk || !ok.Verified || ok.GenTime == nil || ok.Signer == nil {
+	if ok.Status != mdsig.TSAOK || !ok.Verified || ok.GenTime == nil || ok.Signer == nil {
 		t.Errorf("trusted root: %+v", ok)
 	}
 	if none := post(NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: x509.NewCertPool()}}), sig); none.Verified || none.GenTime != nil {

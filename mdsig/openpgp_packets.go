@@ -18,16 +18,16 @@ const (
 	pgpTagUserAttribute = 17
 )
 
-type PgpError struct{ Msg string }
+type PGPError struct{ Msg string }
 
-func (e *PgpError) Error() string { return e.Msg }
+func (e *PGPError) Error() string { return e.Msg }
 
-func pgpFail(msg string) { panic(&PgpError{Msg: msg}) }
+func pgpFail(msg string) { panic(&PGPError{Msg: msg}) }
 
 // parsers below panic with *PgpError like the TS core throws; catchPgp turns that back into an error
 func catchPgp(err *error) {
 	if v := recover(); v != nil {
-		e, ok := v.(*PgpError)
+		e, ok := v.(*PGPError)
 		if !ok {
 			panic(v)
 		}
@@ -233,7 +233,7 @@ func dearmor(text string) ([][]byte, error) {
 			}
 			b64.WriteString(l)
 		}
-		b, err := FromBase64(b64.String())
+		b, err := fromBase64(b64.String())
 		if err != nil {
 			return nil, err
 		}
@@ -252,7 +252,7 @@ func toPacketBytes(input []byte) ([][]byte, error) {
 		return nil, err
 	}
 	if len(blocks) == 0 {
-		return nil, &PgpError{Msg: "no OpenPGP armored block found"}
+		return nil, &PGPError{Msg: "no OpenPGP armored block found"}
 	}
 	return blocks, nil
 }

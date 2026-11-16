@@ -102,12 +102,12 @@ func parseSignature(body []byte) (sig *pgpSignature, err error) {
 	case perr != nil:
 		s.libErr = perr
 	case !ok:
-		s.libErr = &PgpError{Msg: "not a signature packet"}
+		s.libErr = &PGPError{Msg: "not a signature packet"}
 	case in.Len() != 0:
-		s.libErr = &PgpError{Msg: "trailing data in signature packet"}
+		s.libErr = &PGPError{Msg: "trailing data in signature packet"}
 	case !bytes.HasPrefix(lib.HashSuffix, s.header):
 		// both readers must agree on the bytes that are hashed
-		s.libErr = &PgpError{Msg: "signature packet is read inconsistently"}
+		s.libErr = &PGPError{Msg: "signature packet is read inconsistently"}
 	default:
 		s.lib = lib
 	}
@@ -276,7 +276,7 @@ func createSignature(sk *pgpSigningKey, typ int, subject []byte, o pgpSigOptions
 	}
 	h, ok := pgpHashes[hashAlgo]
 	if !ok {
-		return nil, &PgpError{Msg: fmt.Sprintf("unsupported hash %d", hashAlgo)}
+		return nil, &PGPError{Msg: fmt.Sprintf("unsupported hash %d", hashAlgo)}
 	}
 	created := o.created
 	if created == 0 {
@@ -333,7 +333,7 @@ func readSignaturePacket(b []byte) (*pgpSignature, error) {
 		return nil, err
 	}
 	if len(packets) != 1 || packets[0].tag != pgpTagSignature {
-		return nil, &PgpError{Msg: "sig must contain exactly one OpenPGP signature packet"}
+		return nil, &PGPError{Msg: "sig must contain exactly one OpenPGP signature packet"}
 	}
 	return parseSignature(packets[0].body)
 }

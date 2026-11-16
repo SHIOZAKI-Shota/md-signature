@@ -25,13 +25,13 @@ func TestForbiddenIPEmbeddedIPv4(t *testing.T) {
 		"ff02::1", "ff0e::1", "::1", "::", "::ffff:127.0.0.1", "127.0.0.1", "169.254.169.254",
 	}
 	for _, s := range forbidden {
-		if !IsForbiddenIP(netip.MustParseAddr(s)) {
+		if !isForbiddenIP(netip.MustParseAddr(s)) {
 			t.Errorf("%s must be forbidden", s)
 		}
 	}
 	allowed := []string{"8.8.8.8", "2606:4700:4700::1111", "64:ff9b::808:808", "2002:808:808::1", "2001:4860:4860::8888"}
 	for _, s := range allowed {
-		if IsForbiddenIP(netip.MustParseAddr(s)) {
+		if isForbiddenIP(netip.MustParseAddr(s)) {
 			t.Errorf("%s must be allowed", s)
 		}
 	}

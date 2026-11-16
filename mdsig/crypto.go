@@ -32,7 +32,7 @@ func SignerFromSeed(seed []byte) (KeySigner, error) {
 
 var spkiEd25519Prefix = []byte{0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00}
 
-func RawEd25519PublicKey(b []byte) ([]byte, error) {
+func rawEd25519PublicKey(b []byte) ([]byte, error) {
 	if len(b) == 32 {
 		return b, nil
 	}
@@ -42,11 +42,11 @@ func RawEd25519PublicKey(b []byte) ([]byte, error) {
 	return nil, fmt.Errorf("not an Ed25519 public key (length %d)", len(b))
 }
 
-func Ed25519Verify(publicKey, sig, data []byte) bool {
+func ed25519Verify(publicKey, sig, data []byte) bool {
 	if len(sig) != ed25519.SignatureSize {
 		return false
 	}
-	pk, err := RawEd25519PublicKey(publicKey)
+	pk, err := rawEd25519PublicKey(publicKey)
 	if err != nil {
 		return false
 	}
@@ -55,7 +55,7 @@ func Ed25519Verify(publicKey, sig, data []byte) bool {
 
 func IsSupportedHash(alg string) bool { return alg == "sha256" || alg == "sha512" }
 
-func Digest(alg string, data []byte) []byte {
+func digestBytes(alg string, data []byte) []byte {
 	var h hash.Hash
 	if alg == "sha512" {
 		h = sha512.New()
@@ -71,12 +71,12 @@ func sshString(b []byte) []byte {
 	return append(out, b...)
 }
 
-func SSHEd25519Blob(publicKey []byte) []byte {
+func sshEd25519Blob(publicKey []byte) []byte {
 	return append(sshString([]byte("ssh-ed25519")), sshString(publicKey)...)
 }
 
 func FormatSSHPublicKey(publicKey []byte, comment string) string {
-	s := "ssh-ed25519 " + ToBase64(SSHEd25519Blob(publicKey))
+	s := "ssh-ed25519 " + toBase64(sshEd25519Blob(publicKey))
 	if comment != "" {
 		s += " " + comment
 	}
@@ -84,8 +84,8 @@ func FormatSSHPublicKey(publicKey []byte, comment string) string {
 }
 
 func SSHFingerprint(publicKey []byte) string {
-	sum := sha256.Sum256(SSHEd25519Blob(publicKey))
-	return "SHA256:" + ToBase64Unpadded(sum[:])
+	sum := sha256.Sum256(sshEd25519Blob(publicKey))
+	return "SHA256:" + toBase64Unpadded(sum[:])
 }
 
 type SSHPublicKey struct {
@@ -133,7 +133,7 @@ func ParseSSHPublicKeys(text string) []SSHPublicKey {
 		if len(parts) < 2 {
 			continue
 		}
-		blob, err := FromBase64(parts[1])
+		blob, err := fromBase64(parts[1])
 		if err != nil {
 			continue
 		}

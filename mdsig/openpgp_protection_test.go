@@ -36,17 +36,17 @@ func TestPgpSecretKeyArgon2AEAD(t *testing.T) {
 	}
 	rest := blocks[len(blocks)-restAfterFirstPacket(t, blocks):]
 	now := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
-	info, err := ReadPgpSecretKey(append(protected.Bytes(), rest...), now)
+	info, err := ReadPGPSecretKey(append(protected.Bytes(), rest...), now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !info.Protected {
 		t.Fatal("key is not reported as protected")
 	}
-	if _, err := UnlockPgpSecretKey(info, []byte("wrong"), PgpUnlockOptions{}); err == nil {
+	if _, err := UnlockPGPSecretKey(info, []byte("wrong"), PGPUnlockOptions{}); err == nil {
 		t.Fatal("wrong passphrase accepted")
 	}
-	signer, err := UnlockPgpSecretKey(info, []byte("hunter2"), PgpUnlockOptions{})
+	signer, err := UnlockPGPSecretKey(info, []byte("hunter2"), PGPUnlockOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

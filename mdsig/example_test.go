@@ -53,7 +53,7 @@ func ExampleVerifyDocument() {
 
 	client := mdsig.SafeHTTPClient(15 * time.Second)
 	opts := &mdsig.VerifyOptions{
-		ResolveOptions:       mdsig.ResolveOptions{HTTPClient: client, PgpClient: client, TofuStore: &mdsig.MemoryTofuStore{}},
+		ResolveOptions:       mdsig.ResolveOptions{HTTPClient: client, PGPClient: client, TofuStore: &mdsig.MemoryTofuStore{}},
 		ResourceCheckOptions: mdsig.ResourceCheckOptions{FetchClient: client},
 	}
 

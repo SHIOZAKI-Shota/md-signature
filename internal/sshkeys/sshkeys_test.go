@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"os"
 	"path/filepath"
@@ -17,7 +19,7 @@ import (
 )
 
 func testKey(t *testing.T) ed25519.PrivateKey {
-	seed, _ := mdsig.FromHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+	seed, _ := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 	return ed25519.NewKeyFromSeed(seed)
 }
 
@@ -43,7 +45,7 @@ func TestAgentSignatureIsRawEd25519(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig, err := mdsig.FromBase64(strings.TrimPrefix(res.Fields["sig"], "base64:"))
+	sig, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(res.Fields["sig"], "base64:"))
 	if err != nil {
 		t.Fatal(err)
 	}
