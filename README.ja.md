@@ -1,10 +1,12 @@
+<p align="center"><img src="docs/logo.svg" width="180" alt="md-signature"></p>
+
 # md-signature
 
-**Markdown 文書に埋め込む電子署名。**
+**Markdownにも電子署名を。**
 
 [English](README.md) · [仕様書](SPEC.ja.md) · [CLI 仕様](CLI_SPEC.ja.md) · [Playground](https://shiozaki-shota.github.io/md-signature/)
 
-`md-signature` は、Markdown 文書に電子署名を埋め込むためのオープンな形式です。特定のベンダーには依存しません。
+`md-signature` は、本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマットです。特定のベンダーに依存しません。
 署名はファイル末尾に HTML コメントとして追記します。
 
 ```markdown

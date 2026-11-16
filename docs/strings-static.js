@@ -2,7 +2,7 @@ const REPO = "https://github.com/SHIOZAKI-Shota/md-signature/blob/main/";
 
 export default {
     ja: {
-        "meta.title": "md-signature：Markdown 文書の埋め込み電子署名",
+        "meta.title": "md-signature：Markdownにも電子署名を",
         "nav.skip": "デモへ移動",
         "nav.label": "メイン",
         "nav.spec": "仕様",
@@ -16,8 +16,8 @@ export default {
         "slide.nav": "ページ内の位置",
         "slide.top": "概要",
 
-        "hero.title": "署名は<br>Markdown の中に",
-        "hero.lede": "md-signature は、Markdown 文書に電子署名を埋め込むためのオープンな形式です。署名はファイル末尾の HTML コメントに格納されるため、表示には影響せず、ファイルも1つのまま。後から何人でも連署できます。",
+        "hero.title": "Markdownにも<br>電子署名を",
+        "hero.lede": "本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマットです。署名は HTML コメントとして格納されるため、表示には影響せず、ファイルも1つのまま。後から何人でも連署できます。",
         "fact.label": "特長",
         "fact.file.t": "単一ファイル",
         "fact.file.d": ".sig などの別ファイルは不要です。メール添付でも Git 管理でも、そのまま受け渡せます。",
@@ -250,7 +250,7 @@ export default {
     },
 
     en: {
-        "meta.title": "md-signature: signatures inside your Markdown",
+        "meta.title": "md-signature: electronic signatures, for Markdown too",
         "nav.skip": "Skip to the demo",
         "nav.label": "Main",
         "nav.spec": "Spec",
@@ -264,8 +264,8 @@ export default {
         "slide.nav": "Page sections",
         "slide.top": "Overview",
 
-        "hero.title": "Signatures that live inside your Markdown.",
-        "hero.lede": "md-signature is an open format for signing .md files. Each signature is an HTML comment at the end of the file, so the rendered page does not change and the document stays a single file. Anyone can add a co-signature later.",
+        "hero.title": "Signatures<br>for Markdown",
+        "hero.lede": "An open format for Markdown that appends a signature after the last line of a document and verifies it. Each signature is an HTML comment, so the rendered page does not change and the document stays a single file. Anyone can add a co-signature later.",
         "fact.label": "Features",
         "fact.file.t": "One file",
         "fact.file.d": "No detached .sig file. Email it or commit it to Git as it is.",

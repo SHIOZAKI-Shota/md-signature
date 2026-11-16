@@ -59,7 +59,8 @@ release:
   github:
     owner: SHIOZAKI-Shota
     name: md-signature
-  draft: true
+  # published at once: the Homebrew cask below points at these assets
+  draft: false
   prerelease: auto
 
 nfpms:
@@ -78,15 +79,20 @@ homebrew_casks:
     repository:
       owner: SHIOZAKI-Shota
       name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+      branch: main
+      # pushed with a deploy key that can write to the tap only (secret TAP_DEPLOY_KEY)
+      git:
+        url: "ssh://git@github.com:SHIOZAKI-Shota/homebrew-tap.git"
+        private_key: "{{ .Env.TAP_DEPLOY_KEY }}"
     homepage: https://shiozaki-shota.github.io/md-signature/
     description: Sign and verify Markdown documents with embedded md-signature blocks.
     license: MIT
     binaries: [mdsig]
-    # binaries are not notarized yet, so Gatekeeper may quarantine them
-    caveats: |
-      mdsig is not notarized yet. If macOS refuses to run it:
-        xattr -dr com.apple.quarantine "$(readlink -f "$(brew --prefix)/bin/mdsig")"
+    # binaries are not notarized yet; without this Gatekeeper refuses to run the quarantined file
+    hooks:
+      post:
+        install_steps: |
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/mdsig"]
 
 winget:
   - name: mdsig

@@ -586,9 +586,7 @@ tbody td:nth-child(2).yes { white-space: normal; }
 .legend .mark.rare { margin-left: 10px; }
 
 /* ------------------------------------------------------------------ brand mark */
-.brand-mark { width: 26px; height: 26px; flex: none; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.brand-mark .mark-h { stroke: var(--ink); stroke-width: 3.6; }
-.brand-mark .mark-c { stroke: var(--ok); stroke-width: 3.2; }
+.brand-mark { height: 26px; width: auto; flex: none; display: block; }
 
 .hero h1 { font-weight: 700; letter-spacing: -0.03em; }
 :lang(ja) .hero h1 { letter-spacing: -0.01em; }

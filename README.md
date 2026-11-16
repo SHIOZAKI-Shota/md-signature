@@ -1,10 +1,12 @@
+<p align="center"><img src="docs/logo.svg" width="180" alt="md-signature"></p>
+
 # md-signature
 
-**Signatures that live inside your Markdown.**
+**Electronic signatures, for Markdown too.**
 
 [日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://shiozaki-shota.github.io/md-signature/)
 
-`md-signature` is an open, vendor-neutral format for signing Markdown documents.
+`md-signature` is an open, vendor-neutral format for Markdown that appends a signature after the last line of a document and verifies it.
 Each signature is an HTML comment appended to the end of the file:
 
 ```markdown

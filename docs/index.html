@@ -8,9 +8,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <script src="color-scheme.js"></script>
-    <title>md-signature：Markdown 文書の埋め込み電子署名</title>
+    <title>md-signature：Markdownにも電子署名を</title>
     <meta name="description"
-        content="md-signature は Markdown 文書に電子署名を埋め込むためのオープンな形式です。署名は HTML コメントとしてファイル末尾に入るので、表示は変わらず、ファイルは1つのまま。">
+        content="本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマット。署名は HTML コメントとして入るので、表示は変わらず、ファイルは1つのまま。">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:description" content="本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマット。署名は HTML コメントとして入るので、表示は変わらず、ファイルは1つのまま。">
+    <meta property="og:url" content="https://shiozaki-shota.github.io/md-signature/">
+    <meta property="og:image" content="https://shiozaki-shota.github.io/md-signature/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,10 +51,7 @@
 
     <header class="site-header">
         <a class="brand" href="./" aria-label="md-signature">
-            <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
-                <path class="mark-h" d="M18 6v36M30 6v36M6 18h36M6 30h36" />
-                <path class="mark-c" d="M21.2 24.4l2.6 2.6 4.8-6" />
-            </svg>
+            <img class="brand-mark" src="logo.svg" alt="" width="38" height="26">
             <span class="brand-name">md-signature</span>
         </a>
         <nav class="site-nav" aria-label="Main" data-i18n-attr="aria-label:nav.label">
@@ -93,9 +100,8 @@
                 <div class="hero-beam" aria-hidden="true"></div>
                 <div class="hero-texture" aria-hidden="true"></div>
                 <div class="hero-copy">
-                    <h1 id="hero-title" data-i18n-html="hero.title">署名は、<br>Markdown の中に</h1>
-                    <p class="lede" data-i18n="hero.lede">md-signature は、.md ファイルに電子署名を埋め込むためのオープンな形式です。署名はファイル末尾の HTML
-                        コメントに入るので、表示は何も変わらず、ファイルは1つのまま。あとから何人でも連署できます。</p>
+                    <h1 id="hero-title" data-i18n-html="hero.title">Markdownにも<br>電子署名を</h1>
+                    <p class="lede" data-i18n="hero.lede">本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマットです。署名は HTML コメントとして格納されるため、表示には影響せず、ファイルも1つのまま。後から何人でも連署できます。</p>
                     <div class="cta-rows">
                         <div class="cta-row cmd"><code
                                 id="install-cmd">brew install SHIOZAKI-Shota/tap/mdsig</code><button type="button"
