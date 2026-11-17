@@ -102,7 +102,7 @@ export function createVerifyHandler(o: VerifyHandlerOptions = {}): (req: Request
     const path = new URL(req.url).pathname;
     if (path === `/${API_VERSION}/health`) {
       if (req.method !== "GET") return fail(405, "use GET");
-      return reply(200, { name: "@md-signature/core", version: o.version ?? "", api: API_VERSION });
+      return reply(200, { name: "@mdsig/core", version: o.version ?? "", api: API_VERSION });
     }
     if (path !== `/${API_VERSION}/verify` && path !== `/${API_VERSION}/tsa`) return fail(404, "not found");
     if (req.method !== "POST") return fail(405, "use POST");

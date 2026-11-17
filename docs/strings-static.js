@@ -234,7 +234,7 @@ export default {
 
         "start.title": "導入",
         "start.cli": "コマンドライン（mdsig）",
-        "start.lib": "ライブラリ（@md-signature/core）",
+        "start.lib": "ライブラリ（@mdsig/core）",
         "start.c1": "# インストール（Homebrew）",
         "start.c2": "# GitHub で使用中の SSH 鍵で署名",
         "start.c3": "# チェーン全体を検証（終了コード 0〜5）",
@@ -484,7 +484,7 @@ export default {
 
         "start.title": "Get started",
         "start.cli": "Command line (mdsig)",
-        "start.lib": "Library (@md-signature/core)",
+        "start.lib": "Library (@mdsig/core)",
         "start.c1": "# install (Homebrew)",
         "start.c2": "# sign with the SSH key you already use for GitHub",
         "start.c3": "# verify the whole chain (exit code 0-5)",

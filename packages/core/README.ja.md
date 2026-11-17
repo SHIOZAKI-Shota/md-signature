@@ -1,17 +1,17 @@
-# @md-signature/core
+# @mdsig/core
 
 Markdown 文書に埋め込む署名形式 [md-signature](../../README.ja.md) の TypeScript 実装です。署名、検証、検証サーバ、そのクライアントを提供します。
 
 [English](README.md) · [形式仕様](../../SPEC.ja.md) · [CLI・HTTP API 仕様](../../CLI_SPEC.ja.md)
 
 - ブラウザ、Node.js 22 以降、Deno、Bun、Cloudflare Workers で動作します。`node:*` のモジュールは使用していません。
-- npm への公開は準備中です。公開後は `npm install @md-signature/core` で導入できる予定です。
+- npm への公開は準備中です。公開後は `npm install @mdsig/core` で導入できる予定です。
 - ドラフト版です。署名は形式 `0.0.2` で作成し、`0.0.1` と `0.0.2` を検証します。API は 1.0 までに変更する可能性があります。
 
 ## 検証
 
 ```ts
-import { verifyDocument } from "@md-signature/core";
+import { verifyDocument } from "@mdsig/core";
 
 const result = await verifyDocument(text);
 
@@ -60,7 +60,7 @@ result.agreement;   // require による連署の状況（none / complete / pend
 ブラウザには読み取れるトラストストアがないため、公開 TSA のルート証明書を同梱しています（`DEFAULT_TSA_ROOTS`）。
 
 ```ts
-import { verifyDocument, DEFAULT_TSA_ROOTS, readTsaRoots } from "@md-signature/core";
+import { verifyDocument, DEFAULT_TSA_ROOTS, readTsaRoots } from "@mdsig/core";
 
 // 同梱のルートに追加する
 await verifyDocument(text, { extraTsaRoots: [pemText] });
@@ -79,7 +79,7 @@ const roots = await readTsaRoots(pemText);
 ## 署名
 
 ```ts
-import { signDocument, generateEd25519, signerFromSeed } from "@md-signature/core";
+import { signDocument, generateEd25519, signerFromSeed } from "@mdsig/core";
 
 const { signer } = await generateEd25519();          // 新しい鍵
 // const signer = await signerFromSeed(seed32bytes); // 既存の Ed25519 シード
@@ -113,7 +113,7 @@ OpenSSH の秘密鍵は `parseOpenSshPrivateKey`、OpenPGP の秘密鍵は `read
 `timestampDocument` は、署名者を持たないタイムスタンプ専用ブロック（`method: tsa`）を末尾に追記します。それより前の全体（以前のタイムスタンプを含む）を覆うので、重ねて追記すると更新になります。
 
 ```ts
-import { timestampDocument } from "@md-signature/core";
+import { timestampDocument } from "@mdsig/core";
 
 const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", hash: "sha512" });
 ```
@@ -129,7 +129,7 @@ const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", 
 `createVerifyHandler` は、`Request` を受け取り `Response` を返す関数を作成します。
 
 ```ts
-import { createVerifyHandler } from "@md-signature/core";
+import { createVerifyHandler } from "@mdsig/core";
 
 const handler = createVerifyHandler({
   allowOrigins: ["https://app.example.com"],  // ブラウザからの呼び出しを許可するオリジン
@@ -156,7 +156,7 @@ Node.js の `http` モジュールで使用する場合は、`Request` と `Resp
 ### クライアント側
 
 ```ts
-import { verifyDocument, remoteVerify, remoteTsaVerifier, compareResults } from "@md-signature/core";
+import { verifyDocument, remoteVerify, remoteTsaVerifier, compareResults } from "@mdsig/core";
 
 // 文書全体をサーバで検証する
 const remote = await remoteVerify("https://verify.example.com", text);

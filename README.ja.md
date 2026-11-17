@@ -89,10 +89,10 @@ mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees
 
 md-signature はライブラリとして使用することを主目的にしています。CLI とデモは、その利用例です。
 
-**TypeScript（`@md-signature/core`）：** ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で動作します。npm への公開は準備中です。
+**TypeScript（`@mdsig/core`）：** ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で動作します。npm への公開は準備中です。
 
 ```ts
-import { verifyDocument, signDocument, generateEd25519 } from "@md-signature/core";
+import { verifyDocument, signDocument, generateEd25519 } from "@mdsig/core";
 
 const result = await verifyDocument(markdown);
 if (result.ok) console.log(`${result.signatures.length} 件の署名を確認しました`);
@@ -132,7 +132,7 @@ OpenPGP 署名（`alg: openpgp`）の `sig` は、`gpg --detach-sign` が出力�
 | --- | --- |
 | [`SPEC.ja.md`](SPEC.ja.md) | 形式と暗号処理の仕様（原文）。英語版 [`SPEC.md`](SPEC.md) は IETF 提出用に維持する規範テキスト |
 | [`CLI_SPEC.ja.md`](CLI_SPEC.ja.md) | CLI の挙動、JSON 出力、HTTP API の仕様（規範）。英語版 [`CLI_SPEC.md`](CLI_SPEC.md) は参考訳 |
-| [`packages/core`](packages/core) | `@md-signature/core`（TypeScript） |
+| [`packages/core`](packages/core) | `@mdsig/core`（TypeScript） |
 | [`mdsig`](mdsig) | Go ライブラリ。[`mdsig/server`](mdsig/server) は HTTP ハンドラ |
 | [`cmd/mdsig`](cmd/mdsig)、[`internal`](internal) | ネイティブ CLI `mdsig`（Go） |
 | [`docs`](docs) | Web サイト（https://mdsig.dev/）と[デモ](https://mdsig.dev/playground/) |
@@ -154,7 +154,7 @@ go build -o bin/mdsig ./cmd/mdsig   # ./mdsig はライブラリのディレク�
 
 ## ステータス
 
-ドラフト版です。CLI と Go ライブラリのリリース（現在は `v0.0.3`）と署名形式は、別々にバージョンを管理しています。現在の形式は `0.0.2` です（`0.0.1` の署名も検証できます）。`mdsig --version` で両方を確認できます（`mdsig version 0.0.3 (format 0.0.2)`）。`@md-signature/core` は未公開のため、公開までは独自のバージョン（`package.json` の `0.0.1`）のままです。1.0 までに形式と API を変更する可能性があります。
+ドラフト版です。CLI と Go ライブラリのリリース（現在は `v0.0.3`）と署名形式は、別々にバージョンを管理しています。現在の形式は `0.0.2` です（`0.0.1` の署名も検証できます）。`mdsig --version` で両方を確認できます（`mdsig version 0.0.3 (format 0.0.2)`）。`@mdsig/core` は未公開のため、公開までは独自のバージョン（`package.json` の `0.0.1`）のままです。1.0 までに形式と API を変更する可能性があります。
 
 実験的な実装です。第三者によるセキュリティ監査は受けていません。契約など、署名の正しさに重大な結果が伴う用途で、この実装だけに依拠することは避けてください。脆弱性の報告方法は [SECURITY.md](SECURITY.md) を参照してください。
 

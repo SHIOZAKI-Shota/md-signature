@@ -2,7 +2,7 @@ name: Release
 
 # Pushing a tag vX.Y.Z builds the binaries, signs the checksums, publishes the GitHub release,
 # updates the Homebrew tap, and opens a pull request on microsoft/winget-pkgs (en-US by GoReleaser, ja-JP added
-# from .github/winget/) when DISTRIBUTE_TOKEN is set.
+# from .github/winget/) when DISTRIBUTE_TOKEN is set, then publishes packages/core to npm as @mdsig/core.
 #
 # Secrets:
 #   TAP_DEPLOY_KEY       private half of a deploy key with write access to SHIOZAKI-Shota/homebrew-tap
@@ -68,3 +68,39 @@ jobs:
             -f message="Add ja-JP locale for ShiozakiShota.mdsig $version" \
             -f branch="mdsig-$version" \
             -f content="$(base64 -w0 "$RUNNER_TEMP/$file")"
+
+  # npm trusted publishing (OIDC): the package settings on npmjs.com must name this repository and release.yml
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: The package version must match the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have="$(node -p 'require("./package.json").version')"
+          if [ "$have" != "$want" ]; then echo "::error::packages/core/package.json is $have, tag is $GITHUB_REF_NAME"; exit 1; fi
+      - name: Skip a version that is already on npm
+        id: published
+        run: |
+          if npm view "@mdsig/core@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::@mdsig/core ${GITHUB_REF_NAME#v} is already published"
+          fi
+      - run: npm install -g npm@latest
+        if: steps.published.outputs.skip != 'true'
+      - run: npm ci
+        if: steps.published.outputs.skip != 'true'
+      - run: npm publish --provenance --access public
+        if: steps.published.outputs.skip != 'true'

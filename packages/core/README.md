@@ -1,17 +1,17 @@
-# @md-signature/core
+# @mdsig/core
 
 TypeScript implementation of [md-signature](../../README.md), a signature format embedded in Markdown documents. It signs, verifies, serves verification over HTTP, and talks to such a server.
 
 [日本語](README.ja.md) · [Format specification](../../SPEC.md) · [CLI and HTTP API specification](../../CLI_SPEC.md)
 
 - Runs in browsers, Node.js 22 or later, Deno, Bun, and Cloudflare Workers. No `node:*` modules are used.
-- Not on npm yet. Once published, install it with `npm install @md-signature/core`.
+- Not on npm yet. Once published, install it with `npm install @mdsig/core`.
 - This is a draft. It signs with format `0.0.2` and verifies `0.0.1` and `0.0.2`. The API may change before 1.0.
 
 ## Verifying
 
 ```ts
-import { verifyDocument } from "@md-signature/core";
+import { verifyDocument } from "@mdsig/core";
 
 const result = await verifyDocument(text);
 
@@ -60,7 +60,7 @@ A `tsa_token` yields a time (`genTime`) only when the TSA's signature and certif
 A browser has no trust store a page can read, so the root certificates of public TSAs are built in (`DEFAULT_TSA_ROOTS`).
 
 ```ts
-import { verifyDocument, DEFAULT_TSA_ROOTS, readTsaRoots } from "@md-signature/core";
+import { verifyDocument, DEFAULT_TSA_ROOTS, readTsaRoots } from "@mdsig/core";
 
 // add to the built-in roots
 await verifyDocument(text, { extraTsaRoots: [pemText] });
@@ -79,7 +79,7 @@ The built-in list is chosen from the roots that Microsoft's root program (CCADB)
 ## Signing
 
 ```ts
-import { signDocument, generateEd25519, signerFromSeed } from "@md-signature/core";
+import { signDocument, generateEd25519, signerFromSeed } from "@mdsig/core";
 
 const { signer } = await generateEd25519();          // a new key
 // const signer = await signerFromSeed(seed32bytes); // an existing Ed25519 seed
@@ -113,7 +113,7 @@ A signer is made from an OpenSSH private key with `parseOpenSshPrivateKey`, from
 `timestampDocument` appends a timestamp block without a signer (`method: tsa`). It covers everything before it, earlier timestamps included, so stacking blocks renews the evidence.
 
 ```ts
-import { timestampDocument } from "@md-signature/core";
+import { timestampDocument } from "@mdsig/core";
 
 const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", hash: "sha512" });
 ```
@@ -129,7 +129,7 @@ What a browser cannot check by itself (keys that CORS keeps out of reach, a TSA 
 `createVerifyHandler` returns a function that takes a `Request` and returns a `Response`.
 
 ```ts
-import { createVerifyHandler } from "@md-signature/core";
+import { createVerifyHandler } from "@mdsig/core";
 
 const handler = createVerifyHandler({
   allowOrigins: ["https://app.example.com"],  // origins that may call from a browser
@@ -156,7 +156,7 @@ Authentication and TLS are not included. Put them in front when the server is ex
 ### Client side
 
 ```ts
-import { verifyDocument, remoteVerify, remoteTsaVerifier, compareResults } from "@md-signature/core";
+import { verifyDocument, remoteVerify, remoteTsaVerifier, compareResults } from "@mdsig/core";
 
 // verify the whole document on the server
 const remote = await remoteVerify("https://verify.example.com", text);

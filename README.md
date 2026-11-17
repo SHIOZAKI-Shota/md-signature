@@ -92,10 +92,10 @@ does not protect against prompt injection through tool output or web content.
 
 md-signature is built as a library first. The CLI and the playground are two users of it.
 
-**TypeScript (`@md-signature/core`):** runs in browsers, Node.js, Deno, Bun, and Cloudflare Workers. It is not on npm yet.
+**TypeScript (`@mdsig/core`):** runs in browsers, Node.js, Deno, Bun, and Cloudflare Workers. It is not on npm yet.
 
 ```ts
-import { verifyDocument, signDocument, generateEd25519 } from "@md-signature/core";
+import { verifyDocument, signDocument, generateEd25519 } from "@mdsig/core";
 
 const result = await verifyDocument(markdown);
 if (result.ok) console.log(`${result.signatures.length} valid signatures`);
@@ -139,7 +139,7 @@ verifiable.
 | --- | --- |
 | [`SPEC.md`](SPEC.md) | Format and cryptographic specification (RFC 2119 style). Normative English text, kept for a possible IETF submission; the original is written in Japanese: [`SPEC.ja.md`](SPEC.ja.md) |
 | [`CLI_SPEC.md`](CLI_SPEC.md) | CLI behavior, flags, exit codes. Informative translation; the normative text is Japanese: [`CLI_SPEC.ja.md`](CLI_SPEC.ja.md) |
-| [`packages/core`](packages/core) | `@md-signature/core`, TypeScript, zero dependencies |
+| [`packages/core`](packages/core) | `@mdsig/core`, TypeScript, zero dependencies |
 | [`mdsig`](mdsig) | Go library (`mdsig.dev/mdsig`); [`mdsig/server`](mdsig/server) is the HTTP handler |
 | [`cmd/mdsig`](cmd/mdsig), [`internal`](internal) | `mdsig`, the native CLI (Go) |
 | [`docs`](docs) | Website at https://mdsig.dev/, with the [playground](https://mdsig.dev/playground/) |
@@ -161,7 +161,7 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-This is a draft. Releases of the CLI and the Go library (currently `v0.0.3`) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.3 (format 0.0.2)`. `@md-signature/core` is not published yet and keeps its own version (`0.0.1` in `package.json`) until it is. The format and the APIs may change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases of the CLI and the Go library (currently `v0.0.3`) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.3 (format 0.0.2)`. `@mdsig/core` is not published yet and keeps its own version (`0.0.1` in `package.json`) until it is. The format and the APIs may change before 1.0. Feedback is welcome in issues.
 
 This is an experimental implementation. It has had no independent security audit. Do not rely on it alone where a wrong signature verdict has serious consequences, such as contracts. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

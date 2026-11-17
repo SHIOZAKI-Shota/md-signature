@@ -87,7 +87,7 @@ test("server: origin, method, content type and size rules", async () => {
   assert.match(pre.headers.get("access-control-allow-headers")!, /Content-Type/);
   assert.equal((await call(h, "OPTIONS", "/v1/verify", { origin: "https://evil.example" })).status, 403);
   const health = await (await call(createVerifyHandler({ version: "9.9.9" }), "GET", "/v1/health", {})).json();
-  assert.deepEqual(health, { name: "@md-signature/core", version: "9.9.9", api: "v1" });
+  assert.deepEqual(health, { name: "@mdsig/core", version: "9.9.9", api: "v1" });
 });
 
 test("server: refuses work beyond maxConcurrent", async () => {

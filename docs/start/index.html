@@ -70,7 +70,7 @@
                 <p class="docs-nav-title" id="toc-side" data-i18n="docs.toc">このページの内容</p>
                 <ol>
                     <li><a href="#cli" data-i18n="st.cli.title">コマンドライン（mdsig）</a></li>
-                    <li><a href="#typescript" data-i18n="st.ts.title">TypeScript ライブラリ（@md-signature/core）</a></li>
+                    <li><a href="#typescript" data-i18n="st.ts.title">TypeScript ライブラリ（@mdsig/core）</a></li>
                     <li><a href="#go" data-i18n="st.go.title">Go ライブラリ（mdsig.dev/mdsig）</a></li>
                     <li><a href="#server" data-i18n="st.srv.title">検証サーバ</a></li>
                     <li><a href="#automation" data-i18n="st.auto.title">CI と AI エージェント</a></li>
@@ -210,13 +210,13 @@
 
         <section class="guide doc-sec" id="typescript" tabindex="-1" aria-labelledby="typescript-title">
             <div class="section-head">
-                <h2 id="typescript-title" data-i18n="st.ts.title">TypeScript ライブラリ（@md-signature/core）</h2>
+                <h2 id="typescript-title" data-i18n="st.ts.title">TypeScript ライブラリ（@mdsig/core）</h2>
                 <p data-i18n-html="st.ts.lede">実行時の依存関係はありません。Web Crypto などの Web 標準 API のみを使用するため、ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で同じコードが動作します。</p>
             </div>
             <div class="start-pair">
                 <div class="term" data-term>
                     <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
-                            class="term-title" data-i18n="start.lib">ライブラリ（@md-signature/core）</span>
+                            class="term-title" data-i18n="start.lib">ライブラリ（@mdsig/core）</span>
                         <div class="term-tabs" role="tablist" aria-label="lib"><button type="button" role="tab"
                                 id="tab-lib-node" aria-controls="lib-node" aria-selected="true">Node.js</button><button
                                 type="button" role="tab" id="tab-lib-bun" aria-controls="lib-bun" aria-selected="false"
@@ -230,7 +230,7 @@
                         <div class="term-pane" role="tabpanel" id="lib-node" aria-labelledby="tab-lib-node">
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
-<span class="cmd">npm install @md-signature/core</span></code></pre><button
+<span class="cmd">npm install @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
@@ -239,7 +239,7 @@
                             <div class="tblock code">
                                 <pre><code>import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { verifyDocument } from "@md-signature/core";
+import { verifyDocument } from "@mdsig/core";
 
 const file = "contract.md";
 const markdown = await readFile(file, "utf8");
@@ -259,14 +259,14 @@ for (const s of result.signatures) console.log(s.index, s.fields.signer, s.statu
                         <div class="term-pane" role="tabpanel" id="lib-bun" aria-labelledby="tab-lib-bun" hidden>
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
-<span class="cmd">bun add @md-signature/core</span></code></pre><button
+<span class="cmd">bun add @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
                                         aria-hidden="true"></i></button>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@md-signature/core";
+                                <pre><code>import { verifyDocument } from "@mdsig/core";
 
 const markdown = await Bun.file("contract.md").text();
 const { ok, signatures } = await verifyDocument(markdown);
@@ -283,7 +283,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                 <pre><code><span class="cmt" data-i18n="start.denoNote"># npm への公開は準備中（公開後はインストール不要、npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "npm:@md-signature/core@0.0.1";
+                                <pre><code>import { verifyDocument } from "npm:@mdsig/core@0.0.1";
 
 const markdown = await Deno.readTextFile("contract.md");
 const { ok, signatures } = await verifyDocument(markdown);
@@ -301,7 +301,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                             </div>
                             <div class="tblock code">
                                 <pre><code>&lt;script type="module"&gt;
-  import { verifyDocument } from "https://esm.sh/@md-signature/core@0.0.1";
+  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.0.1";
 
   const markdown = await (await fetch("contract.md")).text();
   const { ok, signatures } = await verifyDocument(markdown);
@@ -316,14 +316,14 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                             hidden>
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
-<span class="cmd">npm install @md-signature/core</span></code></pre><button
+<span class="cmd">npm install @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
                                         aria-hidden="true"></i></button>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@md-signature/core";
+                                <pre><code>import { verifyDocument } from "@mdsig/core";
 
 export default {
   async fetch(request) {
@@ -342,7 +342,7 @@ export default {
                 <div class="guide-col bare">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.ts.signCap">鍵を生成して署名する</figcaption>
-                        <pre class="guide-code"><code>import { signDocument, generateEd25519 } from "@md-signature/core";
+                        <pre class="guide-code"><code>import { signDocument, generateEd25519 } from "@mdsig/core";
 
 const { signer } = await generateEd25519();
 const { text } = await signDocument(markdown, {
@@ -451,7 +451,7 @@ Deno.serve(createVerifyHandler({ allowOrigins: ["https://example.org"] }));</cod
                     </figure>
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.srv.clientCap">手元の判定とサーバの判定を突き合わせる</figcaption>
-                        <pre class="guide-code"><code>import { verifyDocument, remoteVerify, compareResults } from "@md-signature/core";
+                        <pre class="guide-code"><code>import { verifyDocument, remoteVerify, compareResults } from "@mdsig/core";
 
 const local = await verifyDocument(markdown);
 const remote = await remoteVerify("https://verify.example.org", markdown);
