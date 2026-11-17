@@ -110,7 +110,7 @@ Rules that apply in addition to the grammar:
 
 | Key | Requirement | Description |
 | --- | --- | --- |
-| `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. |
+| `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
 | `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu` (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
@@ -279,14 +279,15 @@ v=0.0.2
 
 For each block in the chain, in order, a verifier MUST:
 
-1. Parse the block (Section 3). On a syntax error, a missing REQUIRED field, or an unknown field, the block is **malformed**.
-2. Compute the digest of the block's slice (or of its scoped sections, Section 5.6) and compare it with `hash` (constant-time comparison is not required; the values are public). On mismatch the block is **invalid (hash mismatch)**.
-3. Build the payload and resolve candidate public keys with `method` (Section 4). If resolution fails because of the network, the result is **unresolved**, which is different from invalid.
-4. Verify `sig` with each candidate key (for `webauthn-es256`, as in Section 6.1; for `openpgp`, as in Section 6.2). If none verifies, the block is **invalid (bad signature)**.
-5. If `expires` is present and has passed, the block is **invalid (expired)** (Section 5.9).
-6. If `resources` is present, check it (Section 5.7).
-7. If `revocation_url` is present, check it (Section 5.9).
-8. If `tsa_token` is present, check it (Section 5.5).
+1. If the block has exactly one `v` and its value is not a version the verifier supports, the block is **unsupported** (unsupported version). This check comes before every other check, so that a block with fields added by a later version is reported as an unsupported version rather than as malformed. A block whose `v` is missing or repeated is malformed by step 2.
+2. Parse the block (Section 3). On a syntax error, a missing REQUIRED field, or an unknown field, the block is **malformed**.
+3. Compute the digest of the block's slice (or of its scoped sections, Section 5.6) and compare it with `hash` (constant-time comparison is not required; the values are public). On mismatch the block is **invalid (hash mismatch)**.
+4. Build the payload and resolve candidate public keys with `method` (Section 4). If resolution fails because of the network, the result is **unresolved**, which is different from invalid.
+5. Verify `sig` with each candidate key (for `webauthn-es256`, as in Section 6.1; for `openpgp`, as in Section 6.2). If none verifies, the block is **invalid (bad signature)**.
+6. If `expires` is present and has passed, the block is **invalid (expired)** (Section 5.9).
+7. If `resources` is present, check it (Section 5.7).
+8. If `revocation_url` is present, check it (Section 5.9).
+9. If `tsa_token` is present, check it (Section 5.5).
 
 The document is **verified** only if the chain has at least one block, every
 block is valid, there is no unsigned content after the last block, and the

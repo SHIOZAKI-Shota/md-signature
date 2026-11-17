@@ -98,12 +98,13 @@ export async function verifyBlock(text, block, opts = {}) {
     const f = block.fields;
     const r = { index: block.index, line: block.line, status: "valid", fields: f, warnings: [] };
     const fail = (status, code, message) => Object.assign(r, { status, code, message });
+    // SPEC 5.4 step 1: an unknown version comes first, so fields added by later formats read as "unsupported", not "malformed"
+    if (f.v !== undefined && !block.errors.includes(`duplicate key "v"`) && !SUPPORTED_VERSIONS.has(f.v))
+        return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
     if (block.unknownKeys?.length)
         return fail("malformed", "unknown-field", block.errors.join("; "));
     if (block.errors.length)
         return fail("malformed", "malformed", block.errors.join("; "));
-    if (!SUPPORTED_VERSIONS.has(f.v))
-        return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
     if (!TS_RE.test(f.ts))
         r.warnings.push(`ts "${f.ts}" is not in YYYY-MM-DDTHH:MM:SSZ form`);
     const sem = validateSemantics(f);

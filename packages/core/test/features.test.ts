@@ -188,6 +188,19 @@ test("require: format 0.0.1 blocks keep their rules", async () => {
   assert.equal((await verifyDocument(future, { offline: true })).signatures[0]!.code, "unsupported-version");
 });
 
+test("version: an unknown version is reported before unknown fields", async () => {
+  const signed = (await signDocument(DOC, { signer: await signerFromSeed(SEED_A), method: "tofu", signerId: "alice", ts: TS })).text;
+  const code = async (t: string) => (await verifyDocument(t, { offline: true })).signatures[0]!;
+  const later = await code(signed.replace("v: 0.0.2\n", "v: 0.0.3\nnew_field: 1\n"));
+  assert.deepEqual([later.status, later.code], ["unsupported", "unsupported-version"]);
+  const known = await code(signed.replace("v: 0.0.2\n", "v: 0.0.2\nnew_field: 1\n"));
+  assert.deepEqual([known.status, known.code], ["malformed", "unknown-field"]);
+  const twice = await code(signed.replace("v: 0.0.2\n", "v: 0.0.3\nv: 0.0.4\n"));
+  assert.deepEqual([twice.status, twice.code], ["malformed", "malformed"]);
+  const missing = await code(signed.replace("v: 0.0.2\n", ""));
+  assert.deepEqual([missing.status, missing.code], ["malformed", "malformed"]);
+});
+
 // --- Expires
 test("expires", async () => {
   const a = await signerFromSeed(SEED_A);

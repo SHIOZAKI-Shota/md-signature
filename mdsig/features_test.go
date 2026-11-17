@@ -356,6 +356,22 @@ func TestRequireSteps(t *testing.T) {
 	}
 }
 
+func TestVersionBeforeUnknownFields(t *testing.T) {
+	signed := mustSign(t, fDoc, SignOptions{Signer: mustSigner(t, seedA), Method: "tofu", SignerID: "alice", TS: fTS}).Text
+	offline := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}
+	for _, c := range []struct{ name, from, to, status, code string }{
+		{"later format with a new field", "v: 0.0.2\n", "v: 0.0.3\nnew_field: 1\n", StatusUnsupported, "unsupported-version"},
+		{"supported format with an unknown field", "v: 0.0.2\n", "v: 0.0.2\nnew_field: 1\n", StatusMalformed, "unknown-field"},
+		{"duplicate v", "v: 0.0.2\n", "v: 0.0.3\nv: 0.0.4\n", StatusMalformed, "malformed"},
+		{"missing v", "v: 0.0.2\n", "", StatusMalformed, "malformed"},
+	} {
+		s := verify(strings.Replace(signed, c.from, c.to, 1), offline).Signatures[0]
+		if s.Status != c.status || s.Code != c.code {
+			t.Errorf("%s: %s/%s", c.name, s.Status, s.Code)
+		}
+	}
+}
+
 func bytesOf(n int, v byte) []byte {
 	b := make([]byte, n)
 	for i := range b {

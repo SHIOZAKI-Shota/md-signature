@@ -378,5 +378,17 @@
     "signatures": [
       "malformed:unknown-field"
     ]
+  },
+  "unsupported-version-new-field.md": {
+    "ok": false,
+    "signatures": [
+      "unsupported:unsupported-version"
+    ]
+  },
+  "malformed-duplicate-version.md": {
+    "ok": false,
+    "signatures": [
+      "malformed:malformed"
+    ]
   }
 }

@@ -144,6 +144,10 @@ w("legacy-v001.md", legacy);
 w("mixed-versions.md", (await approve(legacy, "2026-11-16T09:46:00Z")).text);
 w("malformed-require-step-v001.md", await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", require: ["step 1", "dns:example.com approver"] }));
 
+// SPEC 5.4 step 1: a later format with a field this version does not know is "unsupported", not "malformed"
+w("unsupported-version-new-field.md", single.text.replace("v: 0.0.2\n", "v: 0.0.3\n").replace("role: author\n", "role: author\nwitness_policy: any\n"));
+w("malformed-duplicate-version.md", single.text.replace("v: 0.0.2\n", "v: 0.0.2\nv: 0.0.3\n"));
+
 const exp = await signDocument(body, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", expires: "2026-11-30T00:00:00Z" });
 w("expired.md", exp.text);
 
@@ -367,6 +371,8 @@ const expected = {
   "legacy-v001.md": { ok: true, signatures: ["valid"], agreement: "pending" },
   "mixed-versions.md": { ok: true, signatures: ["valid", "valid"], agreement: "complete" },
   "malformed-require-step-v001.md": { ok: false, signatures: ["malformed:malformed"] },
+  "unsupported-version-new-field.md": { ok: false, signatures: ["unsupported:unsupported-version"] },
+  "malformed-duplicate-version.md": { ok: false, signatures: ["malformed:malformed"] },
   "expired.md": { ok: false, signatures: ["invalid:expired"] },
   "not-revoked.md": { ok: true, signatures: ["valid"], revocation: ["not-revoked"] },
   "revoked.md": { ok: false, signatures: ["invalid:revoked"] },

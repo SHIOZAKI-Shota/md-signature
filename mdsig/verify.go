@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -266,14 +267,15 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 		return r
 	}
 
+	// SPEC 5.4 step 1: an unknown version comes first, so fields added by later formats read as "unsupported", not "malformed"
+	if v, ok := f["v"]; ok && !slices.Contains(block.Errors, `duplicate key "v"`) && !supportedVersions[v] {
+		return fail(StatusUnsupported, "unsupported-version", fmt.Sprintf("unsupported version %q", v))
+	}
 	if len(block.UnknownKeys) > 0 {
 		return fail(StatusMalformed, "unknown-field", strings.Join(block.Errors, "; "))
 	}
 	if len(block.Errors) > 0 {
 		return fail(StatusMalformed, "malformed", strings.Join(block.Errors, "; "))
-	}
-	if !supportedVersions[f["v"]] {
-		return fail(StatusUnsupported, "unsupported-version", fmt.Sprintf("unsupported version %q", f["v"]))
 	}
 	if !tsRe.MatchString(f["ts"]) {
 		r.Warnings = append(r.Warnings, fmt.Sprintf("ts %q is not in YYYY-MM-DDTHH:MM:SSZ form", f["ts"]))
