@@ -229,7 +229,7 @@
                     <div class="term-body">
                         <div class="term-pane" role="tabpanel" id="lib-node" aria-labelledby="tab-lib-node">
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># インストール</span>
 <span class="cmd">npm install @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
@@ -258,7 +258,7 @@ for (const s of result.signatures) console.log(s.index, s.fields.signer, s.statu
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-bun" aria-labelledby="tab-lib-bun" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># インストール</span>
 <span class="cmd">bun add @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
@@ -280,10 +280,10 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-deno" aria-labelledby="tab-lib-deno" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.denoNote"># npm への公開は準備中（公開後はインストール不要、npm: 指定子）</span></code></pre>
+                                <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "npm:@mdsig/core@0.0.1";
+                                <pre><code>import { verifyDocument } from "npm:@mdsig/core@0.0.3";
 
 const markdown = await Deno.readTextFile("contract.md");
 const { ok, signatures } = await verifyDocument(markdown);
@@ -297,11 +297,11 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-web" aria-labelledby="tab-lib-web" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.webNote"># npm への公開は準備中（公開後はインストール不要、ESM CDN）</span></code></pre>
+                                <pre><code><span class="cmt" data-i18n="start.webNote"># インストール不要（ESM CDN）</span></code></pre>
                             </div>
                             <div class="tblock code">
                                 <pre><code>&lt;script type="module"&gt;
-  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.0.1";
+  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.0.3";
 
   const markdown = await (await fetch("contract.md")).text();
   const { ok, signatures } = await verifyDocument(markdown);
@@ -315,7 +315,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         <div class="term-pane" role="tabpanel" id="lib-workers" aria-labelledby="tab-lib-workers"
                             hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># インストール</span>
 <span class="cmd">npm install @mdsig/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i

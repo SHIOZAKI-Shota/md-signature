@@ -13,7 +13,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", and "MAY" are to be inte
 | --- | --- |
 | Binary | `mdsig` |
 | npm CLI package | `mdsig` (planned) |
-| Core library | `@mdsig/core` (not published on npm yet) |
+| Core library | `@mdsig/core` (npm) |
 | Homebrew | `brew install SHIOZAKI-Shota/tap/mdsig` |
 | Go | `go install mdsig.dev/cmd/mdsig@latest` (Go 1.26 or later) |
 | winget | `winget install ShiozakiShota.mdsig` (not available yet: built by the release workflow but not published) |

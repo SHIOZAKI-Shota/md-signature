@@ -92,7 +92,7 @@ does not protect against prompt injection through tool output or web content.
 
 md-signature is built as a library first. The CLI and the playground are two users of it.
 
-**TypeScript (`@mdsig/core`):** runs in browsers, Node.js, Deno, Bun, and Cloudflare Workers. It is not on npm yet.
+**TypeScript (`@mdsig/core`):** runs in browsers, Node.js, Deno, Bun, and Cloudflare Workers. Install it with `npm install @mdsig/core`.
 
 ```ts
 import { verifyDocument, signDocument, generateEd25519 } from "@mdsig/core";
@@ -161,7 +161,7 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-This is a draft. Releases of the CLI and the Go library (currently `v0.0.3`) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.3 (format 0.0.2)`. `@mdsig/core` is not published yet and keeps its own version (`0.0.1` in `package.json`) until it is. The format and the APIs may change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases of the CLI, the Go library, and `@mdsig/core` share one version number (currently `v0.0.3`), separate from the signature format; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.3 (format 0.0.2)`. The format and the APIs may change before 1.0. Feedback is welcome in issues.
 
 This is an experimental implementation. It has had no independent security audit. Do not rely on it alone where a wrong signature verdict has serious consequences, such as contracts. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

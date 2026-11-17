@@ -89,7 +89,7 @@ mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees
 
 md-signature はライブラリとして使用することを主目的にしています。CLI とデモは、その利用例です。
 
-**TypeScript（`@mdsig/core`）：** ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で動作します。npm への公開は準備中です。
+**TypeScript（`@mdsig/core`）：** ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で動作します。`npm install @mdsig/core` で導入できます。
 
 ```ts
 import { verifyDocument, signDocument, generateEd25519 } from "@mdsig/core";
@@ -154,7 +154,7 @@ go build -o bin/mdsig ./cmd/mdsig   # ./mdsig はライブラリのディレク�
 
 ## ステータス
 
-ドラフト版です。CLI と Go ライブラリのリリース（現在は `v0.0.3`）と署名形式は、別々にバージョンを管理しています。現在の形式は `0.0.2` です（`0.0.1` の署名も検証できます）。`mdsig --version` で両方を確認できます（`mdsig version 0.0.3 (format 0.0.2)`）。`@mdsig/core` は未公開のため、公開までは独自のバージョン（`package.json` の `0.0.1`）のままです。1.0 までに形式と API を変更する可能性があります。
+ドラフト版です。CLI、Go ライブラリ、`@mdsig/core` のリリースは共通のバージョン（現在は `v0.0.3`）で、署名形式とは別に管理しています。現在の形式は `0.0.2` です（`0.0.1` の署名も検証できます）。`mdsig --version` で両方を確認できます（`mdsig version 0.0.3 (format 0.0.2)`）。1.0 までに形式と API を変更する可能性があります。
 
 実験的な実装です。第三者によるセキュリティ監査は受けていません。契約など、署名の正しさに重大な結果が伴う用途で、この実装だけに依拠することは避けてください。脆弱性の報告方法は [SECURITY.md](SECURITY.md) を参照してください。
 

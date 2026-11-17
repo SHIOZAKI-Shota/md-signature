@@ -5,7 +5,7 @@ TypeScript implementation of [md-signature](../../README.md), a signature format
 [日本語](README.ja.md) · [Format specification](../../SPEC.md) · [CLI and HTTP API specification](../../CLI_SPEC.md)
 
 - Runs in browsers, Node.js 22 or later, Deno, Bun, and Cloudflare Workers. No `node:*` modules are used.
-- Not on npm yet. Once published, install it with `npm install @mdsig/core`.
+- Install it with `npm install @mdsig/core`. Releases share the version number of the `mdsig` CLI.
 - This is a draft. It signs with format `0.0.2` and verifies `0.0.1` and `0.0.2`. The API may change before 1.0.
 
 ## Verifying

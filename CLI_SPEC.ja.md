@@ -16,7 +16,7 @@
 | --- | --- |
 | バイナリ | `mdsig` |
 | npm CLI パッケージ | `mdsig`（準備中） |
-| コアライブラリ | `@mdsig/core`（npm では未公開） |
+| コアライブラリ | `@mdsig/core`（npm） |
 | Homebrew | `brew install SHIOZAKI-Shota/tap/mdsig` |
 | Go | `go install mdsig.dev/cmd/mdsig@latest`（Go 1.26 以降） |
 | winget | `winget install ShiozakiShota.mdsig`（準備中：リリースワークフローで生成するが、まだ公開していない） |
