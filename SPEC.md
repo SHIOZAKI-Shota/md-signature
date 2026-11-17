@@ -111,12 +111,12 @@ Rules that apply in addition to the grammar:
 | Key | Requirement | Description |
 | --- | --- | --- |
 | `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
-| `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu` (Section 4). |
+| `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu`; or `tsa` for a timestamp block that has no signer (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
 | `reason` | MAY | Free-text reason or comment. |
 | `ts` | MUST | Signing time claimed by the signer, in UTC: `YYYY-MM-DDTHH:MM:SSZ` [RFC3339]. This is a claim only; see `tsa_token` for third-party evidence. |
-| `alg` | MAY | Signature algorithm. Default `ed25519`. See Section 6. |
+| `alg` | MAY | Signature algorithm. Default `ed25519`. See Section 6. `rfc3161` in a `tsa` block (Section 4.6). |
 | `hash` | MUST | Digest of the covered document slice: `<hash-alg>:<lowercase-hex>`. Default `sha256`. |
 | `sig` | MUST | Signature over the signed payload: `base64:<standard base64 with padding>` [RFC4648, Section 4]. |
 | `tsa_url` | MAY | RFC 3161 Time-Stamping Authority endpoint used to obtain `tsa_token`. |
@@ -201,6 +201,77 @@ understand that field.
 - `pubkey` (MUST): `<key-type>:<base64>`, for example `ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`. The key type and encoding are the same as for `dns` (Section 4.1). A `pubkey` whose key type does not match `alg`, or that cannot be decoded, makes the block malformed.
 - A `tofu` signature proves only that the document has not changed since someone holding that key signed it. It does not prove who that is.
 - Verifiers that keep state SHOULD remember the `signer` → `pubkey` binding the first time they see it and MUST report a block as **invalid** (code `key-changed`) if a later document uses the same `signer` with a different `pubkey`. The binding is stored after the block has verified, and is replaced only when the user explicitly accepts the new key.
+
+### 4.5 Key snapshots (`dns`, `git-hosting`)
+
+The public keys of `dns` and `git-hosting` are fetched at verification time, so
+once the signer removes or changes a key, earlier signatures can no longer be
+checked (Section 9.3). To prepare for this, a `dns` or `git-hosting` block MAY
+include the public key it was signed with in `pubkey`, in the format of
+Section 4.4. A block whose `v` is `0.0.1` does not include `pubkey`. A `pgp`
+block does not include `pubkey`.
+
+`pubkey` is part of the signed payload, but the signer wrote it. A forger can
+embed a key of their own, so `pubkey` alone does not show that the key belongs
+to `signer`. A verifier MUST verify a `dns` or `git-hosting` block that has
+`pubkey` as follows, in place of steps 4 and 5 of Section 5.4.
+
+1. A block whose `pubkey` has a key type that does not match `alg` or cannot be
+   decoded, or a `git-hosting` block whose `key_fp` is not the fingerprint of
+   `pubkey`, is malformed.
+2. Verify `sig` with `pubkey`. If it does not verify, the block is
+   **invalid (bad signature)**. This check comes before fetching keys.
+3. Fetch keys as in Section 4.1 or 4.2. If the fetched keys include the key in
+   `pubkey`, continue with the remaining steps as usual.
+4. If fetching succeeded but did not include that key, or no key exists,
+   perform the remaining steps as usual, and if none of them fails, the block
+   is **unresolved** (code `key-not-published`). A fetch that fails because of
+   the network is unresolved as before.
+
+A verifier MUST NOT present a `key-not-published` block as valid. What can be
+reported is that the signature holds with the embedded key and, when a
+timestamp (`tsa_token` or a later `tsa` block) verifies, that the signature
+existed at that time. It cannot be shown that the key was published as
+`signer`'s key at that time. When the time of a timestamp is confirmed, a
+verifier SHOULD report it as well.
+
+### 4.6 `tsa` — Timestamp block
+
+A `tsa` block has no signer. Its RFC 3161 timestamp shows that the whole chain
+before it, earlier timestamps included, existed at a given time. Appending
+further `tsa` blocks renews the timestamp, to prepare for a TSA certificate
+being revoked or a hash algorithm weakening. The idea is the same as in
+RFC 4998.
+
+- `v`: `0.0.2` or later.
+- `method`: `tsa`. `alg`: `rfc3161`. A block with only one of the two is malformed.
+- `signer`: the `http://` or `https://` URL of the TSA. Verification
+  authenticates the TSA certificate in the token, not this value.
+- `ts`: the time claimed by the generator.
+- `hash`: the digest of the slice, as for any block (Section 5.3), with
+  `sha256` or `sha512`.
+- `sig`: the DER-encoded `TimeStampResp` with an encoding prefix, as in
+  `tsa_token`.
+- Optionally `reason` and `x_*`. A block with any other field is malformed.
+
+The generator digests the signed payload (Section 5.3) with the algorithm of
+`hash` and sends a `TimeStampReq` with that digest as `messageImprint` and a
+`nonce`.
+
+A verifier MUST verify a `tsa` block as follows, in place of step 4 and the
+steps after it in Section 5.4.
+
+1. If the token cannot be decoded, the block is malformed.
+2. If the response status is not `granted` or `grantedWithMods`, or the
+   algorithm and value of `messageImprint` are not the digest of the signed
+   payload with the algorithm of `hash`, the block is **invalid (bad
+   signature)**.
+3. Verify the CMS signature of the token and the TSA certificate chain against
+   a trust store of the verifier's choice (Section 5.5). If this succeeds the
+   block is valid, and the verifier reports `genTime` and the name of the TSA
+   certificate. If it cannot be verified, the block is **unresolved**.
+
+A `tsa` block does not satisfy `require` (Section 5.8).
 
 ## 5. Canonicalization and Cryptographic Procedure
 
@@ -288,6 +359,10 @@ For each block in the chain, in order, a verifier MUST:
 7. If `resources` is present, check it (Section 5.7).
 8. If `revocation_url` is present, check it (Section 5.9).
 9. If `tsa_token` is present, check it (Section 5.5).
+
+A block whose `method` is `tsa` is verified as in Section 4.6 in place of step 4
+and the steps after it, and a `dns` or `git-hosting` block with `pubkey` as in
+Section 4.5 in place of steps 4 and 5.
 
 The document is **verified** only if the chain has at least one block, every
 block is valid, there is no unsigned content after the last block, and the
@@ -428,12 +503,14 @@ rules:
 3. Every step has at least one requirement line, and the `m` of `any <m>` is not larger than the number of requirement lines in the step.
 4. A step does not list two requirement lines with the same `method`, `signer`, and `role`.
 5. A block whose `v` is `0.0.1` contains no step or order lines.
+6. In a block whose `v` is `0.0.2` or later, the `method` of a requirement line is not `tsa`.
 
 A value without step lines forms one step from all of its requirement lines
 and needs all of them. A step without `any` also needs all of its members.
 
 The requirements declared by block `N` are evaluated step by step. A
-requirement in a step can be satisfied by a valid block after `N` that has the
+requirement in a step can be satisfied by a valid block after `N` whose `method`
+is not `tsa` and that has the
 same `method` and `signer` (domain names compared without case and without a
 trailing dot) and, if a role is given, the same `role`. Within one
 declaration, a block counts for one requirement only. A step is **complete**
@@ -507,6 +584,7 @@ revocation would be bypassed.
 | `ed25519` | REQUIRED to implement | [RFC8032] pure Ed25519. Key type `ed25519`. |
 | `webauthn-es256` | RECOMMENDED to implement for verification | WebAuthn assertion with ECDSA P-256 / SHA-256 (Section 6.1). Key type `es256`. |
 | `openpgp` | RECOMMENDED to implement for verification | OpenPGP signature packet [RFC9580] (Section 6.2). Used only with `method: pgp`. |
+| `rfc3161` | RECOMMENDED to implement for verification | RFC 3161 timestamp token (Section 4.6). Used only with `method: tsa`. |
 | `ml-dsa-44`, `ml-dsa-65` | Reserved | [FIPS204]. |
 | `slh-dsa-sha2-128s` | Reserved | [FIPS205]. |
 | `ed25519+ml-dsa-65` | Reserved | Composite. `sig` is the concatenation of both signatures. |
@@ -644,7 +722,12 @@ removes the key, older signatures will no longer verify; if an attacker takes
 over the domain or account, they can publish a key of their own. Neither case
 can be detected from the document alone. For long-term evidence, signers
 SHOULD add an RFC 3161 timestamp, and verifiers SHOULD record the key they used
-and when.
+and when. Signers of `dns` and `git-hosting` can include a key snapshot
+(Section 4.5). It shows that the signature still holds after the key is
+removed, but even with a timestamp it does not show that the key was the
+signer's (`key-not-published`). Keepers of long-lived documents SHOULD renew
+them by appending a `tsa` block (Section 4.6) before the TSA certificate
+expires or the hash algorithm weakens.
 
 ### 9.4 Claimed time
 

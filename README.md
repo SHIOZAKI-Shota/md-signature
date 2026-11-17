@@ -31,7 +31,7 @@ sig: base64:q1Xv...
 - The signature stays in the same file. There is no detached `.sig` file to lose.
 - Several people can co-sign. Each new signature covers the document and every earlier signature, forming an append-only hash chain.
 - You can verify against keys you already have: SSH keys on GitHub/GitLab (`https://github.com/<user>.keys`), a DNS TXT record on your domain, OpenPGP, or an embedded key.
-- RFC 3161 timestamp tokens can be added if you need a trusted time.
+- RFC 3161 timestamp tokens can be added if you need a trusted time. For long-term keeping, `mdsig timestamp` appends timestamp blocks without a signer and renews them by stacking. `dns` and `git-hosting` can embed the public key (`--embed-key`), so a signature can still be checked after the key is removed.
 - A signer can declare which co-signatures are still required (`require`). `mdsig verify` reports the document as *pending* until they are all there. Steps (`step`) and thresholds (`any`) express flows such as "the manager approves, then two of three reviewers sign".
 - Screenshots, data files, and even remote images can be bound by SHA-256 (`resources`), so swapping a linked file is detected.
 - You can sign only marked sections (`scope`) and leave notes or fill-in fields editable. Verifiers always show that such a signature is partial.

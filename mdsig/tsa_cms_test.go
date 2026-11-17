@@ -157,6 +157,8 @@ type tokenSpec struct {
 	nonce         []byte
 	genTime       string
 	status        int
+	// imprint hash; nil means SHA-256
+	imprintOID asn1.ObjectIdentifier
 }
 
 func tlv(tag byte, parts ...[]byte) []byte {
@@ -182,10 +184,13 @@ func (ts *testTSA) response(t *testing.T, imprint []byte, spec tokenSpec) []byte
 		spec.genTime = "20260601120000Z"
 	}
 	null := []byte{0x05, 0x00}
+	if spec.imprintOID == nil {
+		spec.imprintOID = oidSHA256
+	}
 	tstParts := [][]byte{
 		tlv(0x02, []byte{1}),
 		mustMarshal(t, asn1.ObjectIdentifier{1, 2, 3, 4}),
-		tlv(0x30, tlv(0x30, mustMarshal(t, oidSHA256), null), tlv(0x04, imprint)),
+		tlv(0x30, tlv(0x30, mustMarshal(t, spec.imprintOID), null), tlv(0x04, imprint)),
 		tlv(0x02, []byte{0x5a, 0x17}),
 		tlv(0x18, []byte(spec.genTime)),
 	}
@@ -333,7 +338,7 @@ func tsaServer(t *testing.T, ts *testTSA, nonceOf func(sent []byte) []byte) *htt
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		w.Write(ts.response(t, req.MessageImprint.HashedMessage, tokenSpec{nonce: nonceOf(req.Nonce.Bytes())}))
+		w.Write(ts.response(t, req.MessageImprint.HashedMessage, tokenSpec{nonce: nonceOf(req.Nonce.Bytes()), imprintOID: req.MessageImprint.HashAlgorithm.Algorithm}))
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -420,5 +425,61 @@ func TestLoadTSARoots(t *testing.T) {
 		if _, err := LoadTSARoots([]string{p}); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+}
+
+func TestTsaBlock(t *testing.T) {
+	ts := newTestTSA(t, timeStamping, false)
+	srv := tsaServer(t, ts, func(sent []byte) []byte { return sent })
+	trusted := TSAVerifyOptions{Roots: ts.roots}
+	ctx := context.Background()
+	signer, _ := SignerFromSeed(bytes.Repeat([]byte{1}, 32))
+	signed, err := SignDocument(ctx, "# Doc\n", SignOptions{Signer: signer, Method: "tofu", SignerID: "alice", TS: "2026-06-01T11:00:00Z"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := func(text, hash string) string {
+		t.Helper()
+		r, err := TimestampDocument(ctx, text, TimestampOptions{TSAURL: srv.URL, Hash: hash, TS: "2026-06-01T11:30:00Z", TSA: trusted})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.Text
+	}
+	offline := func(roots TSAVerifyOptions) *VerifyOptions {
+		return &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}, TSA: roots}
+	}
+	t1 := stamp(signed.Text, "")
+	v1 := VerifyDocument(ctx, t1, offline(trusted))
+	if !v1.OK || v1.Signatures[1].Status != StatusValid || !v1.Signatures[1].TSA.Verified || v1.Signatures[1].TSA.Signer != "Test TSA Unit" || v1.Agreement.Status != AgreementNone {
+		t.Fatalf("%+v %+v", v1.Signatures[1], v1.Signatures[1].TSA)
+	}
+	t2 := stamp(t1, "sha512")
+	v2 := VerifyDocument(ctx, t2, offline(trusted))
+	if !v2.OK || !strings.HasPrefix(v2.Signatures[2].Fields["hash"], "sha512:") {
+		t.Fatalf("%+v", v2.Signatures[2])
+	}
+	if s := VerifyDocument(ctx, t1, offline(TSAVerifyOptions{Roots: x509.NewCertPool()})).Signatures[1]; s.Status != StatusUnresolved || s.Code != KindNotFound || s.TSA.GenTime != "" {
+		t.Fatalf("untrusted root: %+v", s)
+	}
+	for _, c := range []struct{ name, from, to, code string }{
+		{"edited body", "# Doc", "# Dog", "hash-mismatch"},
+		{"edited ts", "ts: 2026-06-01T11:30:00Z", "ts: 2026-06-01T11:31:00Z", "bad-signature"},
+		{"extra field", "alg: rfc3161\n", "alg: rfc3161\nrole: witness\n", "malformed"},
+		{"wrong alg", "alg: rfc3161\n", "alg: ed25519\n", "malformed"},
+	} {
+		if s := VerifyDocument(ctx, strings.Replace(t1, c.from, c.to, 1), offline(trusted)).Signatures; s[len(s)-1].Code != c.code {
+			t.Errorf("%s: %s %s", c.name, s[len(s)-1].Code, s[len(s)-1].Message)
+		}
+	}
+	if _, err := TimestampDocument(ctx, "# none\n", TimestampOptions{TSAURL: srv.URL}); err == nil {
+		t.Error("timestamped a document without signatures")
+	}
+	declared, _ := SignDocument(ctx, "# Doc\n", SignOptions{Signer: signer, Method: "tofu", SignerID: "alice", Require: []string{"tofu:bob"}})
+	if st := VerifyDocument(ctx, stamp(declared.Text, ""), offline(trusted)).Agreement.Status; st != AgreementPending {
+		t.Errorf("a tsa block satisfied a requirement: %s", st)
+	}
+	if _, errs := ParseRequire("tsa:"+srv.URL, 1, "0.0.2"); len(errs) == 0 {
+		t.Error("a tsa requirement was accepted")
 	}
 }

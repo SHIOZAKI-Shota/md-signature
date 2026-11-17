@@ -122,7 +122,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.PersistentFlags().StringVar(&langFlag, "lang", "", "UI language: en or ja")
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error { return err })
-	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd())
+	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd(), newTimestampCmd())
 	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }

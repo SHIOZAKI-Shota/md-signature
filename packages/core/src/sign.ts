@@ -1,9 +1,9 @@
 import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizeNewlines, normalizedBytes, nowTs, serializeBlock, signedPayload, validateValue } from "./canonical.ts";
-import { sha256, sshFingerprint, type Signer } from "./crypto.ts";
+import { digest, sha256, sshFingerprint, type HashAlg, type Signer } from "./crypto.ts";
 import { GIT_HOSTING_SIGNER_RE } from "./resolvers.ts";
 import { toBase64, toHex, utf8 } from "./encoding.ts";
 import { parseDocument } from "./parser.ts";
-import { requestTimestamp, type TsaRootInput } from "./tsa.ts";
+import { DEFAULT_TSA_URL, requestTimestamp, requestTimestampOver, type TsaRootInput } from "./tsa.ts";
 import { scopedHashInput } from "./scope.ts";
 import { formatResources } from "./resources.ts";
 import { formatRequirement, parseRequire, type Requirement } from "./agreement.ts";
@@ -32,6 +32,8 @@ export interface SignOptions {
   tsaUrl?: string;
   tsaRoots?: TsaRootInput[];
   extraTsaRoots?: TsaRootInput[];
+  // dns and git-hosting: also write the public key (SPEC 4.5), so the signature stays checkable after the key is gone
+  embedKey?: boolean;
   fetch?: typeof fetch;
   force?: boolean;
 }
@@ -75,7 +77,8 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
     if (!GIT_HOSTING_SIGNER_RE.test(o.signerId)) throw new SignError(`git-hosting signer must be <host>/<username> with a domain name as host, got "${o.signerId}"`);
     if (o.keyFp !== false) fields.key_fp = o.keyFp ?? (await sshFingerprint((o.signer as Signer).publicKey));
   }
-  if (o.method === "tofu") fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as Signer | WebAuthnSigner).publicKey)}`;
+  if (o.embedKey && o.method !== "dns" && o.method !== "git-hosting") throw new SignError(`embedKey works with dns and git-hosting, not ${o.method}`);
+  if (o.method === "tofu" || o.embedKey) fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as Signer | WebAuthnSigner).publicKey)}`;
   if (isPgp) {
     const pgp = o.signer as PgpSigner;
     const email = o.signerId.toLowerCase();
@@ -136,11 +139,50 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
     fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
   }
 
+  return appendBlock(text, doc.chain.length, fields);
+}
+
+function appendBlock(text: string, previous: number, fields: Record<string, string>): SignResult {
   const block = serializeBlock(fields);
   const eol = /\r\n/.test(text) ? "\r\n" : "\n";
   const trimmed = text.replace(/[\r\n \t]+$/, "");
   // SPEC 7: blank line before the first block only
-  const sep = doc.chain.length ? eol : eol + eol;
+  const sep = previous ? eol : eol + eol;
   const out = trimmed + sep + block.replace(/\n/g, eol) + eol;
-  return { text: out, block, fields, previous: doc.chain.length };
+  return { text: out, block, fields, previous };
+}
+
+export interface TimestampOptions {
+  tsaUrl?: string;
+  // sha512 for a renewal that must outlive SHA-256 (SPEC 4.6)
+  hash?: HashAlg;
+  ts?: string;
+  reason?: string;
+  fetch?: typeof fetch;
+  tsaRoots?: TsaRootInput[];
+  extraTsaRoots?: TsaRootInput[];
+}
+
+// SPEC 4.6: appends a tsa block, a timestamp over everything before it, earlier tokens included
+export async function timestampDocument(text: string, o: TimestampOptions = {}): Promise<SignResult> {
+  const doc = parseDocument(text);
+  if (doc.chain.length === 0) throw new SignError(doc.strayMarker ? `line ${doc.strayMarkerLine}: a signature block is followed by unsigned content` : "the document has no signature to timestamp");
+  const malformed = doc.chain.find((b) => b.errors.length);
+  if (malformed) throw new SignError(`existing signature #${malformed.index} is malformed: ${malformed.errors.join("; ")}`);
+  const tsaUrl = o.tsaUrl ?? DEFAULT_TSA_URL;
+  if (!/^https?:\/\/\S+$/.test(tsaUrl)) throw new SignError(`TSA URL must be http(s)://, got "${tsaUrl}"`);
+  const hashAlg = o.hash ?? "sha256";
+  const ts = o.ts ?? nowTs();
+  if (!TS_RE.test(ts)) throw new SignError(`ts must be YYYY-MM-DDTHH:MM:SSZ, got "${ts}"`);
+  const fields: Record<string, string> = { v: SPEC_VERSION, method: "tsa", signer: tsaUrl, ts };
+  if (o.reason) fields.reason = o.reason;
+  fields.alg = "rfc3161";
+  fields.hash = `${hashAlg}:${toHex(await digest(hashAlg, normalizedBytes(text)))}`;
+  for (const [k, v] of Object.entries(fields)) {
+    const e = validateValue(v, false);
+    if (e) throw new SignError(`${k}: ${e}`);
+  }
+  const imprint = await digest(hashAlg, signedPayload(fields));
+  fields.sig = await requestTimestampOver(imprint, hashAlg, tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
+  return appendBlock(text, doc.chain.length, fields);
 }

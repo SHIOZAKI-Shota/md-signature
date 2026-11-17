@@ -219,17 +219,23 @@ type TSACheck struct {
 }
 
 // CheckTSAToken verifies a tsa_token against the signature bytes it should cover; o may be nil
+// CheckTSAToken checks a tsa_token, which covers SHA-256 of the raw signature bytes (SPEC 5.5).
 func CheckTSAToken(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TSACheck {
-	b, err := DecodePrefixedBinary(tsaToken)
+	sum := sha256.Sum256(sigBytes)
+	return checkTimestampOver(tsaToken, sum[:], "sha256", o, "message imprint does not match SHA-256(sig)")
+}
+
+// a token over an imprint the caller computed, e.g. the payload of a tsa block (SPEC 4.6)
+func checkTimestampOver(token string, imprint []byte, hashAlg string, o *TSAVerifyOptions, mismatchDetail string) TSACheck {
+	b, err := DecodePrefixedBinary(token)
 	if err != nil {
 		return TSACheck{Status: TSAError, Detail: err.Error()}
 	}
-	sum := sha256.Sum256(sigBytes)
-	info, cert, err := verifyTimeStampResp(b, sum[:], o)
+	info, cert, err := verifyTimeStampResp(b, imprint, o, hashAlg)
 	var ie *tsaImprintError
 	switch {
 	case errors.As(err, &ie):
-		return TSACheck{Status: TSAMismatch, Detail: "message imprint does not match SHA-256(sig)"}
+		return TSACheck{Status: TSAMismatch, Detail: mismatchDetail}
 	case err != nil && info != nil:
 		return TSACheck{Status: TSAError, Detail: "imprint matched; TSA signature not verified: " + err.Error()}
 	case err != nil:
@@ -244,7 +250,14 @@ type tsaImprintError struct{}
 func (*tsaImprintError) Error() string { return "TSA token is for a different imprint" }
 
 // info is non-nil once the imprint matched, also when the CMS check then fails
-func verifyTimeStampResp(resp, imprint []byte, o *TSAVerifyOptions) (*tstInfo, *x509.Certificate, error) {
+func imprintOID(hashAlg string) asn1.ObjectIdentifier {
+	if hashAlg == "sha512" {
+		return oidSHA512
+	}
+	return oidSHA256
+}
+
+func verifyTimeStampResp(resp, imprint []byte, o *TSAVerifyOptions, hashAlg string) (*tstInfo, *x509.Certificate, error) {
 	info, err := parseTimeStampResp(resp)
 	if err != nil {
 		return nil, nil, err
@@ -252,7 +265,7 @@ func verifyTimeStampResp(resp, imprint []byte, o *TSAVerifyOptions) (*tstInfo, *
 	if info.Status != 0 && info.Status != 1 {
 		return nil, nil, fmt.Errorf("TSA status %d (not granted)", info.Status)
 	}
-	if info.HashOID != oidSHA256.String() {
+	if info.HashOID != imprintOID(hashAlg).String() {
 		return nil, nil, errors.New("unsupported imprint hash " + info.HashOID)
 	}
 	if !bytes.Equal(imprint, info.Imprint) {
@@ -288,7 +301,7 @@ type timeStampReq struct {
 	CertReq        bool
 }
 
-func buildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
+func buildTimeStampReq(imprint []byte, nonce []byte, hashAlg string) ([]byte, error) {
 	if nonce == nil {
 		nonce = make([]byte, 8)
 		if _, err := rand.Read(nonce); err != nil {
@@ -297,7 +310,7 @@ func buildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
 	}
 	var r timeStampReq
 	r.Version = 1
-	r.MessageImprint.HashAlgorithm.Algorithm = oidSHA256
+	r.MessageImprint.HashAlgorithm.Algorithm = imprintOID(hashAlg)
 	r.MessageImprint.HashAlgorithm.Parameters = asn1.NullRawValue
 	r.MessageImprint.HashedMessage = imprint
 	r.Nonce = new(big.Int).SetBytes(nonce)
@@ -307,15 +320,20 @@ func buildTimeStampReq(imprint []byte, nonce []byte) ([]byte, error) {
 
 // RequestTimestamp asks a TSA for a token over the signature bytes and verifies the response; client and o may be nil
 func RequestTimestamp(ctx context.Context, sigBytes []byte, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
+	// SPEC 5.5: the imprint is SHA-256 of the raw signature bytes
+	sum := sha256.Sum256(sigBytes)
+	return requestTimestampOver(ctx, sum[:], "sha256", tsaURL, client, o)
+}
+
+func requestTimestampOver(ctx context.Context, imprint []byte, hashAlg, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
 	if tsaURL == "" {
 		tsaURL = DefaultTSAURL
 	}
-	sum := sha256.Sum256(sigBytes)
 	nonce := make([]byte, 8)
 	if _, err := rand.Read(nonce); err != nil {
 		return "", err
 	}
-	reqDer, err := buildTimeStampReq(sum[:], nonce)
+	reqDer, err := buildTimeStampReq(imprint, nonce, hashAlg)
 	if err != nil {
 		return "", err
 	}
@@ -343,7 +361,7 @@ func RequestTimestamp(ctx context.Context, sigBytes []byte, tsaURL string, clien
 	if len(body) > MaxDecodedBytes {
 		return "", fmt.Errorf("TSA response is larger than %d bytes", MaxDecodedBytes)
 	}
-	info, _, err := verifyTimeStampResp(body, sum[:], o)
+	info, _, err := verifyTimeStampResp(body, imprint, o, hashAlg)
 	if err != nil {
 		return "", fmt.Errorf("TSA response rejected: %w", err)
 	}

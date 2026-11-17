@@ -280,7 +280,7 @@ func TestBase64(t *testing.T) {
 
 func TestTSARequestDER(t *testing.T) {
 	imprint := make([]byte, 32)
-	der, err := buildTimeStampReq(imprint, []byte{0, 0x80, 1})
+	der, err := buildTimeStampReq(imprint, []byte{0, 0x80, 1}, "sha256")
 	if err != nil {
 		t.Fatal(err)
 	}

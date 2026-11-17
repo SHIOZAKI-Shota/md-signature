@@ -1,9 +1,9 @@
 import { SUPPORTED_VERSIONS, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.ts";
-import { digest, ed25519Verify, isSupportedHash, sha256 } from "./crypto.ts";
-import { fromBase64, toHex, utf8 } from "./encoding.ts";
+import { digest, ed25519Verify, isSupportedHash, sha256, sshFingerprint } from "./crypto.ts";
+import { bytesEqual, decodePrefixedBinary, fromBase64, toHex, utf8 } from "./encoding.ts";
 import { parseDocument, type ParsedBlock } from "./parser.ts";
-import { DEFAULT_RESOLVERS, GIT_HOSTING_SIGNER_RE, ResolutionError, keyTypeFor, type CandidateKey, type Resolver, type ResolveOptions } from "./resolvers.ts";
-import { checkTsaToken, type TsaCheck, type TsaRootInput, type TsaVerifyOptions } from "./tsa.ts";
+import { DEFAULT_RESOLVERS, GIT_HOSTING_SIGNER_RE, ResolutionError, decodePublicKey, keyTypeFor, type CandidateKey, type Resolver, type ResolveOptions } from "./resolvers.ts";
+import { checkTimestampOver, checkTsaToken, type TsaCheck, type TsaRootInput, type TsaVerifyOptions } from "./tsa.ts";
 import { scopedHashInput } from "./scope.ts";
 import { checkResources, parseResources, fetchResource, type ResourceCheckOptions, type ResourceResult } from "./resources.ts";
 import { evaluateAgreement, parseRequire, sameSigner, type Agreement } from "./agreement.ts";
@@ -23,6 +23,7 @@ export type BlockCode =
   | "expired"
   | "revoked"
   | "key-changed"
+  | "key-not-published"
   | "unsupported-version"
   | "unsupported-alg"
   | "unsupported-hash"
@@ -83,7 +84,31 @@ export interface VerifyOptions extends ResolveOptions, ResourceCheckOptions {
 const SUPPORTED_ALGS = new Set(["ed25519", "webauthn-es256", "openpgp"]);
 const WEBAUTHN_KEYS = ["rp_id", "webauthn_authenticator_data", "webauthn_client_data"];
 
+// SPEC 4.6: a tsa block carries no signer key, so only these fields mean something in it
+const TSA_BLOCK_KEYS = new Set(["v", "method", "signer", "ts", "alg", "hash", "sig", "reason"]);
+// SPEC 4.5: methods whose block may carry a snapshot of the public key
+const KEY_SNAPSHOT_METHODS = new Set(["dns", "git-hosting"]);
+
 function validateSemantics(f: Record<string, string>): string | null {
+  // SPEC 4.6: method tsa and alg rfc3161 only go together
+  const isTsa = f.method === "tsa";
+  if (isTsa !== (f.alg === "rfc3161")) return isTsa ? "method tsa requires alg rfc3161" : "alg rfc3161 requires method tsa";
+  if (isTsa) {
+    if (f.v === "0.0.1") return "method tsa needs format 0.0.2";
+    const extra = Object.keys(f).find((k) => !TSA_BLOCK_KEYS.has(k) && !k.startsWith("x_"));
+    if (extra) return `field "${extra}" is not allowed with method tsa`;
+    if (!/^https?:\/\/\S+$/.test(f.signer!)) return "tsa signer must be the http(s) URL of the time-stamping authority";
+    return null;
+  }
+  // an unknown method is reported as unsupported later, not as a misplaced pubkey
+  if (f.pubkey !== undefined && f.method === "pgp") return "pubkey is not allowed with method pgp";
+  if (f.pubkey !== undefined && (f.method === "tofu" || KEY_SNAPSHOT_METHODS.has(f.method!))) {
+    const kalg = f.pubkey.includes(":") ? f.pubkey.slice(0, f.pubkey.indexOf(":")) : "";
+    const want = keyTypeFor(f.alg ?? "ed25519");
+    // an unknown alg is reported as unsupported later
+    if (want && kalg !== want) return `pubkey key type "${kalg}" does not match alg "${f.alg ?? "ed25519"}"`;
+  }
+  if (f.pubkey !== undefined && KEY_SNAPSHOT_METHODS.has(f.method!) && f.v === "0.0.1") return `pubkey with method ${f.method} needs format 0.0.2`;
   if (f.expires !== undefined && !isValidTimestamp(f.expires)) return `expires "${f.expires}" is not a valid YYYY-MM-DDTHH:MM:SSZ date-time`;
   if (f.revocation_url !== undefined && !/^https:\/\/\S+$/.test(f.revocation_url)) return "revocation_url must be an https:// URL";
   if (f.require !== undefined) {
@@ -194,6 +219,9 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
   r.hashOk = r.computedHash === f.hash!.toLowerCase() && f.hash === f.hash!.toLowerCase();
   if (!r.hashOk) return fail("invalid", "hash-mismatch", r.partial ? "a signed section was modified after this signature" : "document content was modified after this signature");
 
+  // SPEC 4.6: a tsa block is checked against its token; there is no key to resolve
+  if (f.method === "tsa") return verifyTsaBlock(r, f, hashAlg, opts, fail);
+
   // 2. alg and sig encoding
   const alg = f.alg ?? "ed25519";
   if (!SUPPORTED_ALGS.has(alg)) return fail("unsupported", "unsupported-alg", `unsupported alg "${alg}"`);
@@ -211,10 +239,43 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
     if (!pre.ok) return fail(pre.status, pre.code, pre.message);
   }
 
+  const payload = signedPayload(f);
+  let webauthnData: { authData: Uint8Array; clientData: Uint8Array } | undefined;
+  if (alg === "webauthn-es256") {
+    const wa = await checkWebAuthnData(f, payload);
+    if (wa.info) r.webauthn = wa.info;
+    if (!wa.ok) return fail(wa.code === "malformed" ? "malformed" : "invalid", wa.code, wa.message);
+    webauthnData = { authData: wa.authData!, clientData: wa.clientData! };
+    if (wa.info.rpId === "localhost") r.warnings.push("webauthn: rp_id is localhost (development signature)");
+  }
+  // ed25519 and webauthn-es256; a string is a malformed signature
+  const findKey = async (cands: CandidateKey[]): Promise<CandidateKey | undefined | string> => {
+    try {
+      for (const k of cands) {
+        if (webauthnData ? await verifyWebAuthnSignature(k.key, sig, webauthnData.authData, webauthnData.clientData) : await ed25519Verify(k.key, sig, payload)) return k;
+      }
+    } catch (e) {
+      return (e as Error).message;
+    }
+    return undefined;
+  };
+
+  // SPEC 4.5: a key snapshot is checked first, so a bad signature is invalid even when the published key cannot be reached
+  let snapshot: CandidateKey | undefined;
+  if (f.pubkey !== undefined && KEY_SNAPSHOT_METHODS.has(f.method!)) {
+    const s = await keySnapshot(f, alg);
+    if (typeof s === "string") return fail("malformed", "malformed", s);
+    const m = await findKey([s]);
+    if (typeof m === "string") return fail("malformed", "malformed", m);
+    if (!m) return fail("invalid", "bad-signature", "signature does not verify with the embedded key");
+    snapshot = s;
+  }
+
   // 3. resolve keys
   const resolver = (opts.resolvers ?? {})[f.method!] ?? DEFAULT_RESOLVERS[f.method!];
   if (!resolver) return fail("unsupported", "unsupported-method", `unknown method "${f.method}"`);
-  let keys: CandidateKey[];
+  let keys: CandidateKey[] = [];
+  let notPublished: string | undefined;
   try {
     const res = await resolver(f, opts);
     keys = res.keys.filter((k) => k.alg === keyTypeFor(alg));
@@ -223,30 +284,22 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
     if (e instanceof ResolutionError) {
       if (e.kind === "unsupported") return fail("unsupported", "unsupported-method", e.message);
       if (e.kind === "malformed") return fail("malformed", "malformed", e.message);
-      return fail("unresolved", e.kind, e.message);
+      if (e.kind === "not-found" && snapshot) notPublished = e.message;
+      else return fail("unresolved", e.kind, e.message);
+    } else return fail("unresolved", "network", (e as Error).message);
+  }
+  if (snapshot) {
+    const published = keys.find((k) => bytesEqual(k.key, snapshot.key));
+    if (published) keys = [published];
+    else {
+      notPublished ??= `${f.signer} does not publish the embedded key now`;
+      keys = [snapshot];
     }
-    return fail("unresolved", "network", (e as Error).message);
   }
 
   // 4. signature
-  const payload = signedPayload(f);
   let matched: CandidateKey | undefined;
-  if (alg === "webauthn-es256") {
-    const wa = await checkWebAuthnData(f, payload);
-    if (wa.info) r.webauthn = wa.info;
-    if (!wa.ok) return fail(wa.code === "malformed" ? "malformed" : "invalid", wa.code, wa.message);
-    try {
-      for (const k of keys) {
-        if (await verifyWebAuthnSignature(k.key, sig, wa.authData!, wa.clientData!)) {
-          matched = k;
-          break;
-        }
-      }
-    } catch (e) {
-      return fail("malformed", "malformed", (e as Error).message);
-    }
-    if (wa.info.rpId === "localhost") r.warnings.push("webauthn: rp_id is localhost (development signature)");
-  } else if (alg === "openpgp") {
+  if (alg === "openpgp") {
     const now = Math.floor((opts.now ?? new Date()).getTime() / 1000);
     const certs = keys.map((k) => ({ bytes: k.key, source: k.source.split(" ")[0] as PgpAttempt["source"] }));
     const chk = await verifyPgpSignature(sig, f, payload, certs, now);
@@ -255,14 +308,11 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
     r.warnings.push(...chk.warnings);
     matched = keys.find((k) => k.source.startsWith(chk.info.keySource)) ?? keys[0];
   } else {
-    for (const k of keys) {
-      if (await ed25519Verify(k.key, sig, payload)) {
-        matched = k;
-        break;
-      }
-    }
+    const m = await findKey(keys);
+    if (typeof m === "string") return fail("malformed", "malformed", m);
+    matched = m;
   }
-  if (!matched) return fail("invalid", "bad-signature", "signature does not verify with the signer's key(s)");
+  if (!matched) return fail("invalid", "bad-signature", snapshot ? "signature does not verify with the embedded key" : "signature does not verify with the signer's key(s)");
   r.key = { source: matched.source };
 
   // SPEC 4.4: a stored tofu binding must match, and is only written for a signature that verified
@@ -311,6 +361,49 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
     if (r.tsa.status === "error") r.warnings.push(`timestamp could not be checked: ${r.tsa.detail}`);
   }
   if (r.partial) r.warnings.push(`partial signature: covers only section(s) ${r.partial.sections.join(", ")}`);
+  // SPEC 4.5: the signature holds with the embedded key, but nobody vouches for that key now
+  if (notPublished) {
+    const when = r.tsa?.verified ? `; the signature existed at ${r.tsa.genTime} (TSA)` : "";
+    return fail("unresolved", "key-not-published", `the signature verifies with the embedded key, which ${f.signer} does not publish now (${notPublished})${when}`);
+  }
+  return r;
+}
+
+async function keySnapshot(f: Record<string, string>, alg: string): Promise<CandidateKey | string> {
+  const pk = f.pubkey!;
+  const i = pk.indexOf(":");
+  const kalg = i < 0 ? "" : pk.slice(0, i);
+  if (kalg !== keyTypeFor(alg)) return `pubkey key type "${kalg}" does not match alg "${alg}"`;
+  let key: Uint8Array;
+  try {
+    key = decodePublicKey(kalg, fromBase64(pk.slice(i + 1)));
+  } catch (e) {
+    return `invalid pubkey: ${(e as Error).message}`;
+  }
+  // SPEC 4.2: key_fp names a key, so it has to name this one
+  if (f.method === "git-hosting" && f.key_fp !== undefined && kalg === "ed25519" && (await sshFingerprint(key)) !== f.key_fp) return "key_fp does not match the embedded pubkey";
+  return { alg: kalg, key, source: "embedded pubkey" };
+}
+
+async function verifyTsaBlock(r: BlockResult, f: Record<string, string>, hashAlg: "sha256" | "sha512", opts: VerifyOptions, fail: (status: BlockStatus, code: BlockCode, message: string) => BlockResult): Promise<BlockResult> {
+  let token: string;
+  try {
+    await decodePrefixedBinary(unfoldBinary(f.sig!));
+    token = unfoldBinary(f.sig!);
+  } catch (e) {
+    return fail("malformed", "malformed", `sig is not a timestamp token: ${(e as Error).message}`);
+  }
+  // SPEC 4.6: the token's imprint is the digest of the signed payload, with the block's hash algorithm
+  const imprint = await digest(hashAlg, signedPayload(f));
+  r.tsa = await checkTimestampOver(token, imprint, hashAlg, { roots: opts.tsaRoots, extraRoots: opts.extraTsaRoots }, `message imprint does not match ${hashAlg.toUpperCase()}(payload)`);
+  if (!r.tsa.verified) delete r.tsa.genTime;
+  if (r.tsa.status === "mismatch") return fail("invalid", "bad-signature", `timestamp token does not cover this block: ${r.tsa.detail}`);
+  if (r.tsa.status === "error") {
+    // a token whose imprint matched but whose TSA cannot be trusted is unresolved, like a key that was not found
+    if (r.tsa.detail.startsWith("imprint matched")) return fail("unresolved", "not-found", `timestamp could not be verified: ${r.tsa.detail}`);
+    return fail("invalid", "bad-signature", `timestamp token is unusable: ${r.tsa.detail}`);
+  }
+  r.key = { source: `TSA ${r.tsa.signer}` };
   return r;
 }
 

@@ -157,6 +157,10 @@ func ParseRequire(value string, declaredBy int, version string) (RequireSpec, []
 			}
 			target = implicit
 		}
+		if allowSteps && m[1] == "tsa" {
+			errs = append(errs, fmt.Sprintf("require: a tsa block cannot be required, got %s", jsonString(line)))
+			continue
+		}
 		r := Requirement{Method: m[1], Signer: m[2], Role: m[3], DeclaredBy: declaredBy, Step: target.Step}
 		if allowSteps && slices.ContainsFunc(target.Members, func(x Requirement) bool { return sameRequirement(x, r) }) {
 			errs = append(errs, fmt.Sprintf("require: %s appears twice in step %d", r, target.Step))
@@ -209,8 +213,8 @@ func requirementMatches(r Requirement, b agreementBlock) bool {
 func evaluateDeclaration(declarer int, spec RequireSpec, blocks []agreementBlock) (string, []MissingRequirement, []OrderViolation) {
 	var later []agreementBlock
 	for _, b := range blocks {
-		// SPEC 5.8: a block with scope does not cover the declaring block, so it never satisfies
-		if _, scoped := b.Fields["scope"]; !scoped && b.Valid && b.Index > declarer {
+		// SPEC 5.8: a block with scope does not cover the declaring block, and a tsa block has no signer, so neither satisfies
+		if _, scoped := b.Fields["scope"]; !scoped && b.Valid && b.Fields["method"] != "tsa" && b.Index > declarer {
 			later = append(later, b)
 		}
 	}

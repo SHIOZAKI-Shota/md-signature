@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -31,9 +32,11 @@ type SignOptions struct {
 	Extra         map[string]string
 	TSAURL        string
 	TSA           TSAVerifyOptions
-	HTTPClient    *http.Client
-	Force         bool
-	Now           func() time.Time
+	// dns and git-hosting: also write the public key (SPEC 4.5), so the signature stays checkable after the key is gone
+	EmbedKey   bool
+	HTTPClient *http.Client
+	Force      bool
+	Now        func() time.Time
 }
 
 type SignResult struct {
@@ -130,7 +133,11 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 				fields["key_fp"] = SSHFingerprint(pub)
 			}
 		}
-	case "tofu":
+	}
+	if o.EmbedKey && o.Method != "dns" && o.Method != "git-hosting" {
+		return nil, &ValueError{Msg: "EmbedKey works with dns and git-hosting, not " + o.Method}
+	}
+	if o.Method == "tofu" || o.EmbedKey {
 		kt := "ed25519"
 		if isWebAuthn {
 			kt = "es256"
@@ -248,6 +255,10 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		fields["tsa_token"] = tok
 	}
 
+	return appendBlock(text, len(doc.Chain), fields)
+}
+
+func appendBlock(text string, previous int, fields map[string]string) (*SignResult, error) {
 	block, err := serializeBlock(fields)
 	if err != nil {
 		return nil, &ValueError{Msg: err.Error()}
@@ -257,10 +268,76 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		eol = "\r\n"
 	}
 	trimmed := strings.TrimRight(text, "\r\n \t")
+	// SPEC 7: blank line before the first block only
 	sep := eol + eol
-	if len(doc.Chain) > 0 {
+	if previous > 0 {
 		sep = eol
 	}
 	out := trimmed + sep + strings.ReplaceAll(block, "\n", eol) + eol
-	return &SignResult{Text: out, Block: block, Fields: fields, Previous: len(doc.Chain)}, nil
+	return &SignResult{Text: out, Block: block, Fields: fields, Previous: previous}, nil
+}
+
+type TimestampOptions struct {
+	TSAURL string
+	// "sha512" for a renewal that must outlive SHA-256 (SPEC 4.6); "" means sha256
+	Hash       string
+	TS         string
+	Reason     string
+	HTTPClient *http.Client
+	TSA        TSAVerifyOptions
+}
+
+var tsaURLRe = regexp.MustCompile(`^https?://\S+$`)
+
+// TimestampDocument appends a tsa block: a timestamp over everything before it, earlier tokens included (SPEC 4.6).
+func TimestampDocument(ctx context.Context, text string, o TimestampOptions) (*SignResult, error) {
+	doc := ParseDocument(text)
+	if len(doc.Chain) == 0 {
+		if doc.StrayMarker {
+			return nil, &SignError{Msg: fmt.Sprintf("line %d: a signature block is followed by unsigned content", doc.StrayMarkerLine)}
+		}
+		return nil, &SignError{Msg: "the document has no signature to timestamp"}
+	}
+	for _, b := range doc.Chain {
+		if len(b.Errors) > 0 {
+			return nil, &SignError{Msg: fmt.Sprintf("existing signature #%d is malformed: %s", b.Index, strings.Join(b.Errors, "; "))}
+		}
+	}
+	tsaURL := o.TSAURL
+	if tsaURL == "" {
+		tsaURL = DefaultTSAURL
+	}
+	if !tsaURLRe.MatchString(tsaURL) {
+		return nil, &ValueError{Msg: fmt.Sprintf("TSA URL must be http(s)://, got %q", tsaURL)}
+	}
+	hashAlg := o.Hash
+	if hashAlg == "" {
+		hashAlg = "sha256"
+	}
+	if hashAlg != "sha256" && hashAlg != "sha512" {
+		return nil, &ValueError{Msg: fmt.Sprintf("hash must be sha256 or sha512, got %q", hashAlg)}
+	}
+	ts := o.TS
+	if ts == "" {
+		ts = time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	}
+	if !tsRe.MatchString(ts) {
+		return nil, &ValueError{Msg: fmt.Sprintf("ts must be YYYY-MM-DDTHH:MM:SSZ, got %q", ts)}
+	}
+	fields := map[string]string{"v": SpecVersion, "method": "tsa", "signer": tsaURL, "ts": ts, "alg": "rfc3161"}
+	if o.Reason != "" {
+		fields["reason"] = o.Reason
+	}
+	fields["hash"] = hashAlg + ":" + toHex(digestBytes(hashAlg, []byte(normalizeDocument(text))))
+	for k, v := range fields {
+		if e := ValidateValue(v); e != "" {
+			return nil, &ValueError{Msg: k + ": " + e}
+		}
+	}
+	tok, err := requestTimestampOver(ctx, digestBytes(hashAlg, SignedPayload(fields)), hashAlg, tsaURL, o.HTTPClient, &o.TSA)
+	if err != nil {
+		return nil, fmt.Errorf("timestamp request to %s failed: %w", tsaURL, err)
+	}
+	fields["sig"] = tok
+	return appendBlock(text, len(doc.Chain), fields)
 }

@@ -3,6 +3,9 @@ package i18n
 var en = map[string]string{
 	// --- sign ---
 	"sign.done":              "Signed %s (signature #%d, %s %s)",
+	"sign.embed_key_method":  "--embed-key works with dns and git-hosting, not %s",
+	"timestamp.done":         "Timestamped %s (block #%d, %s)",
+	"timestamp.bad_hash":     "invalid --hash %q (use sha256 or sha512)",
 	"sign.bad_method":        "unknown method %q (use git-hosting, dns, tofu, or pgp)",
 	"sign.signer_required":   "--signer is required",
 	"sign.selector_dns_only": "--selector is only used with -m dns",
@@ -63,6 +66,7 @@ var en = map[string]string{
 	"code.unsupported-method":  "unsupported method",
 	"code.network":             "network error",
 	"code.not-found":           "key not found",
+	"code.key-not-published":   "the embedded key is not published now",
 	"code.offline":             "not checked (offline)",
 	"code.unknown-field":       "unknown field",
 	"code.scope-missing":       "signed section missing",
@@ -174,6 +178,9 @@ var en = map[string]string{
 var ja = map[string]string{
 	// --- sign ---
 	"sign.done":              "%s に署名しました（署名 #%d、%s %s）",
+	"sign.embed_key_method":  "--embed-key は dns と git-hosting でのみ使用できます（%s は対象外）",
+	"timestamp.done":         "%s にタイムスタンプを付与しました（ブロック #%d、%s）",
+	"timestamp.bad_hash":     "--hash %q が不正です（sha256 または sha512 を指定してください）",
 	"sign.bad_method":        "不明な方式 %q です（git-hosting、dns、tofu、pgp のいずれかを指定してください）",
 	"sign.signer_required":   "--signer は必須です",
 	"sign.selector_dns_only": "--selector は -m dns の場合のみ使用できます",
@@ -234,6 +241,7 @@ var ja = map[string]string{
 	"code.unsupported-method":  "未対応の方式",
 	"code.network":             "ネットワークエラー",
 	"code.not-found":           "鍵が見つかりません",
+	"code.key-not-published":   "埋め込まれた鍵は現在公開されていません",
 	"code.offline":             "未確認（オフライン）",
 	"code.unknown-field":       "未知のフィールド",
 	"code.scope-missing":       "署名対象セクションの欠落",

@@ -22,6 +22,8 @@ import {
   toBase64,
   fromBase64,
   MemoryTofuStore,
+  sshFingerprint,
+  ResolutionError,
   type Resolver,
 } from "../src/index.ts";
 
@@ -169,6 +171,44 @@ test("require: steps run in order, any M counts distinct signers", async () => {
   await assert.rejects(sign(DOC, a, "x", { require: ["step 2", "tofu:bob"] }), /expected "step 1"/);
   await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "order strict"] }), /first line/);
   await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "tofu:bob"] }), /appears twice/);
+});
+
+test("key snapshot: embedded key verifies, published key decides valid or key-not-published", async () => {
+  const a = await signerFromSeed(SEED_A);
+  const b = await signerFromSeed(SEED_B);
+  const resolverWith = (keys: Uint8Array[] | "missing" | "offline"): Record<string, Resolver> => {
+    const r: Resolver = async () => {
+      if (keys === "missing") throw new ResolutionError("no TXT record", "not-found");
+      if (keys === "offline") throw new ResolutionError("DoH unreachable", "network");
+      return { keys: keys.map((key) => ({ alg: "ed25519", key, source: "test" })), warnings: [] };
+    };
+    return { dns: r, "git-hosting": r };
+  };
+  const dnsDoc = (await signDocument(DOC, { signer: a, method: "dns", signerId: "example.com", ts: TS, embedKey: true })).text;
+  assert.match(dnsDoc, /\npubkey: ed25519:/);
+  const check = async (text: string, keys: Parameters<typeof resolverWith>[0]) => {
+    const s = (await verifyDocument(text, { resolvers: resolverWith(keys) })).signatures[0]!;
+    return [s.status, s.code ?? null];
+  };
+  assert.deepEqual(await check(dnsDoc, [b.publicKey, a.publicKey]), ["valid", null]);
+  assert.deepEqual(await check(dnsDoc, [b.publicKey]), ["unresolved", "key-not-published"]);
+  assert.deepEqual(await check(dnsDoc, "missing"), ["unresolved", "key-not-published"]);
+  assert.deepEqual(await check(dnsDoc, "offline"), ["unresolved", "network"]);
+  // the snapshot is signed: swapping it breaks the signature, even with the network down
+  const swapped = dnsDoc.replace(/pubkey: ed25519:\S+/, `pubkey: ed25519:${toBase64(b.publicKey)}`);
+  assert.deepEqual(await check(swapped, "offline"), ["invalid", "bad-signature"]);
+  assert.deepEqual(await check(dnsDoc.replace("# Contract", "# Contrast"), [a.publicKey]), ["invalid", "hash-mismatch"]);
+
+  const gh = (await signDocument(DOC, { signer: a, method: "git-hosting", signerId: "github.com/alice", ts: TS, embedKey: true })).text;
+  assert.deepEqual(await check(gh, [a.publicKey]), ["valid", null]);
+  assert.deepEqual(await check(gh, "missing"), ["unresolved", "key-not-published"]);
+  const otherFp = await sshFingerprint(b.publicKey);
+  assert.match((await verifyDocument(gh.replace(/key_fp: \S+/, `key_fp: ${otherFp}`), { resolvers: resolverWith([a.publicKey]) })).signatures[0]!.message!, /key_fp does not match the embedded pubkey/);
+
+  await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "x", embedKey: true }), /embedKey works with dns and git-hosting/);
+  const plain = (await signDocument(DOC, { signer: a, method: "dns", signerId: "example.com", ts: TS })).text;
+  assert.doesNotMatch(plain, /pubkey:/);
+  assert.deepEqual(await check(plain, "missing"), ["unresolved", "not-found"]);
 });
 
 test("require: format 0.0.1 blocks keep their rules", async () => {

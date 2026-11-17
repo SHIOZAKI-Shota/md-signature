@@ -31,6 +31,7 @@ type signOptions struct {
 	interactive                                          bool
 	localUser, pgpKey                                    string
 	tsaRoots                                             []string
+	embedKey                                             bool
 }
 
 var urlArg = regexp.MustCompile(`^https?://`)
@@ -72,6 +73,7 @@ func newSignCmd() *cobra.Command {
 	f.Lookup("tsa").NoOptDefVal = mdsig.DefaultTSAURL
 	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking the TSA's response (PEM or DER file; repeatable)")
 	f.BoolVar(&o.toStdout, "stdout", false, "write the signed document to stdout instead of changing the file")
+	f.BoolVar(&o.embedKey, "embed-key", false, "dns and git-hosting: also write the public key into the block, so the signature can still be checked after the key is removed")
 	f.BoolVar(&o.force, "force", false, "sign the whole file as a new document even if a signature block is followed by unsigned content")
 	f.StringVar(&o.scope, "scope", "", "sign only these sections, comma-separated: --scope terms,fees")
 	f.StringArrayVar(&o.require, "require", nil, "required later co-signature `<method>:<signer>[ <role>]` (repeatable)")
@@ -98,6 +100,9 @@ func runSign(o *signOptions, file string) error {
 	}
 	if len(tsaRoots) > 0 && o.tsa == "" {
 		return exitf(exitUsage, "%s", i18n.T("sign.tsa_root_needs_tsa"))
+	}
+	if o.embedKey && o.method != "dns" && o.method != "git-hosting" {
+		return exitf(exitUsage, "%s", i18n.T("sign.embed_key_method", o.method))
 	}
 	if o.selector != "" && o.method != "dns" {
 		return exitf(exitUsage, "%s", i18n.T("sign.selector_dns_only"))
@@ -165,7 +170,7 @@ func runSign(o *signOptions, file string) error {
 		Signer: signer, PGP: pgpSigner, Method: o.method, SignerID: o.signer, Selector: o.selector,
 		Role: o.role, Reason: o.reason, TSAURL: o.tsa, TSA: mdsig.TSAVerifyOptions{ExtraRoots: tsaRoots}, Force: o.force,
 		Scope: ext.scope, Require: o.require, Expires: ext.expires, RevocationURL: o.revocationURL, Resources: items,
-		HTTPClient: httpClientWithTimeout(30 * time.Second),
+		HTTPClient: httpClientWithTimeout(30 * time.Second), EmbedKey: o.embedKey,
 	})
 	if err != nil {
 		var ve *mdsig.ValueError

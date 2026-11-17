@@ -422,6 +422,7 @@
                                             class="opt" data-i18n="cs.optional">（任意）</span></span>
                                     <input name="selector" placeholder="2026" autocomplete="off">
                                 </label>
+                                <label class="check only-snapshot" hidden><input type="checkbox" name="embedKey"> <span><span data-i18n="cs.embedKey">公開鍵を埋め込む</span> <span class="opt" data-i18n="cs.embedKeyHint">（鍵が削除された後も署名の成立を確認できる。鍵が署名者のものかは別途の確認が必要）</span></span></label>
                                 <label class="only-key" hidden><span><span data-i18n="cs.privkey">OpenSSH Ed25519
                                             秘密鍵</span> <span class="opt"
                                             data-i18n="cs.privkeyHint">（暗号化なし。このタブの外には出ません）</span></span>
@@ -1235,7 +1236,7 @@ revoked: sha256:&lt;hex of SHA-256(signed payload)&gt;</code></pre>
                         <th scope="row"><code>tsa_url</code> <code>tsa_token</code></th>
                         <td data-i18n-html="guide.ext.tsa">RFC 3161 タイムスタンプ。<code>messageImprint</code> は
                             <code>SHA-256(sig の生バイト列)</code>。<code>ts</code>
-                            と異なり、署名がその時刻に存在したことの第三者による証拠になる。検証者は応答ステータスと imprint を確認する。</td>
+                            と異なり、署名がその時刻に存在したことの第三者による証拠になる。検証者は応答ステータスと imprint を確認する。署名者を持たないタイムスタンプ専用ブロック（<code>method: tsa</code>）を末尾に重ねて追記すると、以前のタイムスタンプも含めて覆うので、TSA 証明書の期限やハッシュの危殆化に備えた更新になる（CLI は <code>mdsig timestamp</code>）。</td>
                         <td>
                             <pre class="guide-code"><code>tsa_url: http://ts.ssl.com
 tsa_token: |

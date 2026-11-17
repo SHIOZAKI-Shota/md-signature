@@ -532,6 +532,7 @@ const CODE_KEYS = new Set([
   "expired",
   "revoked",
   "key-changed",
+  "key-not-published",
   "resource-mismatch",
   "resource-missing",
   "scope-missing",
@@ -786,6 +787,8 @@ function renderCard(s) {
     ? t("card.status.permission")
     : revocationFailed
       ? t("card.status.revocation-unchecked")
+      : s.code === "key-not-published"
+      ? t("card.status.key-not-published")
       : s.status === "unresolved" && s.resources?.some((x) => x.status === "unreachable")
       ? t("card.status.resource-unreachable")
       : s.status === "valid" && s.partial
@@ -1038,6 +1041,8 @@ function syncMethod() {
   const b = baseMethod(m);
   const pk = isPasskey(m);
   form.querySelector(".only-dns").hidden = b !== "dns";
+  // SPEC 4.5: key snapshots exist for dns and git-hosting only
+  form.querySelector(".only-snapshot").hidden = b !== "dns" && b !== "git-hosting";
   const pgp = b === "pgp";
   form.querySelector(".only-key").hidden = b === "tofu" || pk || pgp;
   form.privkey.required = b !== "tofu" && !pk && !pgp;
@@ -1271,6 +1276,7 @@ form.addEventListener("submit", async (e) => {
       method,
       signerId: method === "pgp" ? pgpUid.value || pgpInfo.emails[0] : form.signer.value.trim(),
       selector: method === "dns" ? form.selector.value.trim() || undefined : undefined,
+      embedKey: (method === "dns" || method === "git-hosting") && form.embedKey.checked ? true : undefined,
       role: form.role.value.trim() || undefined,
       reason: form.reason.value.trim() || undefined,
       scope: scope.length ? scope : undefined,
