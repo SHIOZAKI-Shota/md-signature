@@ -149,7 +149,7 @@ func TestTamper(t *testing.T) {
 		{"added field", strings.Replace(signed, "role: author\n", "role: author\nnote: hi\n", 1), StatusMalformed, "unknown-field"},
 		{"added x_ field", strings.Replace(signed, "role: author\n", "role: author\nx_note: hi\n", 1), StatusInvalid, "bad-signature"},
 		{"dup key", strings.Replace(signed, "role: author\n", "role: author\nrole: author\n", 1), StatusMalformed, "malformed"},
-		{"version", strings.Replace(signed, "v: 0.0.1", "v: 0.0.2", 1), StatusUnsupported, "unsupported-version"},
+		{"version", strings.Replace(signed, "v: 0.0.2", "v: 0.0.3", 1), StatusUnsupported, "unsupported-version"},
 		{"alg", strings.Replace(signed, "alg: ed25519", "alg: ml-dsa-65", 1), StatusUnsupported, "unsupported-alg"},
 		{"method", strings.Replace(signed, "method: tofu", "method: foo", 1), StatusUnsupported, "unsupported-method"},
 		{"dashdash", strings.Replace(signed, "role: author", "role: au--thor", 1), StatusMalformed, "malformed"},

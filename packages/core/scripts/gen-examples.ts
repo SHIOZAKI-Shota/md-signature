@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { readPgpSecretKey, unlockPgpSecretKey, armor, hkpUrl, wkdUrls, type PgpSigner } from "../src/index.ts";
 import { HASH } from "../src/pgp-sig.ts";
 import { ed25519Key, p256Key, buildCert, signerOf, gpgSigner } from "./pgp-build.ts";
-import { signDocument, signerFromSeed, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, parseDocument, revocationId, serializeBlock, unfoldBinary } from "../src/index.ts";
+import { signDocument, signerFromSeed, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, type Signer } from "../src/index.ts";
 
 const out = new URL("../../../examples/", import.meta.url);
 mkdirSync(out, { recursive: true });
@@ -109,6 +109,40 @@ const reqScoped = await signDocument(["# Purchase order", "", "example.com pays 
   signer: alice, method: "git-hosting", signerId: "github.com/alice", role: "author", ts: "2026-11-16T09:00:00Z", require: ["dns:example.com approver"],
 });
 w("pending-require-scoped.md", reqScoped.text + parseDocument(scopedEx.text).chain[0]!.raw + NL);
+
+// --- require with steps and thresholds (SPEC 5.8, format 0.0.2)
+const SERIAL = ["step 1", "dns:example.com approver", "step 2", "tofu:bob@laptop reviewer"];
+const declare = (lines: string[]) => signDocument(body, { signer: alice, method: "git-hosting", signerId: "github.com/alice", role: "author", ts: "2026-11-16T09:00:00Z", require: lines });
+const approve = (text: string, ts: string) => signDocument(text, { signer: ex, method: "dns", signerId: "example.com", selector: "2026", role: "approver", ts });
+const review = (text: string, ts: string) => signDocument(text, { signer: bob, method: "tofu", signerId: "bob@laptop", role: "reviewer", ts });
+const inOrder = await declare(SERIAL);
+w("require-serial-complete.md", (await review((await approve(inOrder.text, "2026-11-16T09:30:00Z")).text, "2026-11-16T09:40:00Z")).text);
+w("require-serial-pending.md", (await approve((await review(inOrder.text, "2026-11-16T09:20:00Z")).text, "2026-11-16T09:30:00Z")).text);
+for (const [order, name] of [["guide", "require-serial-guide.md"], ["strict", "require-serial-strict.md"]] as const) {
+  const d = await declare([`order ${order}`, ...SERIAL]);
+  w(name, (await approve((await review(d.text, "2026-11-16T09:20:00Z")).text, "2026-11-16T09:30:00Z")).text);
+}
+// tofu signers with their own names: a tofu key proves integrity only, so any test key will do
+const ANY = ["step 1 any 2", "tofu:bob@laptop", "tofu:carol@laptop", "tofu:dave@laptop"];
+const anyDecl = await declare(ANY);
+const anyOne = await signDocument(anyDecl.text, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:20:00Z" });
+w("require-any-pending.md", anyOne.text);
+w("require-any-complete.md", (await signDocument(anyOne.text, { signer: ex, method: "tofu", signerId: "dave@laptop", ts: "2026-11-16T09:30:00Z" })).text);
+// SPEC 5.8: checked before the signature, so the edit gives malformed rather than bad-signature
+w("malformed-require-steps.md", anyDecl.text.replace("step 1 any 2", "step 1 any 4"));
+
+// format 0.0.1 blocks are still verified; this re-signs a block under the old version string
+async function signAsV001(text: string, signer: Signer, o: Parameters<typeof signDocument>[1]) {
+  const r = await signDocument(text, o);
+  const fields: Record<string, string> = { ...r.fields, v: "0.0.1" };
+  delete fields.sig;
+  fields.sig = "base64:" + toBase64(await signer.sign(signedPayload(fields)));
+  return r.text.slice(0, r.text.length - r.block.length - 1) + serializeBlock(fields) + NL;
+}
+const legacy = await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", role: "author", ts: "2026-11-16T09:00:00Z", require: ["dns:example.com approver"] });
+w("legacy-v001.md", legacy);
+w("mixed-versions.md", (await approve(legacy, "2026-11-16T09:46:00Z")).text);
+w("malformed-require-step-v001.md", await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", require: ["step 1", "dns:example.com approver"] }));
 
 const exp = await signDocument(body, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", expires: "2026-11-30T00:00:00Z" });
 w("expired.md", exp.text);
@@ -323,6 +357,16 @@ const expected = {
   "pending-require.md": { ok: true, signatures: ["valid"], agreement: "pending" },
   "complete-require.md": { ok: true, signatures: ["valid", "valid"], agreement: "complete" },
   "pending-require-scoped.md": { ok: true, signatures: ["valid", "valid"], agreement: "pending", partial: [null, ["terms"]] },
+  "require-serial-complete.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "complete" },
+  "require-serial-pending.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "pending" },
+  "require-serial-guide.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "complete" },
+  "require-serial-strict.md": { ok: false, signatures: ["valid", "valid", "valid"], agreement: "violated" },
+  "require-any-pending.md": { ok: true, signatures: ["valid", "valid"], agreement: "pending" },
+  "require-any-complete.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "complete" },
+  "malformed-require-steps.md": { ok: false, signatures: ["malformed:malformed"] },
+  "legacy-v001.md": { ok: true, signatures: ["valid"], agreement: "pending" },
+  "mixed-versions.md": { ok: true, signatures: ["valid", "valid"], agreement: "complete" },
+  "malformed-require-step-v001.md": { ok: false, signatures: ["malformed:malformed"] },
   "expired.md": { ok: false, signatures: ["invalid:expired"] },
   "not-revoked.md": { ok: true, signatures: ["valid"], revocation: ["not-revoked"] },
   "revoked.md": { ok: false, signatures: ["invalid:revoked"] },

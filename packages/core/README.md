@@ -6,7 +6,7 @@ TypeScript implementation of [md-signature](../../README.md), a signature format
 
 - Runs in browsers, Node.js 22 or later, Deno, Bun and Cloudflare Workers. No `node:*` modules are used.
 - Not on npm yet. Once published, install it with `npm install @md-signature/core`.
-- Version 0.0.1 is a draft. The API may change before 1.0.
+- This is a draft. It signs with format `0.0.2` and verifies `0.0.1` and `0.0.2`. The API may change before 1.0.
 
 ## Verifying
 
@@ -18,7 +18,7 @@ const result = await verifyDocument(text);
 result.ok;          // true when every signature is valid
 result.error;       // a problem with the document as a whole (no signature, unsigned content after the last signature, ...)
 result.signatures;  // one result per block
-result.agreement;   // co-signatures asked for with `require`: none / complete / pending
+result.agreement;   // co-signatures asked for with `require`: none / complete / pending / violated
 ```
 
 Each block result has these fields.
@@ -90,6 +90,17 @@ const { text } = await signDocument(markdown, {
   reason: "Reviewed",
 });
 ```
+
+Pass `require` one line per string. Steps, thresholds and the order handling are lines too (format specification, section 5.8).
+
+```ts
+await signDocument(markdown, {
+  signer, method: "git-hosting", signerId: "github.com/alice",
+  require: ["order strict", "step 1", "dns:example.com approver", "step 2 any 2", "git-hosting:github.com/bob", "git-hosting:github.com/carol", "git-hosting:github.com/dave"],
+});
+```
+
+In the result, `agreement.missing` tells what each step still lacks (`step`, `need`, `blockedBy`, `early`) and `agreement.violations` lists order violations. An `order strict` violation makes `agreement.status` `violated` and `result.ok` `false`.
 
 Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl` and `tsaUrl`. Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
 

@@ -6,7 +6,7 @@ Markdown 文書に埋め込む署名形式 [md-signature](../../README.ja.md) �
 
 - ブラウザ、Node.js 22 以降、Deno、Bun、Cloudflare Workers で動作します。`node:*` のモジュールは使用していません。
 - npm への公開は準備中です。公開後は `npm install @md-signature/core` で導入できる予定。
-- v0.0.1 はドラフト版です。API は 1.0 までに変更する可能性があります。
+- ドラフト版です。署名は形式 `0.0.2` で作成し、`0.0.1` と `0.0.2` を検証します。API は 1.0 までに変更する可能性があります。
 
 ## 検証
 
@@ -18,7 +18,7 @@ const result = await verifyDocument(text);
 result.ok;          // すべての署名が valid のとき true
 result.error;       // 文書全体の問題（署名なし、最後の署名の後に未署名の内容がある、など）
 result.signatures;  // ブロックごとの結果
-result.agreement;   // require による連署の状況（none / complete / pending）
+result.agreement;   // require による連署の状況（none / complete / pending / violated）
 ```
 
 ブロックごとの結果は次のとおりです。
@@ -90,6 +90,17 @@ const { text } = await signDocument(markdown, {
   reason: "内容を確認",
 });
 ```
+
+`require` には 1 行ずつ文字列を渡します。段階と人数、順序の扱いも行で指定します（形式仕様 5.8 節）。
+
+```ts
+await signDocument(markdown, {
+  signer, method: "git-hosting", signerId: "github.com/alice",
+  require: ["order strict", "step 1", "dns:example.com approver", "step 2 any 2", "git-hosting:github.com/bob", "git-hosting:github.com/carol", "git-hosting:github.com/dave"],
+});
+```
+
+検証結果の `agreement.missing` は段階ごとの不足（`step`、`need`、`blockedBy`、`early`）を、`agreement.violations` は順序違反を示します。`order strict` の違反があると `agreement.status` は `violated` となり、`result.ok` は `false` になります。
 
 既に署名がある文書に対して呼び出すと、連署として末尾に追記します。主なオプションは `selector`（`dns`）、`expires`、`scope`、`require`、`resources`、`revocationUrl`、`tsaUrl` です。意味は[形式仕様](../../SPEC.ja.md)の 5 章を参照してください。
 

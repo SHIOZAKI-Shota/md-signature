@@ -474,7 +474,7 @@
                                     <label><span><span data-i18n="cs.require">必須の連署者</span> <span class="opt"
                                                 data-i18n="cs.requireHint">（1行に1件: method:signer [role]）</span></span>
                                         <textarea name="require" rows="2"
-                                            placeholder="dns:example.com approver&#10;git-hosting:github.com/bob"
+                                            placeholder="step 1&#10;dns:example.com approver&#10;step 2 any 1&#10;git-hosting:github.com/bob&#10;git-hosting:github.com/carol"
                                             spellcheck="false"></textarea>
                                     </label>
                                     <div class="row">
@@ -653,7 +653,7 @@ gpg --export you@example.com &gt; .well-known/openpgpkey/hu/&lt;hash&gt;</pre>
                 </ol>
                 <div class="how-code">
                     <pre class="sig-example"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.1
+v: 0.0.2
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:Rx9i…
@@ -690,7 +690,7 @@ sig: base64:q1Xv…
                             <tr>
                                 <th scope="row"><code>v</code></th>
                                 <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.v">仕様のバージョン。本書の版は <code>0.0.1</code>。</td>
+                                <td data-i18n-html="guide.block.f.v">形式のバージョン。本書の版は <code>0.0.2</code>（<code>0.0.1</code> も検証できる）。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>method</code></th>
@@ -765,7 +765,7 @@ sig: base64:q1Xv…
                     <figure class="guide-cell">
                         <figcaption data-i18n="guide.block.cap">署名ブロック（examples/valid-single.md）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -907,7 +907,7 @@ hash₂ = "sha256:" hex(SHA-256(normalize(slice₂)))</code></pre>
                     <figure class="guide-cell">
                         <figcaption data-i18n="guide.payload.blockCap">ブロック（灰色の行はペイロードから除外）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -932,7 +932,7 @@ reason=Initial draft
 role=author
 signer=bob@laptop
 ts=2026-11-16T09:00:00Z
-v=0.0.1</code></pre>
+v=0.0.2</code></pre>
                     </figure>
                 </div>
             </div>
@@ -1053,9 +1053,7 @@ sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
                                 data-i18n-html="guide.verify.v6"><code>resources</code>、<code>revocation_url</code>、<code>tsa_token</code>
                                 があれば、それぞれ検査する。</span></li>
                     </ol>
-                    <p class="guide-note verdict" data-i18n-html="guide.verify.verdict">文書が verified
-                        となる条件は、チェーンにブロックが1つ以上あり、すべてが valid で、最後のブロックの後に未署名の内容がないことです。<code>require</code> が満たされていなければ
-                        verified but pending となり、検証者はこれを完了として提示してはなりません。</p>
+                    <p class="guide-note verdict" data-i18n-html="guide.verify.verdict">文書が verified となる条件は、チェーンにブロックが1つ以上あり、すべてが valid で、最後のブロックの後に未署名の内容がなく、合意が順序違反（<code>violated</code>）でないことです。<code>require</code> が満たされていなければ verified but pending となり、検証者はこれを完了として提示してはなりません。</p>
                     <div class="agree">
                         <h3 class="guide-label" data-i18n="guide.verify.agreeT">合意ステータス</h3>
                         <dl>
@@ -1070,6 +1068,10 @@ sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
                             <div>
                                 <dt><code class="st warn">pending</code></dt>
                                 <dd data-i18n="guide.verify.ag.pending">不足あり（不足する連署を列挙）</dd>
+                            </div>
+                            <div>
+                                <dt><code class="st bad">violated</code></dt>
+                                <dd data-i18n-html="guide.verify.ag.violated"><code>order strict</code> の順序違反（違反した署名を列挙）</dd>
                             </div>
                         </dl>
                     </div>
@@ -1160,7 +1162,7 @@ sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
         <section class="guide slide" id="spec-ext" tabindex="-1" aria-labelledby="spec-ext-title">
             <div class="section-head">
                 <h2 id="spec-ext-title" data-i18n="guide.ext.title">拡張フィールド</h2>
-                <p data-i18n-html="guide.ext.lede">v0.0.1 は、基本のフィールドに加えて次の任意フィールドを規定します。<code>tsa_url</code> と
+                <p data-i18n-html="guide.ext.lede">形式 0.0.2 は、基本のフィールドに加えて次の任意フィールドを規定します。<code>tsa_url</code> と
                     <code>tsa_token</code> 以外は署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。</p>
             </div>
             <table class="guide-table ext">
@@ -1188,13 +1190,15 @@ sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
                     </tr>
                     <tr>
                         <th scope="row"><code>require</code></th>
-                        <td data-i18n-html="guide.ext.require">文書の完了に必要な後続の連署を宣言する。後続の有効なブロックと
-                            <code>method</code>・<code>signer</code>（指定時は <code>role</code> も）で照合し、不足があれば合意ステータスは
-                            <code>pending</code>（CLI の終了コード 5）。</td>
+                        <td data-i18n-html="guide.ext.require">文書の完了に必要な後続の連署を宣言する。後続の有効なブロックと <code>method</code>・<code>signer</code>（指定時は <code>role</code> も）で照合する。<code>step 1</code>、<code>step 2 any 2</code> のような段階行で順番と人数を指定でき、順番を守らない署名の扱いは先頭の <code>order pending | guide | strict</code> で選ぶ（既定は <code>pending</code>：数えない）。不足があれば合意ステータスは <code>pending</code>（CLI の終了コード 5）、<code>strict</code> の順序違反は <code>violated</code>（終了コード 1）。</td>
                         <td>
                             <pre class="guide-code"><code>require: |
+  step 1
   dns:example.com approver
-  git-hosting:github.com/bob</code></pre>
+  step 2 any 2
+  git-hosting:github.com/bob
+  git-hosting:github.com/carol
+  git-hosting:github.com/dave</code></pre>
                         </td>
                     </tr>
                     <tr>

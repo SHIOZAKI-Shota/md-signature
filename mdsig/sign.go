@@ -173,7 +173,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 	}
 	if len(o.Require) > 0 {
 		fields["require"] = strings.Join(o.Require, "\n")
-		if _, errs := ParseRequire(fields["require"], 0); len(errs) > 0 {
+		if _, errs := ParseRequire(fields["require"], 0, SpecVersion); len(errs) > 0 {
 			return nil, &ValueError{Msg: strings.Join(errs, "; ")}
 		}
 	}

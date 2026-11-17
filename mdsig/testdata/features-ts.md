@@ -14,7 +14,7 @@ Notes (editable).
 <!-- /mdsig:section -->
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -36,6 +36,6 @@ x_ref: PO-123
 alg: ed25519
 hash: sha256:347c0977aeaf1fab94d858ae94ffda27069d5fbd7057a38ccd570d0ced92eccb
 sig: |
-  base64:sxU7kw3C3AyfrLq8BC5zofsTZbF0DyaW2BmqGXiEF7S3424obgG106zRTNy/7YwTISUq0
-  NJrojrgtUzBckCQBQ==
+  base64:/g6KbCZ26AZINHbiKD7CVrTvXrvQf1CoS4mqo2hmgIZJBtm1m4Q4HXAngem4NyHpToIMQ
+  wC4ylz4mydMNriDDQ==
 -->

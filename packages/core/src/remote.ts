@@ -53,8 +53,9 @@ export interface BlockComparison {
 }
 
 export interface Comparison {
-  // every block agrees on status and code, and both sides saw the same number of blocks
+  // every block agrees on status and code, both sides saw the same number of blocks, and the agreement status matches
   agree: boolean;
+  agreementAgree: boolean;
   tsaAgree: boolean;
   blocks: BlockComparison[];
 }
@@ -73,5 +74,6 @@ export function compareResults(local: VerifyResult | JsonResult, remote: JsonRes
     const b = side(remote, index);
     return { index, local: a, remote: b, agree: !!a && !!b && a.status === b.status && a.code === b.code, tsaAgree: !!a && !!b && a.tsaVerified === b.tsaVerified };
   });
-  return { agree: blocks.every((b) => b.agree) && (l.error ?? null) === (remote.error ?? null), tsaAgree: blocks.every((b) => b.tsaAgree), blocks };
+  const agreementAgree = l.agreement.status === remote.agreement.status;
+  return { agree: blocks.every((b) => b.agree) && (l.error ?? null) === (remote.error ?? null) && agreementAgree, agreementAgree, tsaAgree: blocks.every((b) => b.tsaAgree), blocks };
 }

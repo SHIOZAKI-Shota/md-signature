@@ -88,6 +88,10 @@ func fileExitCode(r *mdsig.VerifyResult) int {
 			return exitFail
 		}
 	}
+	// SPEC 5.8: a violated "order strict" is a failure; pending is not
+	if r.Agreement.Status == mdsig.AgreementViolated {
+		return exitFail
+	}
 	if code == exitOK && r.Agreement.Status == mdsig.AgreementPending {
 		code = exitPending
 	}
@@ -362,12 +366,64 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 	case mdsig.AgreementComplete:
 		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_complete"))
 	case mdsig.AgreementPending:
-		missing := make([]string, len(r.Agreement.Missing))
-		for i, m := range r.Agreement.Missing {
-			missing[i] = safeText(m.String())
-		}
-		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_pending", strings.Join(missing, ", ")))
+		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_pending", describeMissing(r.Agreement)))
+	case mdsig.AgreementViolated:
+		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_violated", describeViolations(r.Agreement.Violations)))
 	}
+	if r.Agreement.Status != mdsig.AgreementViolated && len(r.Agreement.Violations) > 0 {
+		fmt.Fprintf(w, "  ! %s\n", i18n.T("verify.order_not_followed", describeViolations(r.Agreement.Violations)))
+	}
+}
+
+// a declaration with one step that needs everyone reads as a plain list, as before steps existed
+func describeMissing(a mdsig.Agreement) string {
+	stepsOf := map[int]int{}
+	for _, r := range a.Required {
+		stepsOf[r.DeclaredBy] = max(stepsOf[r.DeclaredBy], r.Step)
+	}
+	type group struct {
+		declaredBy, step, need, blockedBy int
+		names                             []string
+		plain                             bool
+	}
+	var groups []*group
+	for _, m := range a.Missing {
+		g := (*group)(nil)
+		if n := len(groups); n > 0 && groups[n-1].declaredBy == m.DeclaredBy && groups[n-1].step == m.Step {
+			g = groups[n-1]
+		} else {
+			g = &group{declaredBy: m.DeclaredBy, step: m.Step, need: m.Need, blockedBy: m.BlockedBy, plain: stepsOf[m.DeclaredBy] == 1}
+			groups = append(groups, g)
+		}
+		name := safeText(m.String())
+		if m.Early {
+			name += i18n.T("verify.agreement_early")
+		}
+		g.names = append(g.names, name)
+		g.plain = g.plain && m.Need == len(g.names) && m.Any == m.Need
+	}
+	parts := make([]string, 0, len(groups))
+	for _, g := range groups {
+		list := strings.Join(g.names, ", ")
+		if g.plain && g.need == len(g.names) {
+			parts = append(parts, i18n.T("verify.agreement_missing", list))
+			continue
+		}
+		s := i18n.T("verify.agreement_step", g.step, g.need, list)
+		if g.blockedBy > 0 {
+			s += i18n.T("verify.agreement_after", g.blockedBy)
+		}
+		parts = append(parts, s)
+	}
+	return strings.Join(parts, "; ")
+}
+
+func describeViolations(vs []mdsig.OrderViolation) string {
+	parts := make([]string, len(vs))
+	for i, v := range vs {
+		parts[i] = i18n.T("verify.order_violation", v.Index, safeText(mdsig.Requirement{Method: v.Method, Signer: v.Signer, Role: v.Role}.String()), v.Step, v.Step-1)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func describeFailure(s *mdsig.BlockResult) string {

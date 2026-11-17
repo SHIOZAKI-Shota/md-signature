@@ -15,7 +15,7 @@ Each signature is an HTML comment appended to the end of the file:
 The parties agree to the following terms...
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:Rx9i...
@@ -32,7 +32,7 @@ sig: base64:q1Xv...
 - Several people can co-sign. Each new signature covers the document and every earlier signature, forming an append-only hash chain.
 - You can verify against keys you already have: SSH keys on GitHub/GitLab (`https://github.com/<user>.keys`), a DNS TXT record on your domain, OpenPGP, or an embedded key.
 - RFC 3161 timestamp tokens can be added if you need a trusted time.
-- A signer can declare which co-signatures are still required (`require`). `mdsig verify` reports the document as *pending* until they are all there.
+- A signer can declare which co-signatures are still required (`require`). `mdsig verify` reports the document as *pending* until they are all there. Steps (`step`) and thresholds (`any`) express flows such as "the manager approves, then two of three reviewers sign".
 - Screenshots, data files, and even remote images can be bound by SHA-256 (`resources`), so swapping a linked file is detected.
 - You can sign only marked sections (`scope`) and leave notes or fill-in fields editable. Verifiers always show that such a signature is partial.
 - Signatures can expire (`expires`) or be withdrawn later through a signed revocation list (`revocation_url`).
@@ -61,6 +61,12 @@ mdsig verify --json contract.md
 # Ask for an approval, bind the screenshots, and let the signature expire in 30 days
 mdsig sign quote.md -m git-hosting -s github.com/alice -r author \
   --require "dns:example.com approver" --auto-resources --expires 30d
+
+# Declare a flow: an approval, then two of three reviewers
+mdsig sign plan.md -m git-hosting -s github.com/alice -r author \
+  --require "step 1" --require "dns:example.com approver" \
+  --require "step 2 any 2" --require "git-hosting:github.com/bob" \
+  --require "git-hosting:github.com/carol" --require "git-hosting:github.com/dave"
 
 # Sign only the "terms" and "fees" sections; the rest stays editable
 mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees
@@ -154,7 +160,7 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-Version 0.0.1 is a draft and has not been released. The format and the APIs may change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases (CLI and libraries) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both. The format and the APIs may change before 1.0. Feedback is welcome in issues.
 
 This is an experimental implementation. It has had no independent security audit. Do not rely on it alone where a wrong signature verdict has serious consequences, such as contracts. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

@@ -90,7 +90,7 @@ func validateSemantics(f map[string]string) string {
 		return "revocation_url must be an https:// URL"
 	}
 	if v, ok := f["require"]; ok {
-		if _, errs := ParseRequire(v, 0); len(errs) > 0 {
+		if _, errs := ParseRequire(v, 0, f["v"]); len(errs) > 0 {
 			return strings.Join(errs, "; ")
 		}
 	}
@@ -272,7 +272,7 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	if len(block.Errors) > 0 {
 		return fail(StatusMalformed, "malformed", strings.Join(block.Errors, "; "))
 	}
-	if f["v"] != SpecVersion {
+	if !supportedVersions[f["v"]] {
 		return fail(StatusUnsupported, "unsupported-version", fmt.Sprintf("unsupported version %q", f["v"]))
 	}
 	if !tsRe.MatchString(f["ts"]) {
@@ -508,7 +508,7 @@ func VerifyDocument(ctx context.Context, text string, opts *VerifyOptions) *Veri
 		opts = &VerifyOptions{}
 	}
 	doc := ParseDocument(text)
-	none := Agreement{Status: AgreementNone, Required: []Requirement{}, Missing: []Requirement{}}
+	none := Agreement{Status: AgreementNone, Required: []Requirement{}, Missing: []MissingRequirement{}, Violations: []OrderViolation{}}
 	res := &VerifyResult{Signatures: []*BlockResult{}, Warnings: []string{}, Agreement: none}
 	if len(doc.Chain) == 0 {
 		if doc.StrayMarker {
@@ -543,6 +543,10 @@ func VerifyDocument(ctx context.Context, text string, opts *VerifyOptions) *Veri
 			blocks[i] = agreementBlock{Index: s.Index, Valid: s.Status == StatusValid, Declares: s.Status == StatusValid || s.Status == StatusUnresolved, Fields: s.Fields}
 		}
 		res.Agreement = evaluateAgreement(blocks)
+		// SPEC 5.8: an order violation under "order strict" fails the document
+		if res.Agreement.Status == AgreementViolated {
+			res.OK = false
+		}
 	}
 	return res
 }

@@ -24,7 +24,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", and "MAY" are to be inte
 | --- | --- |
 | `--lang <code>` | UI language: `en` or `ja`. See Section 7. |
 | `-h, --help` | Help. |
-| `--version` | Print version. |
+| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.0.3 (format 0.0.2)`). The CLI verifies the formats `0.0.1` and `0.0.2` defined by SPEC and signs with `0.0.2`. |
 
 ## 3. Commands
 
@@ -48,7 +48,7 @@ signature is appended as a co-signature (SPEC Section 7).
 | `--stdout` | off | Write the signed document to stdout instead of changing the file. |
 | `--force` | off | Sign even if the file has a signature block followed by unsigned content. The whole file is then signed as a new document. |
 | `--scope <ids>` | — | Sign only these sections, comma-separated: `--scope terms,fees` (SPEC 5.6). |
-| `--require <req>` | — | Required later co-signature, `<method>:<signer>[ <role>]`. Repeatable (SPEC 5.8). |
+| `--require <line>` | — | One line of the `require` value. Repeatable; lines keep the order given. Besides requirement lines `<method>:<signer>[ <role>]`, step lines `step <n>[ any <m>]` and order lines `order pending\|guide\|strict` are accepted (SPEC 5.8). Example: `--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`. The whole value is checked against the rules of SPEC 5.8. |
 | `--resource <ref>` | — | Bind a file (path relative to the document) or an `https://` URL by its SHA-256. Repeatable. URLs are fetched once, at signing time (SPEC 5.7). |
 | `--auto-resources` | off | Also bind every local image referenced by `![..](..)` or `<img src>` outside code fences. |
 | `--expires <time>` | — | `YYYY-MM-DDTHH:MM:SSZ`, or a duration from now: `30d`, `12h` (SPEC 5.9). |
@@ -130,6 +130,14 @@ docs/contract.md
   Agreement: pending — missing dns:partner.example witness
 ```
 
+When `require` has steps, missing co-signatures are shown per step, and a signer whose signature did not count because it came before its turn is marked as such.
+An `order guide` violation is shown as a warning, and an `order strict` violation as the agreement status `violated`.
+
+```
+  Agreement: pending — step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1)
+  Agreement: violated — #2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete
+```
+
 A passkey signature also shows its `rp_id`, for example `passkey (rp_id mdsig.dev)`.
 A `pgp` signature shows the fingerprint, the User ID, where the key was found, and the creation time of the signature packet.
 The creation time is claimed by the signer, like `ts`, and is shown separately from the TSA time.
@@ -149,7 +157,7 @@ Exits 0 when the file could be read, whatever the hash results (use `verify` to 
   "stray_marker_line": null,
   "warnings": [],
   "signatures": [
-    { "index": 1, "line": 16, "fields": { "v": "0.0.1", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
+    { "index": 1, "line": 16, "fields": { "v": "0.0.2", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
   ]
 }
 ```
@@ -233,7 +241,7 @@ When the results of two verifiers (for example a browser and this server) are us
 | Code | Meaning |
 | --- | --- |
 | 0 | Success. For `verify`: every signature valid. |
-| 1 | Verification failure: hash mismatch, bad signature, malformed block, unsupported algorithm or method, timestamp mismatch, no signatures, unsigned content after the last signature, or a file that is not valid UTF-8. For `sign`: refusal to co-sign (unsigned content after a block, or a malformed existing signature) without `--force`. |
+| 1 | Verification failure: hash mismatch, bad signature, malformed block, unsupported algorithm or method, timestamp mismatch, no signatures, unsigned content after the last signature, a file that is not valid UTF-8, or the agreement status `violated` (an `order strict` violation, SPEC 5.8). For `sign`: refusal to co-sign (unsigned content after a block, or a malformed existing signature) without `--force`. |
 | 2 | Usage error: unknown flag, missing argument, invalid field value. |
 | 3 | Network or key resolution error, or a signature not checked because of `--offline`, when there is no failure that would give exit code 1. For `sign`: TSA request failed (the file is not changed). |
 | 4 | File I/O or permission error, including a key file that is missing or unreadable, and `keygen` refusing to overwrite. |
@@ -255,8 +263,9 @@ If several files are verified, the exit code is the most severe across files, in
       "warnings": [],
       "agreement": {
         "status": "pending",
-        "required": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1 }],
-        "missing": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1 }]
+        "required": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1 }],
+        "missing": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1, "need": 1 }],
+        "violations": []
       },
       "signatures": [
         {
@@ -265,7 +274,7 @@ If several files are verified, the exit code is the most severe across files, in
           "status": "valid",
           "code": null,
           "message": null,
-          "fields": { "v": "0.0.1", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "fields": { "v": "0.0.2", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
@@ -286,12 +295,15 @@ If several files are verified, the exit code is the most severe across files, in
 ```
 
 A file's `ok` is `true` exactly when that file alone would give exit code 0
-or 5; `agreement.status` tells the two apart. With `--offline`, a block that
+or 5; `agreement.status` tells the two apart. A file whose agreement status is
+`violated` has `ok: false`. With `--offline`, a block that
 was not checked has `status: "unresolved"` and `code: "offline"`, and `ok` is
 false.
 
 - `partial`, `webauthn`, `pgp`, `resources`, `revocation`, and `tsa` are `null` when they do not apply. `webauthn` is `{ "rp_id", "origin", "user_verified" }`. `pgp` is `{ "fpr", "uid", "key_alg", "key_source", "created" }`, where `key_alg` is a string such as `rsa2048`, `ecdsa-p256`, or `ed25519`, `key_source` is one of `keyring`, `wkd`, `keyserver`, and `created` is the creation time of the signature packet (RFC 3339).
-- `agreement.status` is `none`, `complete`, or `pending`. `role` is omitted when the requirement has none.
+- `agreement.status` is `none`, `complete`, `pending`, or `violated`. `role` is omitted when the requirement has none.
+- Each element of `required` and `missing` has the step number `step` and the number of members its step needs, `any`. For a `require` without step lines, `step` is 1 and `any` is the number of requirement lines. Each element of `missing` also has `need`, how many more signatures its step needs; `blocked_by`, the number of an earlier step that is not complete yet, when it is waiting for one; and `early: true` when the signer signed before their turn and the signature did not count.
+- `violations` lists order violations. Each element is `{ "declared_by", "step", "index", "method", "signer", "role", "order" }`, where `index` is the offending block and `order` is the value of the declaration's order line (`guide` or `strict`). `order guide` violations are listed too, but they do not change the agreement status.
 - A resource `status` is `ok`, `mismatch`, `missing`, `unreachable`, or `not-checked`. A revocation `status` is `not-revoked`, `revoked`, or `not-checked`.
 - `tsa` is `{ "status", "verified", "signer", "gen_time", "detail" }`. `status` is `ok`, `mismatch`, or `error`. The CLI verifies the token's CMS signature and the TSA certificate chain against the system trust store and the root certificates given with `--tsa-root`. `verified` is `true` only when that succeeds, and only then do `gen_time` and `signer` (the name in the TSA certificate) have values. A token that cannot be verified has `status: "error"` and is shown as a warning.
 

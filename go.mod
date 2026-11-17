@@ -2,6 +2,9 @@ module mdsig.dev
 
 go 1.26.4
 
+// v0.0.1 and v0.0.2 were published before the release automation was complete; v0.0.3 replaces them.
+retract [v0.0.1, v0.0.2]
+
 require (
 	github.com/Microsoft/go-winio v0.6.4
 	github.com/ProtonMail/go-crypto v1.5.2

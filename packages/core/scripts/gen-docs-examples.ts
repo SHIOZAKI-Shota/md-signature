@@ -208,6 +208,64 @@ async function pending(): Promise<Example> {
   return { title: { ja: "承認待ち（require）", en: "Pending approval (require)" }, text, testKeys: true };
 }
 
+// ------------------------------------------------------------------ flow (steps and thresholds)
+async function flow(): Promise<Example> {
+  const alice = await signerFromSeed(fromHex(keys["git-hosting"]["github.com/alice"].seed_hex));
+  const ex = await signerFromSeed(fromHex(keys.dns["2026._mdsig.example.com"].seed_hex));
+  const body: Text = {
+    ja: lines(
+      "# 承認フロー（step と any）",
+      "",
+      "作成者 `github.com/alice` は、次の順番を `require` に指定しました。",
+      "",
+      "1. `example.com` が `approver` として承認する",
+      "2. その後に `bob@laptop`、`carol@laptop`、`dave@laptop` のうち 2 人が署名する",
+      "",
+      "`example.com` は承認済みなので段階 1 は成立しています。合意は、段階 2 の 2 人がそろうまで「未完了」です。",
+      "",
+      "## 試してみる",
+      "",
+      "- 右側の「署名の作成・追加」で、tofu の署名者を `carol@laptop` などにして連署してください。2 人目で合意が成立します。",
+      "- 同じ人が 2 回署名しても 1 人として数えます。",
+      "- `order strict` にすると、順番を守らない署名で合意が「順序違反」になります（既定の `pending` では数えないだけです）。",
+      "",
+      "この例の鍵は RFC 8032 の公開テスト鍵（`examples/keys.json`）です。鍵はページ内で解決しており、実在の GitHub アカウントや DNS とは無関係です。",
+    ),
+    en: lines(
+      "# Approval flow (step and any)",
+      "",
+      "When `github.com/alice` signed, she put this order into `require`:",
+      "",
+      "1. `example.com` approves as `approver`",
+      "2. then two of `bob@laptop`, `carol@laptop` and `dave@laptop` sign",
+      "",
+      "`example.com` has approved, so step 1 is complete. The agreement stays pending until two people have signed in step 2.",
+      "",
+      "## Try it",
+      "",
+      "- Under \"Create & add signatures\" on the right, co-sign as a tofu signer such as `carol@laptop`. The second one completes the agreement.",
+      "- The same person signing twice still counts once.",
+      "- With `order strict`, a signature made before its turn makes the agreement \"violated\" (the default `pending` just does not count it).",
+      "",
+      "The keys here are the public RFC 8032 test keys from `examples/keys.json`. The page resolves them locally; they have nothing to do with a real GitHub account or DNS record.",
+    ),
+  };
+  const text = {} as Text;
+  for (const l of ["ja", "en"] as const) {
+    const declared = await signDocument(body[l], {
+      signer: alice,
+      method: "git-hosting",
+      signerId: "github.com/alice",
+      role: "author",
+      reason: l === "ja" ? "承認と 2 人のレビューを要求" : "Needs an approval and two reviews",
+      ts: TS1,
+      require: ["step 1", "dns:example.com approver", "step 2 any 2", "tofu:bob@laptop", "tofu:carol@laptop", "tofu:dave@laptop"],
+    });
+    text[l] = (await signDocument(declared.text, { signer: ex, method: "dns", signerId: "example.com", selector: "2026", role: "approver", ts: TS2 })).text;
+  }
+  return { title: { ja: "承認フロー（step と any）", en: "Approval flow (step and any)" }, text, testKeys: true };
+}
+
 // ------------------------------------------------------------------ passkey
 async function passkey(): Promise<Example> {
   const body: Text = {
@@ -378,6 +436,7 @@ const EXAMPLES = {
   basic: await basic(),
   scoped: await scoped(),
   pending: await pending(),
+  flow: await flow(),
   passkey: await passkey(),
   resources: await resources(),
   pgp: await pgp(),

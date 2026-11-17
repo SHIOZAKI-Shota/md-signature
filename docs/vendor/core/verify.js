@@ -1,4 +1,4 @@
-import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.js";
+import { SUPPORTED_VERSIONS, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.js";
 import { digest, ed25519Verify, isSupportedHash, sha256 } from "./crypto.js";
 import { fromBase64, toHex, utf8 } from "./encoding.js";
 import { parseDocument } from "./parser.js";
@@ -17,7 +17,7 @@ function validateSemantics(f) {
     if (f.revocation_url !== undefined && !/^https:\/\/\S+$/.test(f.revocation_url))
         return "revocation_url must be an https:// URL";
     if (f.require !== undefined) {
-        const { errors } = parseRequire(f.require);
+        const { errors } = parseRequire(f.require, 0, f.v);
         if (errors.length)
             return errors.join("; ");
     }
@@ -102,7 +102,7 @@ export async function verifyBlock(text, block, opts = {}) {
         return fail("malformed", "unknown-field", block.errors.join("; "));
     if (block.errors.length)
         return fail("malformed", "malformed", block.errors.join("; "));
-    if (f.v !== SPEC_VERSION)
+    if (!SUPPORTED_VERSIONS.has(f.v))
         return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
     if (!TS_RE.test(f.ts))
         r.warnings.push(`ts "${f.ts}" is not in YYYY-MM-DDTHH:MM:SSZ form`);
@@ -279,7 +279,7 @@ export const MAX_CHAIN_BLOCKS = 256;
 export async function verifyDocument(text, opts = {}) {
     const doc = parseDocument(text);
     const warnings = [];
-    const none = { status: "none", required: [], missing: [] };
+    const none = { status: "none", required: [], missing: [], violations: [] };
     if (doc.chain.length > MAX_CHAIN_BLOCKS)
         return { ok: false, signatures: [], agreement: none, warnings, error: `too many signature blocks (${doc.chain.length}; the limit is ${MAX_CHAIN_BLOCKS})` };
     if (doc.chain.length === 0) {
@@ -302,5 +302,6 @@ export async function verifyDocument(text, opts = {}) {
     const agreement = opts.skipAgreement
         ? none
         : evaluateAgreement(signatures.map((s) => ({ index: s.index, valid: s.status === "valid", declares: s.status === "valid" || s.status === "unresolved", fields: s.fields })));
-    return { ok: signatures.every((s) => s.status === "valid"), signatures, agreement, warnings };
+    // SPEC 5.8: an order violation under "order strict" fails the document
+    return { ok: signatures.every((s) => s.status === "valid") && agreement.status !== "violated", signatures, agreement, warnings };
 }

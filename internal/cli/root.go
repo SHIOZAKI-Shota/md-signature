@@ -100,10 +100,11 @@ func Execute() int {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "mdsig",
-		Short:         "Embedded, append-only signatures for Markdown documents",
-		Long:          "mdsig signs and verifies md-signature blocks embedded in Markdown files.\nRun without arguments on a terminal for an interactive menu.",
-		Version:       Version,
+		Use:   "mdsig",
+		Short: "Embedded, append-only signatures for Markdown documents",
+		Long:  "mdsig signs and verifies md-signature blocks embedded in Markdown files.\nRun without arguments on a terminal for an interactive menu.",
+		// the release and the signature format have separate version numbers
+		Version:       Version + " (format " + mdsig.SpecVersion + ")",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		Args:          cobra.NoArgs,

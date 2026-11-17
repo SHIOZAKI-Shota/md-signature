@@ -1,6 +1,6 @@
 # md-signature: Embedded Signatures for Markdown Documents
 
-- **Version:** 0.0.1 (draft)
+- **Version:** 0.0.2 (draft)
 - **Status:** Working draft, intended for submission as `draft-md-signature-00`
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Original text:** [日本語 (SPEC.ja.md)](SPEC.ja.md). This English version is the normative text, maintained for a possible IETF submission. The two are kept in sync; if they differ, this English text prevails.
@@ -46,7 +46,7 @@ and only when, they appear in all capitals, as shown here.
 The parties agree to the following terms...
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: git-hosting
 signer: github.com/alice
 role: author
@@ -57,7 +57,7 @@ hash: sha256:3a0d0b5c...
 sig: base64:q1Xv...
 -->
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: dns
 signer: example.com
 selector: 2026
@@ -110,7 +110,7 @@ Rules that apply in addition to the grammar:
 
 | Key | Requirement | Description |
 | --- | --- | --- |
-| `v` | MUST | Specification version. This document defines `0.0.1`. |
+| `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. |
 | `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu` (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
@@ -272,7 +272,7 @@ reason=Initial draft
 role=author
 signer=github.com/alice
 ts=2026-11-16T09:00:00Z
-v=0.0.1
+v=0.0.2
 ```
 
 ### 5.4 Verification procedure
@@ -289,7 +289,8 @@ For each block in the chain, in order, a verifier MUST:
 8. If `tsa_token` is present, check it (Section 5.5).
 
 The document is **verified** only if the chain has at least one block, every
-block is valid, and there is no unsigned content after the last block.
+block is valid, there is no unsigned content after the last block, and the
+agreement status (Section 5.8) is not `violated`.
 Separately, a verified document whose `require` fields (Section 5.8) are not
 all satisfied is **verified but pending**; verifiers MUST NOT present such a
 document as complete.
@@ -382,18 +383,74 @@ local copy and list the copy.
 ### 5.8 Required co-signatures (`require`)
 
 `require` states which co-signatures must follow before the document is
-complete. Each line of its value is `<method>:<signer>` optionally followed by
-`SP <role>`:
+complete, in what order, and how many of them. Each line of its value is one
+of:
+
+- **Requirement line:** `<method>:<signer>` optionally followed by `SP <role>`.
+- **Step line:** `step <n>` or `step <n> any <m>`. It starts the step that the following requirement lines belong to.
+- **Order line:** `order pending`, `order guide`, or `order strict`.
 
 ```
 require: |
+  order strict
+  step 1
   dns:example.com approver
-  git-hosting:github.com/bob
+  step 2 any 2
+  git-hosting:github.com/bob reviewer
+  git-hosting:github.com/carol reviewer
+  git-hosting:github.com/dave reviewer
+  step 3
+  dns:legal.example.com
 ```
 
-A requirement declared by block `N` is **satisfied** if a valid block
-`M > N` has the same `method` and `signer` (domain names compared without
-case and without a trailing dot), and, if a role is given, the same `role`.
+In this example the document is complete once `example.com` has approved,
+then two of the three reviewers have signed, and finally `legal.example.com`
+has signed.
+
+```abnf
+require-value = [order-line LF] (steps / members)
+order-line    = "order" SP ("pending" / "guide" / "strict")
+steps         = step-group *(LF step-group)
+step-group    = step-line 1*(LF member)
+step-line     = "step" SP count [SP "any" SP count]
+members       = member *(LF member)
+member        = method ":" 1*vchar [SP 1*vchar]
+method        = %x61-7A *(%x61-7A / DIGIT / "-")
+count         = %x31-39 *3DIGIT
+```
+
+A verifier MUST treat a block as malformed if its value breaks any of these
+rules:
+
+1. An order line appears only as the first line of the value.
+2. When step lines are used, the first line other than the order line is `step 1`, and the numbers run from 1 without gaps.
+3. Every step has at least one requirement line, and the `m` of `any <m>` is not larger than the number of requirement lines in the step.
+4. A step does not list two requirement lines with the same `method`, `signer`, and `role`.
+5. A block whose `v` is `0.0.1` contains no step or order lines.
+
+A value without step lines forms one step from all of its requirement lines
+and needs all of them. A step without `any` also needs all of its members.
+
+The requirements declared by block `N` are evaluated step by step. A
+requirement in a step can be satisfied by a valid block after `N` that has the
+same `method` and `signer` (domain names compared without case and without a
+trailing dot) and, if a role is given, the same `role`. Within one
+declaration, a block counts for one requirement only. A step is **complete**
+when `m` different requirements are satisfied, and the position of the block
+that satisfied the `m`-th one is the step's completion position.
+
+The declaring signer chooses how the order of steps is handled with the order
+line. Without an order line, it is `pending`.
+
+- **`pending`:** Only blocks after the completion position of step `i-1` count
+  for step `i`. A signature made before its turn does not count, and the
+  agreement stays pending. It is satisfied once that signer signs again.
+- **`guide`:** Blocks count regardless of their turn. A block that matches a
+  requirement of step `i` and comes before step `i-1` is complete is reported
+  as an order violation, but it does not change the agreement status.
+- **`strict`:** Blocks count regardless of their turn, and any order violation
+  makes the agreement `violated`.
+
 Requirements are collected from every block that is valid or unresolved (for
 example, not checked because the verifier is offline), so that a chain that
 could not be fully checked is never reported as complete. Only valid blocks
@@ -403,10 +460,17 @@ A block with `scope` does not satisfy a requirement. Such a block does not
 cover the block that declared the requirement, and it stays valid when moved
 to another document that contains the same sections (Section 9.9).
 
+Requirements declared by a block whose `v` is `0.0.1` are evaluated under the
+earlier rule: each requirement is satisfied if any later valid block matches
+it, and one block may satisfy several requirements.
+
 A verifier MUST report the agreement status of a verified document: `none` (no
-requirements), `complete` (all satisfied), or `pending` (with the list of
-missing co-signatures). The match is on `method` and `signer` because those
-are what the signature authenticates; `role` alone is the signer's own claim.
+requirements), `complete` (every step complete), `pending` (with the list of
+missing co-signatures), or `violated` (a `strict` order violation, with the
+list of offending signatures). A verifier MUST NOT present a document whose
+agreement status is `violated` as agreed. The match is on `method` and
+`signer` because those are what the signature authenticates; `role` alone is
+the signer's own claim.
 
 ### 5.9 Expiry and revocation (`expires`, `revocation_url`)
 
@@ -624,6 +688,8 @@ restrictions in Section 5.7 apply to revocation lists and to key lookups (the
 
 - A signature with `scope` leaves the rest of the document unsigned. A reader of the rendered document cannot see where the signed sections end, so text outside them can be added to mislead. That is why verifiers must show partial coverage (Section 5.6). A signature with `scope` also stays valid when moved to another document that contains the same sections, so it is not counted as satisfying `require` (Section 5.8).
 - `require` is set by the signer of the declaring block. Its status says only whether the listed parties have co-signed; it does not create obligations.
+- With `order strict`, a signer of a later step can make the agreement `violated` just by signing before their turn. Declaring signers SHOULD therefore use the default `pending` and use `strict` only when the order itself matters.
+- `any <m>` counts different requirements, so a signer who signs several times still counts once. A verifier cannot check, however, that identifiers listed as different requirements belong to different people.
 - A passkey can be used only with the RP ID it was registered for. If the site that hosts the signing page moves to another domain, passkeys registered on the old domain cannot sign there. Signatures that were already made stay verifiable, because `rp_id` is recorded in each block.
 
 ### 9.10 OpenPGP keys
