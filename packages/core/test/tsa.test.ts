@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DEFAULT_TSA_ROOTS, checkTsaToken, concat, p1363ToDer, readTsaRoots, requestTimestamp, sha256, toBase64, toHex, utf8, verifyDocument } from "../src/index.ts";
+import { DEFAULT_TSA_ROOTS, checkTsaToken, concat, p1363ToDer, readTsaRoots, requestTimestamp, sha256, signDocument, signerFromSeed, timestampDocument, toBase64, toHex, utf8, verifyDocument } from "../src/index.ts";
 import { parseDer } from "../src/der.ts";
 import { derSet, parseCertificate } from "../src/x509.ts";
 
@@ -125,10 +125,13 @@ interface TokenSpec {
   twoSigners?: boolean;
   mutateTst?: (tst: Uint8Array) => Uint8Array;
   sidBySki?: Uint8Array;
+  // a token over this imprint instead of SHA-256(sig)
+  imprint?: { hashAlgId: Uint8Array; value: Uint8Array };
 }
 
 async function token(s: TokenSpec): Promise<string> {
-  const tst = seq(int(1), oid("1.2.3.4"), seq(SHA256, octets(await sha256(s.sig))), int(7), genTimeDer(s.genTime ?? new Date("2026-11-16T10:00:00Z")), ...(s.nonce ? [int(s.nonce)] : []));
+  const mi = s.imprint ? seq(s.imprint.hashAlgId, octets(s.imprint.value)) : seq(SHA256, octets(await sha256(s.sig)));
+  const tst = seq(int(1), oid("1.2.3.4"), mi, int(7), genTimeDer(s.genTime ?? new Date("2026-11-16T10:00:00Z")), ...(s.nonce ? [int(s.nonce)] : []));
   const c = parseCertificate(s.leaf);
   const attrs = [seq(oid("1.2.840.113549.1.9.3"), set(oid(TSTINFO))), seq(oid("1.2.840.113549.1.9.4"), set(octets(await sha256(tst))))];
   const mode = s.signingCert ?? "v2";
@@ -360,4 +363,64 @@ test("tsa: requestTimestamp verifies the response and its nonce", async () => {
   await assert.rejects(requestTimestamp(SIG, "https://tsa.test/", respond(() => token(base)), { roots: [p.root] }), /nonce does not match/);
   await assert.rejects(requestTimestamp(SIG, "https://tsa.test/", respond((nonce) => token({ ...base, nonce })), { roots: [] }), /TSA response rejected: .*does not chain/);
   await assert.rejects(requestTimestamp(SIG, "https://tsa.test/", respond((nonce) => token({ ...base, nonce, sig: new Uint8Array(64) }))), /TSA response rejected: .*different imprint/);
+});
+
+// --- tsa blocks (SPEC 4.6)
+
+test("tsa block: a timestamp over everything before it, renewable with sha512", async () => {
+  const p = await pki();
+  // a TSA that answers any request: it echoes the request's hash algorithm, imprint and nonce
+  const tsa = (async (_url: string, init: RequestInit) => {
+    const req = parseDer(new Uint8Array(init.body as ArrayBuffer)).node.children!;
+    const mi = req[1]!;
+    const nonce = req.find((n, i) => i > 1 && n.tag === 0x02)!.content;
+    const b64 = (await token({ leaf: p.leaf, key: p.leafKey, chain: [p.ca], sig: SIG, nonce, imprint: { hashAlgId: mi.children![0]!.bytes, value: mi.children![1]!.content } })).slice(7);
+    return new Response(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+  }) as unknown as typeof globalThis.fetch;
+  const roots = { tsaRoots: [p.root] };
+  const signed = (await signDocument("# Doc\n", { signer: await signerFromSeed(new Uint8Array(32).fill(1)), method: "tofu", signerId: "alice", ts: "2026-11-16T09:00:00Z" })).text;
+  const t1 = (await timestampDocument(signed, { tsaUrl: "https://tsa.test/", fetch: tsa, ts: "2026-11-16T09:30:00Z", ...roots })).text;
+  assert.match(t1, /\nmethod: tsa\nsigner: https:\/\/tsa\.test\/\nts: 2026-11-16T09:30:00Z\nalg: rfc3161\nhash: sha256:/);
+  const v1 = await verifyDocument(t1, { offline: true, ...roots });
+  assert.equal(v1.ok, true, JSON.stringify(v1.signatures[1]));
+  assert.deepEqual([v1.signatures[1]!.status, v1.signatures[1]!.tsa!.verified, v1.signatures[1]!.tsa!.signer], ["valid", true, "Test TSA"]);
+  assert.equal(v1.agreement.status, "none");
+
+  const t2 = (await timestampDocument(t1, { tsaUrl: "https://tsa.test/", fetch: tsa, hash: "sha512", ...roots })).text;
+  const v2 = await verifyDocument(t2, { offline: true, ...roots });
+  assert.deepEqual(v2.signatures.map((s) => s.status), ["valid", "valid", "valid"]);
+  assert.match(v2.signatures[2]!.fields.hash!, /^sha512:[0-9a-f]{128}$/);
+
+  // the renewal covers the first token: changing it breaks the second block
+  const firstSig = /method: tsa[\s\S]*?sig: \|\n {2}gzip\+base64:(\S)/.exec(t2)!;
+  const swapped = t2.replace(firstSig[0], firstSig[0].slice(0, -1) + (firstSig[1] === "A" ? "B" : "A"));
+  assert.deepEqual((await verifyDocument(swapped, { offline: true, ...roots })).signatures.slice(1).map((s) => s.code ?? s.status), ["malformed", "hash-mismatch"]);
+
+  const untrusted = await verifyDocument(t1, { offline: true, tsaRoots: [] });
+  assert.deepEqual([untrusted.ok, untrusted.signatures[1]!.status, untrusted.signatures[1]!.code], [false, "unresolved", "not-found"]);
+  assert.equal(untrusted.signatures[1]!.tsa!.genTime, undefined);
+  const edited = await verifyDocument(t1.replace("# Doc", "# Dog"), { offline: true, ...roots });
+  assert.deepEqual(edited.signatures.map((s) => s.code), ["hash-mismatch", "hash-mismatch"]);
+
+  const block = (from: string, to: string) => verifyDocument(t1.replace(from, to), { offline: true, ...roots }).then((r) => r.signatures[1]!);
+  assert.match((await block("alg: rfc3161\n", "alg: rfc3161\nrole: witness\n")).message!, /"role" is not allowed with method tsa/);
+  assert.match((await block("alg: rfc3161\n", "alg: ed25519\n")).message!, /method tsa requires alg rfc3161/);
+  assert.equal((await block("ts: 2026-11-16T09:30:00Z\n", "ts: 2026-11-16T09:31:00Z\n")).code, "bad-signature");
+});
+
+test("tsa block: never satisfies require, cannot be required", async () => {
+  const p = await pki();
+  const tsa = (async (_url: string, init: RequestInit) => {
+    const req = parseDer(new Uint8Array(init.body as ArrayBuffer)).node.children!;
+    const mi = req[1]!;
+    const nonce = req.find((n, i) => i > 1 && n.tag === 0x02)!.content;
+    const b64 = (await token({ leaf: p.leaf, key: p.leafKey, chain: [p.ca], sig: SIG, nonce, imprint: { hashAlgId: mi.children![0]!.bytes, value: mi.children![1]!.content } })).slice(7);
+    return new Response(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+  }) as unknown as typeof globalThis.fetch;
+  const a = await signerFromSeed(new Uint8Array(32).fill(1));
+  await assert.rejects(signDocument("# Doc\n", { signer: a, method: "tofu", signerId: "alice", require: ["tsa:https://tsa.test/"] }), /cannot be required/);
+  const declared = (await signDocument("# Doc\n", { signer: a, method: "tofu", signerId: "alice", require: ["tofu:bob"] })).text;
+  const stamped = (await timestampDocument(declared, { tsaUrl: "https://tsa.test/", fetch: tsa, tsaRoots: [p.root] })).text;
+  assert.equal((await verifyDocument(stamped, { offline: true, tsaRoots: [p.root] })).agreement.status, "pending");
+  await assert.rejects(timestampDocument("# no signature\n", { fetch: tsa }), /no signature to timestamp/);
 });

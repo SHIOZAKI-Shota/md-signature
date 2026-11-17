@@ -46,6 +46,7 @@ signature is appended as a co-signature (SPEC Section 7).
 | `--tsa [url]` | off | Request an RFC 3161 timestamp. Without a value, uses `http://ts.ssl.com`. |
 | `--tsa-root <file>` | — | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking the TSA's response. Repeatable. Used together with `--tsa`. |
 | `--stdout` | off | Write the signed document to stdout instead of changing the file. |
+| `--embed-key` | off | `dns` and `git-hosting` only. Include the public key used for signing in the block as `pubkey` (SPEC 4.5), so that the signature can still be checked after the key is removed. Exit code 2 with any other method. |
 | `--force` | off | Sign even if the file has a signature block followed by unsigned content. The whole file is then signed as a new document. |
 | `--scope <ids>` | — | Sign only these sections, comma-separated: `--scope terms,fees` (SPEC 5.6). |
 | `--require <line>` | — | One line of the `require` value. Repeatable; lines keep the order given. Besides requirement lines `<method>:<signer>[ <role>]`, step lines `step <n>[ any <m>]` and order lines `order pending\|guide\|strict` are accepted (SPEC 5.8). Example: `--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`. The whole value is checked against the rules of SPEC 5.8. |
@@ -236,6 +237,20 @@ The outcome of a verification (invalid, unresolved and so on) is returned in the
 
 When the results of two verifiers (for example a browser and this server) are used together, each verdict SHOULD be kept apart by its source. The sets of trusted root certificates differ, so `tsa.verified` may not match.
 
+### 3.7 `mdsig timestamp <file>`
+
+Appends a `tsa` block (SPEC 4.6) to the end of the file. The block covers the whole chain before it, earlier timestamps included, so running it again renews the timestamp. A file without signature blocks is refused with exit code 1.
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--tsa <url>` | `http://ts.ssl.com` | URL of the RFC 3161 time-stamping authority. |
+| `--hash <alg>` | `sha256` | Algorithm of `hash` and of `messageImprint`: `sha256` or `sha512`. Use `sha512` for a renewal that must outlive SHA-256. |
+| `--reason <text>` | — | Free-text reason. |
+| `--tsa-root <file>` | — | Root certificate to trust, in addition to the system trust store, when checking the TSA's response (as in section 3.2). |
+| `--stdout` | off | Write the result to stdout instead of changing the file. |
+
+The TSA's response is checked as for `--tsa` in section 3.1. If the request or the check fails, the exit code is 3 and the file is not changed.
+
 ## 4. Exit codes
 
 | Code | Meaning |
@@ -310,7 +325,7 @@ false.
 `status` is one of `valid`, `invalid`, `malformed`, `unresolved`, `unsupported`.
 `code` is one of `malformed`, `unknown-field`, `hash-mismatch`,
 `bad-signature`, `scope-missing`, `resource-mismatch`, `resource-missing`,
-`expired`, `revoked`, `key-changed`, `unsupported-version`, `unsupported-alg`,
+`expired`, `revoked`, `key-changed`, `key-not-published`, `unsupported-version`, `unsupported-alg`,
 `unsupported-hash`, `unsupported-method`, `network`, `not-found`, `offline`,
 or `null`.
 

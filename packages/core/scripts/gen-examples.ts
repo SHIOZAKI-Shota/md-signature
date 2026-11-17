@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { readPgpSecretKey, unlockPgpSecretKey, armor, hkpUrl, wkdUrls, type PgpSigner } from "../src/index.ts";
 import { HASH } from "../src/pgp-sig.ts";
 import { ed25519Key, p256Key, buildCert, signerOf, gpgSigner } from "./pgp-build.ts";
-import { signDocument, signerFromSeed, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, type Signer } from "../src/index.ts";
+import { signDocument, signerFromSeed, timestampDocument, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, type Signer } from "../src/index.ts";
 
 const out = new URL("../../../examples/", import.meta.url);
 mkdirSync(out, { recursive: true });
@@ -143,6 +143,17 @@ const legacy = await signAsV001(body, bob, { signer: bob, method: "tofu", signer
 w("legacy-v001.md", legacy);
 w("mixed-versions.md", (await approve(legacy, "2026-11-16T09:46:00Z")).text);
 w("malformed-require-step-v001.md", await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", require: ["step 1", "dns:example.com approver"] }));
+
+// --- key snapshots (SPEC 3.3) and tsa blocks (SPEC 4.6)
+w("valid-key-snapshot.md", (await signDocument(body, { signer: ex, method: "dns", signerId: "example.com", selector: "2026", role: "approver", ts: "2026-11-16T09:00:00Z", embedKey: true })).text);
+// github.com/alice publishes only alice's key, so a snapshot of another key is not vouched for
+w("key-not-published.md", (await signDocument(body, { signer: ex, method: "git-hosting", signerId: "github.com/alice", role: "author", ts: "2026-11-16T09:00:00Z", embedKey: true })).text);
+if (tsaUrl) {
+  const stamped = await timestampDocument(single.text, { tsaUrl, ts: "2026-11-16T09:30:00Z" });
+  w("valid-tsa-block.md", stamped.text);
+  w("valid-tsa-renewal.md", (await timestampDocument(stamped.text, { tsaUrl, hash: "sha512", ts: "2026-11-16T09:40:00Z", reason: "renewal" })).text);
+  w("tampered-tsa-block.md", stamped.text.replace("1,000 USD", "100 USD"));
+}
 
 // SPEC 5.4 step 1: a later format with a field this version does not know is "unsupported", not "malformed"
 w("unsupported-version-new-field.md", single.text.replace("v: 0.0.2\n", "v: 0.0.3\n").replace("role: author\n", "role: author\nwitness_policy: any\n"));
@@ -372,6 +383,15 @@ const expected = {
   "mixed-versions.md": { ok: true, signatures: ["valid", "valid"], agreement: "complete" },
   "malformed-require-step-v001.md": { ok: false, signatures: ["malformed:malformed"] },
   "unsupported-version-new-field.md": { ok: false, signatures: ["unsupported:unsupported-version"] },
+  "valid-key-snapshot.md": { ok: true, signatures: ["valid"] },
+  "key-not-published.md": { ok: false, signatures: ["unresolved:key-not-published"] },
+  ...(tsaUrl
+    ? {
+        "valid-tsa-block.md": { ok: true, signatures: ["valid", "valid"], tsa: [null, "ok"] },
+        "valid-tsa-renewal.md": { ok: true, signatures: ["valid", "valid", "valid"], tsa: [null, "ok", "ok"] },
+        "tampered-tsa-block.md": { ok: false, signatures: ["invalid:hash-mismatch", "invalid:hash-mismatch"] },
+      }
+    : {}),
   "malformed-duplicate-version.md": { ok: false, signatures: ["malformed:malformed"] },
   "expired.md": { ok: false, signatures: ["invalid:expired"] },
   "not-revoked.md": { ok: true, signatures: ["valid"], revocation: ["not-revoked"] },

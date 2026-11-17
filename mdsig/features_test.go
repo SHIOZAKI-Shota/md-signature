@@ -356,6 +356,63 @@ func TestRequireSteps(t *testing.T) {
 	}
 }
 
+func TestKeySnapshot(t *testing.T) {
+	a := mustSigner(t, seedA)
+	b := mustSigner(t, seedB)
+	with := func(keys [][]byte, kind string) *VerifyOptions {
+		r := ResolverFunc(func(context.Context, map[string]string, *ResolveOptions) (ResolveResult, error) {
+			if kind != "" {
+				return ResolveResult{}, &ResolutionError{Msg: "lookup failed", Kind: kind}
+			}
+			out := ResolveResult{}
+			for _, k := range keys {
+				out.Keys = append(out.Keys, CandidateKey{Alg: "ed25519", Key: k, Source: "test"})
+			}
+			return out, nil
+		})
+		return &VerifyOptions{Resolvers: map[string]Resolver{"dns": r, "git-hosting": r}}
+	}
+	check := func(text string, o *VerifyOptions) string {
+		s := verify(text, o).Signatures[0]
+		return s.Status + "/" + s.Code
+	}
+	dnsDoc := mustSign(t, fDoc, SignOptions{Signer: a, Method: "dns", SignerID: "example.com", TS: fTS, EmbedKey: true}).Text
+	if !strings.Contains(dnsDoc, "\npubkey: ed25519:") {
+		t.Fatal(dnsDoc)
+	}
+	for _, c := range []struct {
+		name string
+		text string
+		o    *VerifyOptions
+		want string
+	}{
+		{"published", dnsDoc, with([][]byte{b.PublicKey(), a.PublicKey()}, ""), "valid/"},
+		{"another key published", dnsDoc, with([][]byte{b.PublicKey()}, ""), "unresolved/key-not-published"},
+		{"nothing published", dnsDoc, with(nil, KindNotFound), "unresolved/key-not-published"},
+		{"network", dnsDoc, with(nil, KindNetwork), "unresolved/network"},
+		{"swapped snapshot", regexp.MustCompile(`pubkey: ed25519:\S+`).ReplaceAllString(dnsDoc, "pubkey: ed25519:"+toBase64(b.PublicKey())), with(nil, KindNetwork), "invalid/bad-signature"},
+	} {
+		if got := check(c.text, c.o); got != c.want {
+			t.Errorf("%s: %s, want %s", c.name, got, c.want)
+		}
+	}
+	gh := mustSign(t, fDoc, SignOptions{Signer: a, Method: "git-hosting", SignerID: "github.com/alice", TS: fTS, EmbedKey: true}).Text
+	if got := check(gh, with([][]byte{a.PublicKey()}, "")); got != "valid/" {
+		t.Error(got)
+	}
+	badFp := regexp.MustCompile(`key_fp: \S+`).ReplaceAllString(gh, "key_fp: "+SSHFingerprint(b.PublicKey()))
+	if s := verify(badFp, with([][]byte{a.PublicKey()}, "")).Signatures[0]; !strings.Contains(s.Message, "key_fp does not match the embedded pubkey") {
+		t.Error(s.Message)
+	}
+	if _, err := SignDocument(context.Background(), fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "x", EmbedKey: true}); err == nil {
+		t.Error("EmbedKey accepted for tofu")
+	}
+	plain := mustSign(t, fDoc, SignOptions{Signer: a, Method: "dns", SignerID: "example.com", TS: fTS}).Text
+	if strings.Contains(plain, "pubkey:") || check(plain, with(nil, KindNotFound)) != "unresolved/not-found" {
+		t.Error("a key snapshot was written without EmbedKey")
+	}
+}
+
 func TestVersionBeforeUnknownFields(t *testing.T) {
 	signed := mustSign(t, fDoc, SignOptions{Signer: mustSigner(t, seedA), Method: "tofu", SignerID: "alice", TS: fTS}).Text
 	offline := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}

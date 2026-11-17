@@ -45,6 +45,8 @@ export function parseRequire(value, declaredBy = 0, version = STEPS_SINCE) {
         let target = steps[steps.length - 1];
         if (!target)
             target = implicit ??= { step: 1, any: 0, members: [] };
+        if (allowSteps && m[1] === "tsa")
+            return void errors.push(`require: a tsa block cannot be required, got ${JSON.stringify(line)}`);
         const r = { method: m[1], signer: m[2], ...(m[3] ? { role: m[3] } : {}), declaredBy, step: target.step, any: 0 };
         if (allowSteps && target.members.some((x) => sameRequirement(x, r)))
             return void errors.push(`require: ${formatRequirement(r)} appears twice in step ${target.step}`);
@@ -66,8 +68,8 @@ export function parseRequire(value, declaredBy = 0, version = STEPS_SINCE) {
 }
 const matches = (r, b) => b.fields.method === r.method && sameSigner(r.method, b.fields.signer ?? "", r.signer) && (!r.role || b.fields.role === r.role);
 function evaluateDeclaration(declarer, spec, blocks) {
-    // SPEC 5.8: a block with scope does not cover the declaring block, so it never satisfies
-    const later = blocks.filter((b) => b.valid && b.fields.scope === undefined && b.index > declarer).sort((a, b) => a.index - b.index);
+    // SPEC 5.8: a block with scope does not cover the declaring block, and a tsa block has no signer, so neither satisfies
+    const later = blocks.filter((b) => b.valid && b.fields.scope === undefined && b.fields.method !== "tsa" && b.index > declarer).sort((a, b) => a.index - b.index);
     if (spec.legacy) {
         const missing = spec.steps[0].members.filter((r) => !later.some((b) => matches(r, b))).map((r) => ({ ...r, need: 1 }));
         return { status: missing.length ? "pending" : "complete", missing, violations: [] };

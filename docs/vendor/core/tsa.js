@@ -24,13 +24,18 @@ function derInt(bytes) {
         b = concat(new Uint8Array([0]), b);
     return tlv(0x02, b);
 }
-// OID 2.16.840.1.101.3.4.2.1 (sha256)
+// OID 2.16.840.1.101.3.4.2.1 (sha256) and .3 (sha512)
 const OID_SHA256 = new Uint8Array([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01]);
+const OID_SHA512 = new Uint8Array([0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03]);
+const IMPRINT_OID = {
+    sha256: { der: OID_SHA256, dotted: "2.16.840.1.101.3.4.2.1" },
+    sha512: { der: OID_SHA512, dotted: "2.16.840.1.101.3.4.2.3" },
+};
 // OID 1.2.840.113549.1.9.16.1.4 (id-ct-TSTInfo)
 const OID_TSTINFO = new Uint8Array([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x10, 0x01, 0x04]);
-export function buildTimeStampReq(imprint, nonce) {
+export function buildTimeStampReq(imprint, nonce, hashAlg = "sha256") {
     const n = nonce ?? globalThis.crypto.getRandomValues(new Uint8Array(8));
-    return seq(derInt(new Uint8Array([1])), seq(seq(OID_SHA256, new Uint8Array([0x05, 0x00])), tlv(0x04, imprint)), derInt(n), new Uint8Array([0x01, 0x01, 0xff]));
+    return seq(derInt(new Uint8Array([1])), seq(seq(IMPRINT_OID[hashAlg].der, new Uint8Array([0x05, 0x00])), tlv(0x04, imprint)), derInt(n), new Uint8Array([0x01, 0x01, 0xff]));
 }
 function oidToString(content) {
     const parts = [];
@@ -102,12 +107,12 @@ export function parseTimeStampResp(der) {
 class ImprintError extends Error {
 }
 // info is set once the imprint matched, also when the CMS check then fails
-async function verifyTimeStampResp(der, imprint, o) {
+async function verifyTimeStampResp(der, imprint, o, hashAlg = "sha256") {
     const info = parseTimeStampResp(der);
     // PKIStatus 0 = granted, 1 = grantedWithMods
     if (info.status !== 0 && info.status !== 1)
         throw new Error(`TSA status ${info.status} (not granted)`);
-    if (info.hashOid !== "2.16.840.1.101.3.4.2.1")
+    if (info.hashOid !== IMPRINT_OID[hashAlg].dotted)
         throw new Error(`unsupported imprint hash ${info.hashOid}`);
     if (!bytesEqual(imprint, info.imprint))
         throw new ImprintError("TSA token is for a different imprint");
@@ -125,17 +130,22 @@ async function verifyTimeStampResp(der, imprint, o) {
         return { info, error: e.message };
     }
 }
+// SPEC 5.5: tsa_token covers SHA-256 of the raw signature bytes
 export async function checkTsaToken(tsaToken, sigBytes, o = {}) {
+    return checkTimestampOver(tsaToken, await sha256(sigBytes), "sha256", o, "message imprint does not match SHA-256(sig)");
+}
+// a token over an imprint the caller computed, e.g. the payload of a tsa block (SPEC 4.6)
+export async function checkTimestampOver(token, imprint, hashAlg, o = {}, mismatchDetail = "message imprint does not match") {
     try {
-        const der = await decodePrefixedBinary(tsaToken);
-        const r = await verifyTimeStampResp(der, await sha256(sigBytes), o);
+        const der = await decodePrefixedBinary(token);
+        const r = await verifyTimeStampResp(der, imprint, o, hashAlg);
         if (r.error !== undefined)
             return { status: "error", verified: false, detail: `imprint matched; TSA signature not verified: ${r.error}` };
         return { status: "ok", verified: true, genTime: r.info.genTime, signer: r.signer, detail: `imprint matched; TSA signature verified (${r.signer})` };
     }
     catch (e) {
         if (e instanceof ImprintError)
-            return { status: "mismatch", verified: false, detail: "message imprint does not match SHA-256(sig)" };
+            return { status: "mismatch", verified: false, detail: mismatchDetail };
         return { status: "error", verified: false, detail: e.message };
     }
 }
@@ -152,12 +162,14 @@ function sameNonce(a, b) {
 // most TSAs send no CORS headers, so this usually fails in browsers
 export async function requestTimestamp(sigBytes, tsaUrl = DEFAULT_TSA_URL, fetchFn = globalThis.fetch, o = {}) {
     // SPEC 5.5: the imprint is SHA-256 of the raw signature bytes
-    const imprint = await sha256(sigBytes);
+    return requestTimestampOver(await sha256(sigBytes), "sha256", tsaUrl, fetchFn, o);
+}
+export async function requestTimestampOver(imprint, hashAlg, tsaUrl = DEFAULT_TSA_URL, fetchFn = globalThis.fetch, o = {}) {
     const nonce = globalThis.crypto.getRandomValues(new Uint8Array(8));
     const res = await fetchFn(tsaUrl, {
         method: "POST",
         headers: { "Content-Type": "application/timestamp-query" },
-        body: buildTimeStampReq(imprint, nonce),
+        body: buildTimeStampReq(imprint, nonce, hashAlg),
     });
     if (!res.ok)
         throw new Error(`TSA HTTP ${res.status}`);
@@ -167,7 +179,7 @@ export async function requestTimestamp(sigBytes, tsaUrl = DEFAULT_TSA_URL, fetch
         throw new Error(`TSA response is larger than ${MAX_DECODED_BYTES} bytes`);
     let r;
     try {
-        r = await verifyTimeStampResp(der, imprint, o);
+        r = await verifyTimeStampResp(der, imprint, o, hashAlg);
     }
     catch (e) {
         throw new Error(`TSA response rejected: ${e.message}`);

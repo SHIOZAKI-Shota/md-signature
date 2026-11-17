@@ -196,6 +196,61 @@
       "malformed:malformed"
     ]
   },
+  "unsupported-version-new-field.md": {
+    "ok": false,
+    "signatures": [
+      "unsupported:unsupported-version"
+    ]
+  },
+  "valid-key-snapshot.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
+  "key-not-published.md": {
+    "ok": false,
+    "signatures": [
+      "unresolved:key-not-published"
+    ]
+  },
+  "valid-tsa-block.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid"
+    ],
+    "tsa": [
+      null,
+      "ok"
+    ]
+  },
+  "valid-tsa-renewal.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "tsa": [
+      null,
+      "ok",
+      "ok"
+    ]
+  },
+  "tampered-tsa-block.md": {
+    "ok": false,
+    "signatures": [
+      "invalid:hash-mismatch",
+      "invalid:hash-mismatch"
+    ]
+  },
+  "malformed-duplicate-version.md": {
+    "ok": false,
+    "signatures": [
+      "malformed:malformed"
+    ]
+  },
   "expired.md": {
     "ok": false,
     "signatures": [
@@ -377,18 +432,6 @@
     "ok": false,
     "signatures": [
       "malformed:unknown-field"
-    ]
-  },
-  "unsupported-version-new-field.md": {
-    "ok": false,
-    "signatures": [
-      "unsupported:unsupported-version"
-    ]
-  },
-  "malformed-duplicate-version.md": {
-    "ok": false,
-    "signatures": [
-      "malformed:malformed"
     ]
   }
 }

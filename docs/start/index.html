@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="ja" data-title-key="meta.title.start">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script src="../color-scheme.js"></script>
+    <title>導入 | md-signature</title>
+    <meta name="description"
+        content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
+    <link rel="canonical" href="https://mdsig.dev/start/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="導入 | md-signature">
+    <meta property="og:description" content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
+    <meta property="og:url" content="https://mdsig.dev/start/">
+    <meta property="og:image" content="https://mdsig.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../guide.css">
+    <link rel="stylesheet" href="../docs.css">
+    <script src="../vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="../site.js"></script>
+</head>
+
+<body>
+    <a class="skip" href="#content" data-i18n="nav.skipMain">本文へ移動</a>
+
+    <header class="site-header">
+        <a class="brand" href="../" aria-label="md-signature">
+            <img class="brand-mark" src="../logo.svg" alt="" width="38" height="26">
+            <span class="brand-name">md-signature</span>
+        </a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../start/" data-i18n="nav.start" aria-current="page">導入</a>
+            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
+                    aria-hidden="true"></i>GitHub</a>
+        </nav>
+        <div class="prefs">
+            <a class="nav-cta" href="../playground/" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta secondary" href="../editor/" data-i18n="nav.editor">エディタ</a>
+            <div class="lang-switch" role="group" aria-label="Language / 言語">
+                <button type="button" data-lang="ja" lang="ja">日本語</button>
+                <button type="button" data-lang="en" lang="en">EN</button>
+            </div>
+            <button type="button" class="theme-toggle" id="theme-toggle">
+                <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+                <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="docs-main" id="content" tabindex="-1">
+        <div class="docs-layout">
+            <nav class="docs-nav" aria-labelledby="toc-side">
+                <p class="docs-nav-title" id="toc-side" data-i18n="docs.toc">このページの内容</p>
+                <ol>
+                    <li><a href="#cli" data-i18n="st.cli.title">コマンドライン（mdsig）</a></li>
+                    <li><a href="#typescript" data-i18n="st.ts.title">TypeScript ライブラリ（@md-signature/core）</a></li>
+                    <li><a href="#go" data-i18n="st.go.title">Go ライブラリ（mdsig.dev/mdsig）</a></li>
+                    <li><a href="#server" data-i18n="st.srv.title">検証サーバー</a></li>
+                    <li><a href="#automation" data-i18n="st.auto.title">CI と AI エージェント</a></li>
+                </ol>
+            </nav>
+            <article class="docs-body">
+                <header class="docs-head">
+                    <p class="eyebrow">md-signature</p>
+                    <h1 id="page-title" data-i18n="nav.start">導入</h1>
+                    <p class="lede" data-i18n-html="st.lede">署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。</p>
+                </header>
+        <section class="guide doc-sec" id="cli" tabindex="-1" aria-labelledby="cli-title">
+            <div class="section-head">
+                <h2 id="cli-title" data-i18n="st.cli.title">コマンドライン（mdsig）</h2>
+                <p data-i18n-html="st.cli.lede">Go 製の単一バイナリです。macOS、Windows、Linux で動作し、引数なしで起動すると対話メニューを表示します。</p>
+            </div>
+            <div class="start-pair">
+                <div class="term" data-term>
+                    <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
+                            class="term-title" data-i18n="start.cli">コマンドライン（mdsig）</span>
+                        <div class="term-tabs" role="tablist" aria-label="cli"><button type="button" role="tab"
+                                id="tab-cli-mac" aria-controls="cli-mac" aria-selected="true">macOS</button><button
+                                type="button" role="tab" id="tab-cli-win" aria-controls="cli-win" aria-selected="false"
+                                tabindex="-1">Windows</button><button type="button" role="tab" id="tab-cli-linux"
+                                aria-controls="cli-linux" aria-selected="false" tabindex="-1">Linux</button></div>
+                    </div>
+                    <div class="term-body">
+                        <div class="term-pane" role="tabpanel" id="cli-mac" aria-labelledby="tab-cli-mac">
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c1"># インストール（Homebrew）</span>
+<span class="cmd">brew install SHIOZAKI-Shota/tap/mdsig</span></code></pre><button type="button"
+                                    class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
+                                    aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
+                                        data-lucide="check" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="cli-win" aria-labelledby="tab-cli-win" hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c1w"># インストール（winget）</span>
+<span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="cli-linux" aria-labelledby="tab-cli-linux" hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c1l"># GitHub Releases の .deb / .rpm を導入</span>
+<span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button"
+                                    class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
+                                    aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
+                                        data-lucide="check" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-common">
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c2"># GitHub で使用中の SSH 鍵で署名</span>
+<span class="cmd">mdsig sign contract.md -m git-hosting -s github.com/alice -r author</span></code></pre><button
+                                    type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c5"># 承認者を指定し、画像を固定して連署を要求</span>
+<span class="cmd">mdsig sign quote.md -m git-hosting -s github.com/alice --require "dns:example.com approver" --auto-resources</span></code></pre>
+                                <button type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c3"># チェーン全体を検証（終了コード 0〜5）</span>
+<span class="cmd">mdsig verify contract.md</span>
+<span class="cmd">mdsig verify --json contract.md</span></code></pre><button type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.c4"># 引数なしで対話メニューを起動</span>
+<span class="cmd">mdsig</span></code></pre><button type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <table class="guide-table commands">
+                    <thead>
+                        <tr>
+                            <th scope="col" data-i18n="st.cmd.th.cmd">コマンド</th>
+                            <th scope="col" data-i18n="st.cmd.th.what">内容</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row"><code>mdsig sign &lt;file&gt;</code></th>
+                            <td data-i18n-html="st.cmd.sign">署名を追記する。署名済みのファイルには連署として追加する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig verify &lt;file&gt;…</code></th>
+                            <td data-i18n-html="st.cmd.verify">チェーン全体を検証する。終了コードは 0〜5、<code>--json</code> で JSON 出力。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig inspect &lt;file&gt;</code></th>
+                            <td data-i18n-html="st.cmd.inspect">ネットワークを使用せず、各ブロックのフィールドとハッシュの一致を表示する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig keygen</code></th>
+                            <td data-i18n-html="st.cmd.keygen">Ed25519 の鍵ペアを生成し、DNS の TXT レコードと tofu の pubkey を表示する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig revoke &lt;file&gt;</code></th>
+                            <td data-i18n-html="st.cmd.revoke">署名を撤回リストに追加し、リストに署名する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig timestamp &lt;file&gt;</code></th>
+                            <td data-i18n-html="st.cmd.timestamp">タイムスタンプ専用ブロックを追記する。重ねて実行すると更新になる。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig serve</code></th>
+                            <td data-i18n-html="st.cmd.serve">検証を HTTP API として提供する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig</code></th>
+                            <td data-i18n-html="st.cmd.menu">対話メニューを起動する。<code>LANG=ja_JP.UTF-8</code> なら日本語で表示する。</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md"
+                    data-i18n-attr="href:link.cli"><span data-i18n="st.cli.ref">CLI 仕様</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+        <section class="guide doc-sec" id="typescript" tabindex="-1" aria-labelledby="typescript-title">
+            <div class="section-head">
+                <h2 id="typescript-title" data-i18n="st.ts.title">TypeScript ライブラリ（@md-signature/core）</h2>
+                <p data-i18n-html="st.ts.lede">実行時の依存関係はありません。Web Crypto などの Web 標準 API のみを使用するため、ブラウザ、Node.js、Deno、Bun、Cloudflare Workers で同じコードが動作します。</p>
+            </div>
+            <div class="start-pair">
+                <div class="term" data-term>
+                    <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
+                            class="term-title" data-i18n="start.lib">ライブラリ（@md-signature/core）</span>
+                        <div class="term-tabs" role="tablist" aria-label="lib"><button type="button" role="tab"
+                                id="tab-lib-node" aria-controls="lib-node" aria-selected="true">Node.js</button><button
+                                type="button" role="tab" id="tab-lib-bun" aria-controls="lib-bun" aria-selected="false"
+                                tabindex="-1">Bun</button><button type="button" role="tab" id="tab-lib-deno"
+                                aria-controls="lib-deno" aria-selected="false" tabindex="-1">Deno</button><button
+                                type="button" role="tab" id="tab-lib-web" aria-controls="lib-web" aria-selected="false"
+                                tabindex="-1">Browser</button><button type="button" role="tab" id="tab-lib-workers"
+                                aria-controls="lib-workers" aria-selected="false" tabindex="-1">Workers</button></div>
+                    </div>
+                    <div class="term-body">
+                        <div class="term-pane" role="tabpanel" id="lib-node" aria-labelledby="tab-lib-node">
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+<span class="cmd">npm install @md-signature/core</span></code></pre><button
+                                    type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock code">
+                                <pre><code>import { readFile } from "node:fs/promises";
+import { verifyDocument } from "@md-signature/core";
+
+const markdown = await readFile("contract.md", "utf8");
+const result = await verifyDocument(markdown, {
+  // local resources listed in `resources` are read relative to the file
+  loadResource: (ref) =&gt; readFile(ref).catch(() =&gt; null),
+});
+
+console.log(result.ok, result.agreement.status);
+for (const s of result.signatures) console.log(s.index, s.fields.signer, s.status, s.code ?? "");</code></pre><button
+                                    type="button" class="tcopy icon-copy" data-copy-all
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="lib-bun" aria-labelledby="tab-lib-bun" hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmd">bun add @md-signature/core</span></code></pre><button
+                                    type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock code">
+                                <pre><code>import { verifyDocument } from "@md-signature/core";
+
+const markdown = await Bun.file("contract.md").text();
+const { ok, signatures } = await verifyDocument(markdown);
+
+console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</code></pre><button type="button"
+                                    class="tcopy icon-copy" data-copy-all
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="lib-deno" aria-labelledby="tab-lib-deno" hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
+                            </div>
+                            <div class="tblock code">
+                                <pre><code>import { verifyDocument } from "npm:@md-signature/core@0.0.1";
+
+const markdown = await Deno.readTextFile("contract.md");
+const { ok, signatures } = await verifyDocument(markdown);
+
+console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</code></pre><button type="button"
+                                    class="tcopy icon-copy" data-copy-all
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="lib-web" aria-labelledby="tab-lib-web" hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.webNote"># インストール不要（ESM CDN）</span></code></pre>
+                            </div>
+                            <div class="tblock code">
+                                <pre><code>&lt;script type="module"&gt;
+  import { verifyDocument } from "https://esm.sh/@md-signature/core@0.0.1";
+
+  const markdown = await (await fetch("contract.md")).text();
+  const { ok, signatures } = await verifyDocument(markdown);
+  document.body.dataset.signed = String(ok);
+&lt;/script&gt;</code></pre><button type="button" class="tcopy icon-copy" data-copy-all
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="term-pane" role="tabpanel" id="lib-workers" aria-labelledby="tab-lib-workers"
+                            hidden>
+                            <div class="tblock">
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+<span class="cmd">npm install @md-signature/core</span></code></pre><button
+                                    type="button" class="tcopy icon-copy"
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                            <div class="tblock code">
+                                <pre><code>import { verifyDocument } from "@md-signature/core";
+
+export default {
+  async fetch(request) {
+    const markdown = await request.text();
+    const result = await verifyDocument(markdown);
+    return Response.json(result, { status: result.ok ? 200 : 422 });
+  },
+};</code></pre><button type="button" class="tcopy icon-copy" data-copy-all
+                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
+                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
+                                        aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="guide-col bare">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.ts.signCap">鍵を生成して署名する</figcaption>
+                        <pre class="guide-code"><code>import { signDocument, generateEd25519 } from "@md-signature/core";
+
+const { signer } = await generateEd25519();
+const { text } = await signDocument(markdown, {
+  signer,
+  method: "tofu",
+  signerId: "bob@laptop",
+  role: "reviewer",
+  require: ["dns:example.com approver"],
+});</code></pre>
+                    </figure>
+                    <h3 class="guide-label" data-i18n="st.ts.optT">主なオプション</h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="st.ts.o1"><code>fetch</code>、<code>resolvers</code>、<code>loadResource</code>：鍵、撤回リスト、リソースの取得方法を差し替える。</li>
+                        <li data-i18n-html="st.ts.o2"><code>tsaRoots</code>、<code>extraTsaRoots</code>：TSA のルート証明書を置換、追加する。</li>
+                        <li data-i18n-html="st.ts.o3"><code>tsaVerifier</code>：トークンの検証をサーバーに委ねる（<code>remoteTsaVerifier(url)</code>）。</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/packages/core/README.ja.md"
+                    data-i18n-attr="href:st.ts.href"><span data-i18n="st.ts.ref">packages/core の README（全オプション）</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+        <section class="guide doc-sec" id="go" tabindex="-1" aria-labelledby="go-title">
+            <div class="section-head">
+                <h2 id="go-title" data-i18n="st.go.title">Go ライブラリ（mdsig.dev/mdsig）</h2>
+                <p data-i18n-html="st.go.lede">CLI と同じ検証処理を関数として呼び出せます。OpenPGP の処理を除き、標準ライブラリのみで動作します。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.go.verifyCap">文書を検証する</figcaption>
+                        <pre class="guide-code"><code>import "mdsig.dev/mdsig"
+
+res := mdsig.VerifyDocument(ctx, text, nil)
+fmt.Println(res.OK, res.Agreement.Status)
+for _, s := range res.Signatures {
+	fmt.Println(s.Index, s.Fields["signer"], s.Status, s.Code)
+}</code></pre>
+                    </figure>
+                    <pre class="guide-code"><code>go get mdsig.dev/mdsig</code></pre>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.go.tsCap">タイムスタンプ専用ブロックを追記する</figcaption>
+                        <pre class="guide-code"><code>out, err := mdsig.TimestampDocument(ctx, text, mdsig.TimestampOptions{
+	TSAURL: "http://ts.ssl.com",
+	Hash:   "sha512",
+})</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="st.go.note">外部への接続はすべて <code>SafeHTTPClient</code> を経由し、プライベートアドレスへの接続を拒否します。鍵の解決方法は <code>Resolver</code>、TOFU の記録先は <code>TofuStore</code> で差し替えられます。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://pkg.go.dev/mdsig.dev/mdsig"><span data-i18n="st.go.ref">pkg.go.dev のリファレンス</span><i
+                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
+        </section>
+
+        <section class="guide doc-sec" id="server" tabindex="-1" aria-labelledby="server-title">
+            <div class="section-head">
+                <h2 id="server-title" data-i18n="st.srv.title">検証サーバー</h2>
+                <p data-i18n-html="st.srv.lede">ブラウザ単体では確認できない項目（OS のトラストストアによる TSA の検証、CORS で取得できない鍵など）を、サーバーに委ねられます。応答を受け取った側は、そのサーバーの判定を信頼することになります。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.srv.runCap">起動して文書を送信する</figcaption>
+                        <pre class="guide-code"><code>mdsig serve --listen 127.0.0.1:8787 --allow-origin https://example.org
+
+jq -Rs '{document: .}' contract.md |
+  curl -s http://127.0.0.1:8787/v1/verify \
+    -H 'content-type: application/json' -d @-</code></pre>
+                    </figure>
+                    <table class="guide-table endpoints">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="st.srv.th.ep">エンドポイント</th>
+                                <th scope="col" data-i18n="st.srv.th.body">要求と応答</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><code>POST /v1/verify</code></th>
+                                <td data-i18n-html="st.srv.verify"><code>{ "document": "…" }</code> を受け取り、JSON 出力の <code>files</code> の1要素と同じ形で応答する。</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>POST /v1/tsa</code></th>
+                                <td data-i18n-html="st.srv.tsa"><code>tsa_token</code> と署名のバイト列を受け取り、<code>tsa</code> オブジェクトで応答する。</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>GET /v1/health</code></th>
+                                <td data-i18n-html="st.srv.health">名称、バージョン、API の版を返す。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.srv.embedCap">自前のサーバーに組み込む</figcaption>
+                        <pre class="guide-code"><code><span class="cmt">// Go</span>
+http.Handle("/", server.NewHandler(server.Options{
+	AllowOrigins: []string{"https://example.org"},
+}))
+
+<span class="cmt">// TypeScript (Deno, Bun, Workers, Node.js)</span>
+Deno.serve(createVerifyHandler({ allowOrigins: ["https://example.org"] }));</code></pre>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.srv.clientCap">手元の判定とサーバーの判定を突き合わせる</figcaption>
+                        <pre class="guide-code"><code>import { verifyDocument, remoteVerify, compareResults } from "@md-signature/core";
+
+const local = await verifyDocument(markdown);
+const remote = await remoteVerify("https://verify.example.org", markdown);
+const diff = compareResults(local, remote);</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="st.srv.note">サーバーは要求ごとに独立して検証し、TOFU の記録、鍵束、サーバー上のファイルを使用しません。ブラウザからの要求は <code>--allow-origin</code> で許可したオリジンに限ります。2つの判定は統合せず、出所を区別して表示してください。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#36-mdsig-serve"
+                    data-i18n-attr="href:st.srv.href"><span data-i18n="st.srv.ref">CLI 仕様 §3.6 mdsig serve</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+        <section class="guide doc-sec" id="automation" tabindex="-1" aria-labelledby="automation-title">
+            <div class="section-head">
+                <h2 id="automation-title" data-i18n="st.auto.title">CI と AI エージェント</h2>
+                <p data-i18n-html="st.auto.lede"><code>mdsig verify</code> の終了コードで後続の処理を制御します。0 以外（連署が不足する 5 を含む）で処理を中止すれば、署名の欠落や改変を見落としません。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.auto.ciCap">GitHub Actions</figcaption>
+                        <pre class="guide-code"><code>jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.26" }
+      - run: go install mdsig.dev/cmd/mdsig@latest
+      - run: mdsig verify docs/*.md</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="st.auto.ciNote">承認の順番と人数を規定する場合は「連署ワークフロー」を参照してください。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="st.auto.agentCap">エージェント向けの指示書</figcaption>
+                        <pre class="guide-code"><code>mdsig sign CLAUDE.md -m git-hosting -s github.com/alice
+mdsig sign AGENTS.md -m git-hosting -s github.com/alice
+mdsig verify CLAUDE.md AGENTS.md || exit 1</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="st.auto.agentNote"><code>CLAUDE.md</code> や <code>AGENTS.md</code> に署名し、エージェントの実行環境（Claude Code の <code>SessionStart</code> フックなど）が読み込み前に検証します。検証は実行環境の側で行ってください。防止できるのは PR や再配布の過程での改変で、ツール出力や Web ページ経由の注入は対象外です。</p>
+                </div>
+            </div>
+        </section>
+
+            </article>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
+                class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../start/" data-i18n="nav.start">導入</a>
+            <a href="../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
+        <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
+    </footer>
+</body>
+
+</html>

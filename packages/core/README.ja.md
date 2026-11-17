@@ -102,9 +102,21 @@ await signDocument(markdown, {
 
 検証結果の `agreement.missing` は段階ごとの不足（`step`、`need`、`blockedBy`、`early`）を、`agreement.violations` は順序違反を示します。`order strict` の違反があると `agreement.status` は `violated` となり、`result.ok` は `false` になります。
 
-既に署名がある文書に対して呼び出すと、連署として末尾に追記します。主なオプションは `selector`（`dns`）、`expires`、`scope`、`require`、`resources`、`revocationUrl`、`tsaUrl` です。意味は[形式仕様](../../SPEC.ja.md)の 5 章を参照してください。
+既に署名がある文書に対して呼び出すと、連署として末尾に追記します。主なオプションは `selector`（`dns`）、`expires`、`scope`、`require`、`resources`、`revocationUrl`、`tsaUrl`、`embedKey`（`dns` と `git-hosting` で公開鍵を埋め込む）です。意味は[形式仕様](../../SPEC.ja.md)の 5 章を参照してください。
 
 OpenSSH の秘密鍵は `parseOpenSshPrivateKey`、OpenPGP の秘密鍵は `readPgpSecretKey` と `unlockPgpSecretKey`、パスキーは `registerPasskey` と `passkeySigner` で署名者を作成します。
+
+## 長期保存
+
+`timestampDocument` は、署名者を持たないタイムスタンプ専用ブロック（`method: tsa`）を末尾に追記します。それより前の全体（以前のタイムスタンプを含む）を覆うので、重ねて追記すると更新になります。
+
+```ts
+import { timestampDocument } from "@md-signature/core";
+
+const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", hash: "sha512" });
+```
+
+`embedKey: true` で署名した `dns` と `git-hosting` のブロックは、鍵が削除された後も、埋め込まれた鍵で署名の成立を確認できます。その場合の結果は `unresolved` / `key-not-published` で、有効とはなりません。鍵が署名者のものだったことは、文書だけからは示せないためです（形式仕様 4.5 節）。
 
 ## サーバーでの検証
 

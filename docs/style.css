@@ -143,7 +143,8 @@ main > section, .intro > section { position: relative; z-index: 1; width: 100%; 
 .brand-name { font-weight: 600; font-size: 1rem; letter-spacing: -0.01em; }
 .site-nav { display: flex; gap: 26px; margin: 0 auto; }
 .site-nav a { color: var(--ink-2); text-decoration: none; font-size: 0.93rem; }
-.site-nav a:hover { color: var(--ink); }
+.site-nav a:hover, .site-nav a[aria-current="page"] { color: var(--ink); }
+.site-nav a[aria-current="page"] { font-weight: 600; }
 .prefs { display: flex; align-items: center; gap: 10px; }
 .nav-cta {
   font-size: 0.86rem; font-weight: 500; text-decoration: none; line-height: 1;
@@ -505,16 +506,20 @@ td.no { color: var(--muted); }
 .site-footer::before { content: ""; position: absolute; left: var(--gutter); right: var(--gutter); top: 0; height: 1px; background: var(--line-strong); }
 .site-footer p:last-child { margin-left: auto; }
 @media (max-width: 640px) { .site-footer p:last-child { margin-left: 0; } }
+.footer-nav { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.footer-nav a { color: var(--muted); text-decoration: none; }
+.footer-nav a:hover { color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* ------------------------------------------------------------------ slides */
 
-html { scroll-snap-type: y mandatory; }
+/* Only the top page is a slide deck. */
+html.snap { scroll-snap-type: y mandatory; }
 /* Slides may exceed the screen here; mandatory snapping would skip their overflow. */
-@media (max-width: 980px), (max-height: 680px) { html { scroll-snap-type: y proximity; } }
+@media (max-width: 980px), (max-height: 680px) { html.snap { scroll-snap-type: y proximity; } }
 /* Touch scrolling with snap points stutters on phones, so they scroll freely. */
-@media (max-width: 760px), (hover: none) and (pointer: coarse) { html { scroll-snap-type: none; } }
+@media (max-width: 760px), (hover: none) and (pointer: coarse) { html.snap { scroll-snap-type: none; } }
 
 html { scroll-padding-top: var(--header-h, 60px); }
 .intro:focus { outline: none; }

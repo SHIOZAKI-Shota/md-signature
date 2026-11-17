@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="ja" data-title-key="meta.title.workflow">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script src="../../color-scheme.js"></script>
+    <title>連署ワークフロー | md-signature</title>
+    <meta name="description"
+        content="最初の署名者は、文書の完了に必要な連署を require に宣言できます。宣言は署名対象ペイロードに含まれるため、後続の署名者が書き換えることはできません。検証者は宣言と後続の署名を照合し、合意の状態を報告します。">
+    <link rel="canonical" href="https://mdsig.dev/docs/workflow/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="連署ワークフロー | md-signature">
+    <meta property="og:description" content="最初の署名者は、文書の完了に必要な連署を require に宣言できます。宣言は署名対象ペイロードに含まれるため、後続の署名者が書き換えることはできません。検証者は宣言と後続の署名を照合し、合意の状態を報告します。">
+    <meta property="og:url" content="https://mdsig.dev/docs/workflow/">
+    <meta property="og:image" content="https://mdsig.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../../guide.css">
+    <link rel="stylesheet" href="../../docs.css">
+    <script src="../../vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="../../site.js"></script>
+</head>
+
+<body>
+    <a class="skip" href="#content" data-i18n="nav.skipMain">本文へ移動</a>
+
+    <header class="site-header">
+        <a class="brand" href="../../" aria-label="md-signature">
+            <img class="brand-mark" src="../../logo.svg" alt="" width="38" height="26">
+            <span class="brand-name">md-signature</span>
+        </a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="../../docs/" data-i18n="nav.docs" aria-current="page">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
+                    aria-hidden="true"></i>GitHub</a>
+        </nav>
+        <div class="prefs">
+            <a class="nav-cta" href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta secondary" href="../../editor/" data-i18n="nav.editor">エディタ</a>
+            <div class="lang-switch" role="group" aria-label="Language / 言語">
+                <button type="button" data-lang="ja" lang="ja">日本語</button>
+                <button type="button" data-lang="en" lang="en">EN</button>
+            </div>
+            <button type="button" class="theme-toggle" id="theme-toggle">
+                <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+                <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="docs-main" id="content" tabindex="-1">
+        <div class="docs-layout">
+            <nav class="docs-nav" aria-label="ドキュメント" data-i18n-attr="aria-label:docs.nav.label">
+                <p class="docs-nav-title" data-i18n="docs.nav.label">ドキュメント</p>
+                <ol>
+                    <li><a href="../../docs/" data-i18n="docs.nav.overview">概要</a></li>
+                    <li><a href="../../docs/format/" data-i18n="docs.nav.format">形式と署名の計算</a></li>
+                    <li><a href="../../docs/keys/" data-i18n="docs.nav.keys">公開鍵の解決</a></li>
+                    <li><a href="../../docs/verify/" data-i18n="docs.nav.verify">検証手順と結果</a></li>
+                    <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow" aria-current="page">連署ワークフロー</a></li>
+                    <li><a href="../../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
+                    <li><a href="../../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                </ol>
+                <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
+                <ul>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md" data-i18n-attr="href:link.spec">SPEC</a></li>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md" data-i18n-attr="href:link.cli">CLI_SPEC</a></li>
+                </ul>
+            </nav>
+            <article class="docs-body">
+                <header class="docs-head">
+                    <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
+                    <h1 id="page-title" data-i18n="docs.nav.workflow">連署ワークフロー</h1>
+                    <p class="lede" data-i18n-html="docs.workflow.lede">最初の署名者は、文書の完了に必要な連署を <code>require</code> に宣言できます。宣言は署名対象ペイロードに含まれるため、後続の署名者が書き換えることはできません。検証者は宣言と後続の署名を照合し、合意の状態を報告します。</p>
+                    <nav class="toc" aria-labelledby="toc-title">
+                        <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
+                        <ol>
+                            <li><a href="#declare" data-i18n="wf.declare.title">require の宣言</a></li>
+                            <li><a href="#match" data-i18n="wf.match.title">照合の規則</a></li>
+                            <li><a href="#order" data-i18n="wf.order.title">順番の扱い（order）</a></li>
+                            <li><a href="#status" data-i18n="wf.status.title">合意ステータスと終了コード</a></li>
+                            <li><a href="#cli" data-i18n="wf.cli.title">CLI と CI での利用</a></li>
+                        </ol>
+                    </nav>
+                </header>
+        <section class="guide doc-sec" id="declare" tabindex="-1" aria-labelledby="declare-title">
+            <div class="section-head">
+                <h2 id="declare-title" data-i18n="wf.declare.title">require の宣言</h2>
+                <p data-i18n-html="wf.declare.lede"><code>require</code> は折り返し値で、1行に1つずつ次の3種類の行を記述します。段階行を用いない場合、すべての要件行が1つの段階となり、全員の署名を必要とします。</p>
+            </div>
+            <div class="guide-grid wide-left-s">
+                <div class="guide-col">
+                    <table class="guide-table lines">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="wf.th.line">行の種類</th>
+                                <th scope="col" data-i18n="wf.th.syntax">構文</th>
+                                <th scope="col" data-i18n="wf.th.meaning">意味</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row" data-i18n="wf.line.member">要件行</th>
+                                <td><code>&lt;method&gt;:&lt;signer&gt; [role]</code></td>
+                                <td data-i18n-html="wf.line.memberD">必要な署名者。<code>role</code> を付与すると、その役割の署名に限定する。</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" data-i18n="wf.line.step">段階行</th>
+                                <td><code>step &lt;n&gt; [any &lt;m&gt;]</code></td>
+                                <td data-i18n-html="wf.line.stepD">以降の要件行が属する段階を開始する。<code>any m</code> は、その段階の要件行のうち m 件で成立することを示す。省略時は全員。</td>
+                            </tr>
+                            <tr>
+                                <th scope="row" data-i18n="wf.line.order">順序行</th>
+                                <td><code>order pending|guide|strict</code></td>
+                                <td data-i18n-html="wf.line.orderD">順番より前に署名した場合の扱い。最初の行にのみ記述でき、省略時は <code>pending</code>。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h3 class="guide-label" data-i18n="wf.rulesT">形式不正（malformed）となる値</h3>
+                    <ol class="guide-list compact">
+                        <li data-i18n-html="wf.r1">順序行が最初の行以外にある。</li>
+                        <li data-i18n-html="wf.r2">段階行を用いる場合に、最初の段階が <code>step 1</code> でない、または番号が連続しない。</li>
+                        <li data-i18n-html="wf.r3">要件行のない段階がある、または <code>any m</code> の m がその段階の要件行の件数を超える。</li>
+                        <li data-i18n-html="wf.r4">同じ段階に、<code>method</code>・<code>signer</code>・<code>role</code> が同一の要件行が重複している。</li>
+                        <li data-i18n-html="wf.r5"><code>v</code> が <code>0.0.1</code> のブロックに段階行または順序行がある。</li>
+                        <li data-i18n-html="wf.r6">要件行の <code>method</code> が <code>tsa</code> である（<code>0.0.2</code> 以降）。</li>
+                    </ol>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.exCap">3段階の承認フロー</figcaption>
+                        <pre class="guide-code"><code>require: |
+  order strict
+  step 1
+  dns:example.com approver
+  step 2 any 2
+  git-hosting:github.com/bob reviewer
+  git-hosting:github.com/carol reviewer
+  git-hosting:github.com/dave reviewer
+  step 3
+  dns:legal.example.com</code></pre>
+                        <ol class="wf-flow">
+                            <li><b>step 1</b><span data-i18n="wf.flow.all">全員</span>
+                                <ul>
+                                    <li>example.com <em>approver</em></li>
+                                </ul>
+                            </li>
+                            <li><b>step 2</b><span data-i18n="wf.flow.any2">3人中2人</span>
+                                <ul>
+                                    <li>github.com/bob</li>
+                                    <li>github.com/carol</li>
+                                    <li>github.com/dave</li>
+                                </ul>
+                            </li>
+                            <li><b>step 3</b><span data-i18n="wf.flow.all">全員</span>
+                                <ul>
+                                    <li>legal.example.com</li>
+                                </ul>
+                            </li>
+                        </ol>
+                        <p class="guide-note" data-i18n="wf.exNote">example.com の承認の後に、3人のうち2人がレビューし、最後に legal.example.com が署名すると完了します。</p>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.simpleCap">段階行のない宣言</figcaption>
+                        <pre class="guide-code"><code>require: |
+  dns:example.com approver
+  git-hosting:github.com/bob</code></pre>
+                        <p class="guide-note" data-i18n="wf.simpleNote">2名の署名がそろえば完了します。署名の順番は問いません。</p>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="match" tabindex="-1" aria-labelledby="match-title">
+            <div class="section-head">
+                <h2 id="match-title" data-i18n="wf.match.title">照合の規則</h2>
+                <p data-i18n-html="wf.match.lede">要件は、宣言したブロックより後ろにあるブロックと照合します。照合に用いるのは、署名によって認証される <code>method</code> と <code>signer</code> です。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="wf.match.yesT">要件を満たすブロック</h3>
+                    <ol class="guide-list">
+                        <li data-i18n-html="wf.m1">宣言したブロックより後ろにあり、ステータスが valid である。</li>
+                        <li data-i18n-html="wf.m2"><code>method</code> と <code>signer</code> が要件行と一致する。<code>dns</code> の <code>signer</code> は大文字と小文字を区別せず、末尾のドットも無視して比較する。</li>
+                        <li data-i18n-html="wf.m3">要件行に <code>role</code> があれば、同じ <code>role</code> を持つ。<code>role</code> は署名者自身の申告にすぎないため、単独では照合の根拠にならない。</li>
+                        <li data-i18n-html="wf.m4">1つのブロックは、同じ宣言の中では1件の要件にのみ数える。<code>any 2</code> の段階は、異なる2件の要件が満たされて成立する。</li>
+                    </ol>
+                </div>
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="wf.match.noT">要件を満たさないブロック</h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="wf.n1"><code>scope</code> を持つブロック。宣言したブロックを署名対象に含まず、同じセクションを持つ別の文書へ移しても有効なままであるため。</li>
+                        <li data-i18n-html="wf.n2"><code>tsa</code> ブロック。署名者を持たないため。<code>tsa:</code> の要件行も記述できない。</li>
+                        <li data-i18n-html="wf.n3">invalid、unresolved などのブロック。ただし unresolved のブロックが宣言した要件は収集するため、確認しきれなかったチェーンが完了と報告されることはない。</li>
+                        <li data-i18n-html="wf.n4">宣言したブロックより前にあるブロック。</li>
+                    </ul>
+                    <p class="guide-note" data-i18n-html="wf.match.note">複数のブロックが <code>require</code> を宣言した場合は宣言ごとに評価し、すべての宣言が成立した時点で <code>complete</code> となります。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="order" tabindex="-1" aria-labelledby="order-title">
+            <div class="section-head">
+                <h2 id="order-title" data-i18n="wf.order.title">順番の扱い（order）</h2>
+                <p data-i18n-html="wf.order.lede">段階のある宣言では、前の段階が成立する前に署名される場合があります。その署名の扱いは、宣言した署名者が順序行で選択します。</p>
+            </div>
+            <div class="guide-grid wide-left-s">
+                <div class="guide-col">
+                    <table class="guide-table orders">
+                        <thead>
+                            <tr>
+                                <th scope="col"><code>order</code></th>
+                                <th scope="col" data-i18n="wf.order.th.count">順番前の署名</th>
+                                <th scope="col" data-i18n="wf.order.th.report">報告</th>
+                                <th scope="col" data-i18n="wf.order.th.result">合意への影響</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><code>pending</code></th>
+                                <td data-i18n="wf.order.pending.count">数えない</td>
+                                <td data-i18n-html="wf.order.pending.report">不足する連署の一覧に、順番前に署名済みである旨（<code>early</code>）を付記</td>
+                                <td data-i18n-html="wf.order.pending.result">その署名者が改めて署名するまで <code>pending</code></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>guide</code></th>
+                                <td data-i18n="wf.order.guide.count">数える</td>
+                                <td data-i18n-html="wf.order.guide.report">順序違反（<code>violations</code>）として報告</td>
+                                <td data-i18n-html="wf.order.guide.result">影響しない。ほかが満たされれば <code>complete</code></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>strict</code></th>
+                                <td data-i18n="wf.order.strict.count">数える</td>
+                                <td data-i18n-html="wf.order.strict.report">順序違反（<code>violations</code>）として報告</td>
+                                <td data-i18n-html="wf.order.strict.result"><code>violated</code>。文書は不合格（終了コード 1）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="guide-note" data-i18n-html="wf.order.note">前の段階の成立位置は、その段階の m 件目を満たしたブロックの位置です。<code>step 1</code> の署名は、宣言したブロックより後ろであれば常に順番どおりです。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.case.cap">例：bob が承認より前に署名した場合</figcaption>
+                        <ol class="wf-chain">
+                            <li><b>#1</b><span>github.com/alice</span><em data-i18n="wf.case.b1">require を宣言</em></li>
+                            <li class="early"><b>#2</b><span>github.com/bob</span><em data-i18n="wf.case.b2">step 2（順番前）</em></li>
+                            <li><b>#3</b><span>example.com</span><em data-i18n="wf.case.b3">step 1 の承認</em></li>
+                        </ol>
+                        <pre class="guide-code"><code>require: |
+  order <span class="k">&lt;mode&gt;</span>
+  step 1
+  dns:example.com approver
+  step 2
+  git-hosting:github.com/bob</code></pre>
+                        <table class="guide-table outcome">
+                            <tbody>
+                                <tr>
+                                    <th scope="row"><code>pending</code></th>
+                                    <td><code class="st warn">pending</code></td>
+                                    <td data-i18n-html="wf.case.pending">#2 は数えない。step 2 の bob が不足（<code>early: true</code>）。bob が改めて署名すれば完了。</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><code>guide</code></th>
+                                    <td><code class="st ok">complete</code></td>
+                                    <td data-i18n-html="wf.case.guide">#2 を数えて完了。#2 を順序違反として報告する。</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row"><code>strict</code></th>
+                                    <td><code class="st bad">violated</code></td>
+                                    <td data-i18n-html="wf.case.strict">#2 を順序違反とし、合意は不成立。</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="status" tabindex="-1" aria-labelledby="status-title">
+            <div class="section-head">
+                <h2 id="status-title" data-i18n="wf.status.title">合意ステータスと終了コード</h2>
+                <p data-i18n-html="wf.status.lede">検証者は、すべてのブロックの判定とは別に、宣言全体の合意ステータスを報告します。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <table class="guide-table agreements">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="wf.status.th.status">status</th>
+                                <th scope="col" data-i18n="wf.status.th.meaning">意味</th>
+                                <th scope="col" data-i18n="wf.status.th.exit">終了コード</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><code>none</code></th>
+                                <td data-i18n-html="wf.status.none"><code>require</code> の宣言がない</td>
+                                <td><code>0</code></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code class="st ok">complete</code></th>
+                                <td data-i18n-html="wf.status.complete">すべての段階が成立した</td>
+                                <td><code>0</code></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code class="st warn">pending</code></th>
+                                <td data-i18n-html="wf.status.pending">不足する連署がある。各要素はあと何件必要か（<code>need</code>）、待機中の段階（<code>blocked_by</code>）、順番前の署名（<code>early</code>）を持つ</td>
+                                <td><code>5</code></td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code class="st bad">violated</code></th>
+                                <td data-i18n-html="wf.status.violated"><code>order strict</code> の順序違反がある。違反したブロックを列挙する</td>
+                                <td><code>1</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="guide-note verdict" data-i18n-html="wf.status.verdict">すべての署名が有効でも、合意が <code>pending</code> の文書は verified but pending です。検証者はこれを完了として提示してはなりません。<code>violated</code> の文書は合意済みとして提示してはなりません。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.status.jsonCap">JSON 出力の agreement（上の例を pending で宣言した場合）</figcaption>
+                        <pre class="guide-code"><code>"agreement": {
+  "status": "pending",
+  "required": [
+    { "method": "dns", "signer": "example.com", "role": "approver",
+      "declared_by": 1, "step": 1, "any": 1 },
+    { "method": "git-hosting", "signer": "github.com/bob",
+      "declared_by": 1, "step": 2, "any": 1 }
+  ],
+  "missing": [
+    { "method": "git-hosting", "signer": "github.com/bob",
+      "declared_by": 1, "step": 2, "any": 1, "need": 1, "early": true }
+  ],
+  "violations": []
+}</code></pre>
+                        <p class="guide-note" data-i18n-html="wf.status.jsonNote">段階行のない宣言では、<code>step</code> は 1、<code>any</code> は要件行の件数となります。</p>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="cli" tabindex="-1" aria-labelledby="cli-title">
+            <div class="section-head">
+                <h2 id="cli-title" data-i18n="wf.cli.title">CLI と CI での利用</h2>
+                <p data-i18n-html="wf.cli.lede"><code>mdsig sign</code> の <code>--require</code> は1回につき1行を受け取り、指定した順に行を並べます。値全体は署名の前に上記の規則で検査します。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.cli.signCap">宣言を含めて署名する</figcaption>
+                        <pre class="guide-code"><code>mdsig sign plan.md -m git-hosting -s github.com/alice -r author \
+  --require "order guide" \
+  --require "step 1" --require "dns:example.com approver" \
+  --require "step 2 any 2" \
+  --require "git-hosting:github.com/bob" \
+  --require "git-hosting:github.com/carol" \
+  --require "git-hosting:github.com/dave"</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="wf.cli.signNote">プレイグラウンドとエディタでは、連署の追加画面の詳細設定で同じ宣言を作成できます。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="wf.cli.ciCap">CI で完了を確認する（GitHub Actions）</figcaption>
+                        <pre class="guide-code"><code>- run: go install mdsig.dev/cmd/mdsig@latest
+- run: mdsig verify docs/plan.md</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="wf.cli.ciNote">連署が不足している間、<code>mdsig verify</code> は終了コード 5 を返すため、このジョブは失敗します。ブランチ保護の必須チェックに設定すれば、全員の署名がそろうまでマージできません。</p>
+                    <p class="guide-note" data-i18n-html="wf.cli.legacy">形式 <code>0.0.1</code> のブロックが宣言した要件は従来の規則で評価します。段階はなく、1つのブロックが複数の要件を満たしてもかまいません。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#58-必須の連署require"
+                    data-i18n-attr="href:wf.href"><span data-i18n="wf.ref">仕様書 §5.8 必須の連署</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a><a
+                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#31-mdsig-sign-file"
+                    data-i18n-attr="href:wf.cliHref"><span data-i18n="wf.cliRef">CLI 仕様 §3.1 mdsig sign</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+                <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">
+                    <a class="prev" href="../../docs/verify/"><span data-i18n="docs.prev">前へ</span><b data-i18n="docs.nav.verify">検証手順と結果</b></a>
+                    <a class="next" href="../../docs/archive/"><span data-i18n="docs.next">次へ</span><b data-i18n="docs.nav.archive">長期保存</b></a>
+                </nav>
+            </article>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
+                class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="../../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../../editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
+        <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
+    </footer>
+</body>
+
+</html>

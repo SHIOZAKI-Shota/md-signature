@@ -14,7 +14,8 @@ export function initChrome(extraStrings = []) {
 }
 
 function syncLang() {
-  if (!document.documentElement.hasAttribute("data-own-title")) document.title = t("meta.title");
+  const root = document.documentElement;
+  if (!root.hasAttribute("data-own-title")) document.title = t(root.dataset.titleKey || "meta.title");
   for (const b of document.querySelectorAll(".lang-switch [data-lang]")) b.setAttribute("aria-pressed", String(b.dataset.lang === getLang()));
 }
 

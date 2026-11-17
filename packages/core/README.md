@@ -102,9 +102,21 @@ await signDocument(markdown, {
 
 In the result, `agreement.missing` tells what each step still lacks (`step`, `need`, `blockedBy`, `early`) and `agreement.violations` lists order violations. An `order strict` violation makes `agreement.status` `violated` and `result.ok` `false`.
 
-Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl` and `tsaUrl`. Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
+Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl`, `tsaUrl` and `embedKey` (embed the public key with `dns` and `git-hosting`). Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
 
 A signer is made from an OpenSSH private key with `parseOpenSshPrivateKey`, from an OpenPGP secret key with `readPgpSecretKey` and `unlockPgpSecretKey`, and from a passkey with `registerPasskey` and `passkeySigner`.
+
+## Long-term keeping
+
+`timestampDocument` appends a timestamp block without a signer (`method: tsa`). It covers everything before it, earlier timestamps included, so stacking blocks renews the evidence.
+
+```ts
+import { timestampDocument } from "@md-signature/core";
+
+const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", hash: "sha512" });
+```
+
+A `dns` or `git-hosting` block signed with `embedKey: true` can still be checked with its embedded key after the key is removed. The result is then `unresolved` / `key-not-published`, not valid, because the document alone cannot show that the key was the signer's (format specification, section 4.5).
 
 ## Verifying on a server
 

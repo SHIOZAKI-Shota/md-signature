@@ -1,9 +1,9 @@
 import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizeNewlines, normalizedBytes, nowTs, serializeBlock, signedPayload, validateValue } from "./canonical.js";
-import { sha256, sshFingerprint } from "./crypto.js";
+import { digest, sha256, sshFingerprint } from "./crypto.js";
 import { GIT_HOSTING_SIGNER_RE } from "./resolvers.js";
 import { toBase64, toHex, utf8 } from "./encoding.js";
 import { parseDocument } from "./parser.js";
-import { requestTimestamp } from "./tsa.js";
+import { DEFAULT_TSA_URL, requestTimestamp, requestTimestampOver } from "./tsa.js";
 import { scopedHashInput } from "./scope.js";
 import { formatResources } from "./resources.js";
 import { formatRequirement, parseRequire } from "./agreement.js";
@@ -47,7 +47,9 @@ export async function signDocument(text, o) {
         if (o.keyFp !== false)
             fields.key_fp = o.keyFp ?? (await sshFingerprint(o.signer.publicKey));
     }
-    if (o.method === "tofu")
+    if (o.embedKey && o.method !== "dns" && o.method !== "git-hosting")
+        throw new SignError(`embedKey works with dns and git-hosting, not ${o.method}`);
+    if (o.method === "tofu" || o.embedKey)
         fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64(o.signer.publicKey)}`;
     if (isPgp) {
         const pgp = o.signer;
@@ -119,11 +121,43 @@ export async function signDocument(text, o) {
         fields.tsa_url = o.tsaUrl;
         fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
     }
+    return appendBlock(text, doc.chain.length, fields);
+}
+function appendBlock(text, previous, fields) {
     const block = serializeBlock(fields);
     const eol = /\r\n/.test(text) ? "\r\n" : "\n";
     const trimmed = text.replace(/[\r\n \t]+$/, "");
     // SPEC 7: blank line before the first block only
-    const sep = doc.chain.length ? eol : eol + eol;
+    const sep = previous ? eol : eol + eol;
     const out = trimmed + sep + block.replace(/\n/g, eol) + eol;
-    return { text: out, block, fields, previous: doc.chain.length };
+    return { text: out, block, fields, previous };
+}
+// SPEC 4.6: appends a tsa block, a timestamp over everything before it, earlier tokens included
+export async function timestampDocument(text, o = {}) {
+    const doc = parseDocument(text);
+    if (doc.chain.length === 0)
+        throw new SignError(doc.strayMarker ? `line ${doc.strayMarkerLine}: a signature block is followed by unsigned content` : "the document has no signature to timestamp");
+    const malformed = doc.chain.find((b) => b.errors.length);
+    if (malformed)
+        throw new SignError(`existing signature #${malformed.index} is malformed: ${malformed.errors.join("; ")}`);
+    const tsaUrl = o.tsaUrl ?? DEFAULT_TSA_URL;
+    if (!/^https?:\/\/\S+$/.test(tsaUrl))
+        throw new SignError(`TSA URL must be http(s)://, got "${tsaUrl}"`);
+    const hashAlg = o.hash ?? "sha256";
+    const ts = o.ts ?? nowTs();
+    if (!TS_RE.test(ts))
+        throw new SignError(`ts must be YYYY-MM-DDTHH:MM:SSZ, got "${ts}"`);
+    const fields = { v: SPEC_VERSION, method: "tsa", signer: tsaUrl, ts };
+    if (o.reason)
+        fields.reason = o.reason;
+    fields.alg = "rfc3161";
+    fields.hash = `${hashAlg}:${toHex(await digest(hashAlg, normalizedBytes(text)))}`;
+    for (const [k, v] of Object.entries(fields)) {
+        const e = validateValue(v, false);
+        if (e)
+            throw new SignError(`${k}: ${e}`);
+    }
+    const imprint = await digest(hashAlg, signedPayload(fields));
+    fields.sig = await requestTimestampOver(imprint, hashAlg, tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
+    return appendBlock(text, doc.chain.length, fields);
 }

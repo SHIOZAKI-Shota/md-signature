@@ -49,6 +49,7 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--tsa [url]` | オフ | RFC 3161 タイムスタンプを要求する。値を省略した場合は `http://ts.ssl.com` を使用する。 |
 | `--tsa-root <file>` | — | TSA の応答の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。繰り返し指定できる。`--tsa` と併せて指定する。 |
 | `--stdout` | オフ | ファイルを変更せず、署名済み文書を stdout に出力する。 |
+| `--embed-key` | オフ | `dns` と `git-hosting` のみ。署名に用いた公開鍵を `pubkey` としてブロックに含める（SPEC 4.5 節）。鍵が削除された後も、署名が成立することを確認できる。他の方式で指定した場合は終了コード 2。 |
 | `--force` | オフ | ファイルに署名ブロックがあり、その後に未署名の内容が続く場合でも署名する。この場合、ファイル全体が新しい文書として署名される。 |
 | `--scope <ids>` | — | 指定したセクションのみに署名する。カンマ区切りで指定する：`--scope terms,fees`（SPEC 5.6 節）。 |
 | `--require <line>` | — | `require` の値の 1 行を指定する。複数回指定でき、指定した順に行を並べる。要件行 `<method>:<signer>[ <role>]` のほか、段階行 `step <n>[ any <m>]` と順序行 `order pending\|guide\|strict` を使用できる（SPEC 5.8 節）。例：`--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`。値全体を SPEC 5.8 節の規則で検査する。 |
@@ -233,6 +234,20 @@ tofu pubkey:
 
 2 つの検証者（例：ブラウザとこのサーバー）の結果を併用する場合、それぞれの判定は出所を区別して扱うべきである（SHOULD）。信頼するルート証明書が異なるため、`tsa.verified` は一致しないことがある。
 
+### 3.7 `mdsig timestamp <file>`
+
+ファイルの末尾に `tsa` ブロック（SPEC 4.6 節）を追記する。ブロックは、それより前のチェーン全体（以前のタイムスタンプを含む）を対象とするため、重ねて実行すると、そのままタイムスタンプの更新になる。署名ブロックを持たないファイルは、終了コード 1 で拒否する。
+
+| フラグ | デフォルト | 説明 |
+| --- | --- | --- |
+| `--tsa <url>` | `http://ts.ssl.com` | RFC 3161 タイムスタンプ局の URL。 |
+| `--hash <alg>` | `sha256` | `hash` と `messageImprint` のアルゴリズム。`sha256` または `sha512`。SHA-256 の危殆化に備えた更新には `sha512` を用いる。 |
+| `--reason <text>` | — | 自由記述のテキスト。 |
+| `--tsa-root <file>` | — | TSA の応答の検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
+| `--stdout` | オフ | ファイルを変更せず、結果を stdout に出力する。 |
+
+TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない。
+
 ## 4. 終了コード
 
 | コード | 意味 |
@@ -305,7 +320,7 @@ tofu pubkey:
 `status` は `valid`、`invalid`、`malformed`、`unresolved`、`unsupported` のいずれか。
 `code` は `malformed`、`unknown-field`、`hash-mismatch`、
 `bad-signature`、`scope-missing`、`resource-mismatch`、`resource-missing`、
-`expired`、`revoked`、`key-changed`、`unsupported-version`、`unsupported-alg`、
+`expired`、`revoked`、`key-changed`、`key-not-published`、`unsupported-version`、`unsupported-alg`、
 `unsupported-hash`、`unsupported-method`、`network`、`not-found`、`offline`、
 または `null` のいずれか。
 

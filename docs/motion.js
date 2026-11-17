@@ -64,8 +64,6 @@ if (gsap && ScrollTrigger && SplitText) {
     }
     reveal(".slide .section-head p", { y: 14, duration: 0.8 });
 
-    gsap.from(".playground", { autoAlpha: 0, y: 40, scale: 0.985, duration: 1.1, ease, scrollTrigger: { trigger: ".playground", start: "top 85%", once: true } });
-
     gsap.from(".why-list li", { autoAlpha: 0, y: 18, duration: 0.8, ease, stagger: 0.06, scrollTrigger: { trigger: ".why-list", start: "top 82%", once: true } });
     gsap.from(".steps li", { autoAlpha: 0, x: -24, duration: 0.9, ease, stagger: 0.12, scrollTrigger: { trigger: ".steps", start: "top 80%", once: true } });
     const code = document.querySelector(".sig-example code");
@@ -76,7 +74,7 @@ if (gsap && ScrollTrigger && SplitText) {
 
     gsap.from("tbody tr", { autoAlpha: 0, y: 14, duration: 0.7, ease, stagger: 0.06, scrollTrigger: { trigger: "table", start: "top 80%", once: true } });
 
-    gsap.from(".start-grid > div", { autoAlpha: 0, y: 24, duration: 0.9, ease, stagger: 0.12, scrollTrigger: { trigger: ".start-grid", start: "top 82%", once: true } });
+    gsap.from(".explore-grid > li", { autoAlpha: 0, y: 24, duration: 0.9, ease, stagger: 0.08, scrollTrigger: { trigger: ".explore-grid", start: "top 85%", once: true } });
 
     return () => document.documentElement.classList.remove("motion");
   });

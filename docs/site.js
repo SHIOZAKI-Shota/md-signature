@@ -1,9 +1,27 @@
 import { t } from "./i18n.js";
 import GUIDE from "./strings-guide.js";
+import DOCS from "./strings-docs.js";
 import { EXAMPLES } from "./examples.js";
 import { initChrome } from "./site-common.js";
 
-initChrome([GUIDE]);
+// ------------------------------------------------------------------ moved sections
+// The top page used to hold the playground and the guide; old links land on their new pages.
+if (document.documentElement.dataset.page === "top") {
+  const moved = {
+    playground: "playground/",
+    "spec-block": "docs/format/#block",
+    "spec-chain": "docs/format/#chain",
+    "spec-payload": "docs/format/#payload",
+    "spec-keys": "docs/keys/",
+    "spec-verify": "docs/verify/",
+    "spec-ext": "docs/fields/",
+    start: "start/",
+  };
+  const target = moved[location.hash.slice(1)] ?? (new URLSearchParams(location.search).has("example") ? "playground/" : null);
+  if (target) location.replace(target.startsWith("playground/") ? target + location.search : target);
+}
+
+initChrome([GUIDE, DOCS]);
 
 // ------------------------------------------------------------------ sticky header
 const header = document.querySelector(".site-header");
@@ -50,6 +68,35 @@ if (texture) {
     pre.textContent = [...lines.slice(k), ...lines.slice(0, k)].join("\n");
     texture.append(pre);
   }
+}
+
+// ------------------------------------------------------------------ TSA roots
+// The list is updated monthly by a workflow; the static rows are a fallback.
+const rootsBody = document.querySelector("#roots-table tbody");
+if (rootsBody) {
+  fetch(new URL("./tsa-roots.json", import.meta.url), { cache: "no-cache" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!Array.isArray(d?.roots) || !d.roots.length) return;
+      rootsBody.replaceChildren(
+        ...d.roots.map((r) => {
+          const tr = document.createElement("tr");
+          const th = document.createElement("th");
+          th.scope = "row";
+          th.textContent = String(r.name);
+          const until = document.createElement("td");
+          until.textContent = String(r.notAfter);
+          const fp = document.createElement("td");
+          const code = document.createElement("code");
+          code.title = String(r.sha256);
+          code.textContent = String(r.sha256).slice(0, 16) + "…";
+          fp.append(code);
+          tr.append(th, until, fp);
+          return tr;
+        }),
+      );
+    })
+    .catch(() => {});
 }
 
 // ------------------------------------------------------------------ get started

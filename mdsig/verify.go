@@ -1,6 +1,7 @@
 package mdsig
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -83,7 +84,58 @@ func IsValidRevocationURL(u string) bool {
 	return revocationURLRe.MatchString(u) && jsNonSpace(u)
 }
 
+// SPEC 4.6: a tsa block carries no signer key, so only these fields mean something in it
+var tsaBlockKeys = map[string]bool{"v": true, "method": true, "signer": true, "ts": true, "alg": true, "hash": true, "sig": true, "reason": true}
+
+// SPEC 4.5: methods whose block may carry a snapshot of the public key
+var keySnapshotMethods = map[string]bool{"dns": true, "git-hosting": true}
+
+var tsaSignerRe = regexp.MustCompile(`^https?://\S+$`)
+
 func validateSemantics(f map[string]string) string {
+	// SPEC 4.6: method tsa and alg rfc3161 only go together
+	isTsa := f["method"] == "tsa"
+	if isTsa != (f["alg"] == "rfc3161") {
+		if isTsa {
+			return "method tsa requires alg rfc3161"
+		}
+		return "alg rfc3161 requires method tsa"
+	}
+	if isTsa {
+		if f["v"] == "0.0.1" {
+			return "method tsa needs format 0.0.2"
+		}
+		extra := ""
+		for k := range f {
+			if !tsaBlockKeys[k] && !strings.HasPrefix(k, "x_") && (extra == "" || k < extra) {
+				extra = k
+			}
+		}
+		if extra != "" {
+			return fmt.Sprintf("field %q is not allowed with method tsa", extra)
+		}
+		if !tsaSignerRe.MatchString(f["signer"]) {
+			return "tsa signer must be the http(s) URL of the time-stamping authority"
+		}
+		return ""
+	}
+	// an unknown method is reported as unsupported later, not as a misplaced pubkey
+	if _, ok := f["pubkey"]; ok && f["method"] == "pgp" {
+		return "pubkey is not allowed with method pgp"
+	}
+	if pk, ok := f["pubkey"]; ok && (f["method"] == "tofu" || keySnapshotMethods[f["method"]]) {
+		kalg, _, found := strings.Cut(pk, ":")
+		if !found {
+			kalg = ""
+		}
+		// an unknown alg is reported as unsupported later
+		if want := keyTypeFor(algOf(f)); want != "" && kalg != want {
+			return fmt.Sprintf("pubkey key type %q does not match alg %q", kalg, algOf(f))
+		}
+	}
+	if _, ok := f["pubkey"]; ok && keySnapshotMethods[f["method"]] && f["v"] == "0.0.1" {
+		return "pubkey with method " + f["method"] + " needs format 0.0.2"
+	}
 	if v, ok := f["expires"]; ok && !IsValidTimestamp(v) {
 		return fmt.Sprintf("expires %s is not a valid YYYY-MM-DDTHH:MM:SSZ date-time", jsonString(v))
 	}
@@ -307,6 +359,11 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 		return fail(StatusInvalid, "hash-mismatch", "document content was modified after this signature")
 	}
 
+	// SPEC 4.6: a tsa block is checked against its token; there is no key to resolve
+	if f["method"] == "tsa" {
+		return verifyTsaBlock(r, f, h[:hi], opts, fail)
+	}
+
 	alg := algOf(f)
 	if !supportedAlgs[alg] {
 		return fail(StatusUnsupported, "unsupported-alg", fmt.Sprintf("unsupported alg %q", alg))
@@ -326,6 +383,59 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 		}
 	}
 
+	payload := SignedPayload(f)
+	var wa *webAuthnCheck
+	if alg == "webauthn-es256" {
+		c := checkWebAuthnData(f, payload)
+		if c.info != nil {
+			r.WebAuthn = c.info
+		}
+		if !c.ok {
+			if c.code == "malformed" {
+				return fail(StatusMalformed, c.code, c.msg)
+			}
+			return fail(StatusInvalid, c.code, c.msg)
+		}
+		wa = &c
+		if c.info.RPID == "localhost" {
+			r.Warnings = append(r.Warnings, "webauthn: rp_id is localhost (development signature)")
+		}
+	}
+	// ed25519 and webauthn-es256
+	findKey := func(cands []CandidateKey) (*CandidateKey, error) {
+		for i := range cands {
+			if wa != nil {
+				good, err := verifyWebAuthnSignature(cands[i].Key, sig, wa.authData, wa.clientData)
+				if err != nil {
+					return nil, err
+				}
+				if good {
+					return &cands[i], nil
+				}
+			} else if ed25519Verify(cands[i].Key, sig, payload) {
+				return &cands[i], nil
+			}
+		}
+		return nil, nil
+	}
+
+	// SPEC 4.5: a key snapshot is checked first, so a bad signature is invalid even when the published key cannot be reached
+	var snapshot *CandidateKey
+	if _, ok := f["pubkey"]; ok && keySnapshotMethods[f["method"]] {
+		s, msg := keySnapshot(f, alg)
+		if msg != "" {
+			return fail(StatusMalformed, "malformed", msg)
+		}
+		m, err := findKey([]CandidateKey{*s})
+		if err != nil {
+			return fail(StatusMalformed, "malformed", err.Error())
+		}
+		if m == nil {
+			return fail(StatusInvalid, "bad-signature", "signature does not verify with the embedded key")
+		}
+		snapshot = s
+	}
+
 	resolver := opts.Resolvers[f["method"]]
 	if resolver == nil {
 		resolver = DefaultResolvers()[f["method"]]
@@ -333,55 +443,45 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	if resolver == nil {
 		return fail(StatusUnsupported, "unsupported-method", fmt.Sprintf("unknown method %q", f["method"]))
 	}
+	var keys []CandidateKey
+	notPublished := ""
 	res, err := resolver.Resolve(ctx, f, &opts.ResolveOptions)
 	if err != nil {
 		var re *ResolutionError
-		if errors.As(err, &re) {
-			if re.Kind == KindUnsupported {
-				return fail(StatusUnsupported, "unsupported-method", re.Msg)
-			}
-			if re.Kind == KindMalformed {
-				return fail(StatusMalformed, "malformed", re.Msg)
-			}
+		switch {
+		case !errors.As(err, &re):
+			return fail(StatusUnresolved, "network", err.Error())
+		case re.Kind == KindUnsupported:
+			return fail(StatusUnsupported, "unsupported-method", re.Msg)
+		case re.Kind == KindMalformed:
+			return fail(StatusMalformed, "malformed", re.Msg)
+		case re.Kind == KindNotFound && snapshot != nil:
+			notPublished = re.Msg
+		default:
 			return fail(StatusUnresolved, re.Kind, re.Msg)
 		}
-		return fail(StatusUnresolved, "network", err.Error())
+	} else {
+		for _, k := range res.Keys {
+			if k.Alg == keyTypeFor(alg) {
+				keys = append(keys, k)
+			}
+		}
+		r.Warnings = append(r.Warnings, res.Warnings...)
 	}
-	var keys []CandidateKey
-	for _, k := range res.Keys {
-		if k.Alg == keyTypeFor(alg) {
-			keys = append(keys, k)
+	if snapshot != nil {
+		i := slices.IndexFunc(keys, func(k CandidateKey) bool { return bytes.Equal(k.Key, snapshot.Key) })
+		if i >= 0 {
+			keys = keys[i : i+1]
+		} else {
+			if notPublished == "" {
+				notPublished = f["signer"] + " does not publish the embedded key now"
+			}
+			keys = []CandidateKey{*snapshot}
 		}
 	}
-	r.Warnings = append(r.Warnings, res.Warnings...)
 
-	payload := SignedPayload(f)
 	var matched *CandidateKey
-	if alg == "webauthn-es256" {
-		wa := checkWebAuthnData(f, payload)
-		if wa.info != nil {
-			r.WebAuthn = wa.info
-		}
-		if !wa.ok {
-			if wa.code == "malformed" {
-				return fail(StatusMalformed, wa.code, wa.msg)
-			}
-			return fail(StatusInvalid, wa.code, wa.msg)
-		}
-		for i := range keys {
-			good, err := verifyWebAuthnSignature(keys[i].Key, sig, wa.authData, wa.clientData)
-			if err != nil {
-				return fail(StatusMalformed, "malformed", err.Error())
-			}
-			if good {
-				matched = &keys[i]
-				break
-			}
-		}
-		if wa.info.RPID == "localhost" {
-			r.Warnings = append(r.Warnings, "webauthn: rp_id is localhost (development signature)")
-		}
-	} else if alg == "openpgp" {
+	if alg == "openpgp" {
 		now := opts.Now
 		if now.IsZero() {
 			now = time.Now()
@@ -406,12 +506,11 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 			matched = &keys[0]
 		}
 	} else {
-		for i := range keys {
-			if ed25519Verify(keys[i].Key, sig, payload) {
-				matched = &keys[i]
-				break
-			}
+		m, err := findKey(keys)
+		if err != nil {
+			return fail(StatusMalformed, "malformed", err.Error())
 		}
+		matched = m
 	}
 	if matched == nil {
 		return fail(StatusInvalid, "bad-signature", "signature does not verify with the signer's key(s)")
@@ -499,6 +598,61 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	if r.Partial != nil {
 		r.Warnings = append(r.Warnings, "partial signature: covers only section(s) "+strings.Join(r.Partial, ", "))
 	}
+	// SPEC 4.5: the signature holds with the embedded key, but nobody vouches for that key now
+	if notPublished != "" {
+		when := ""
+		if r.TSA != nil && r.TSA.Verified {
+			when = "; the signature existed at " + r.TSA.GenTime + " (TSA)"
+		}
+		return fail(StatusUnresolved, "key-not-published", fmt.Sprintf("the signature verifies with the embedded key, which %s does not publish now (%s)%s", f["signer"], notPublished, when))
+	}
+	return r
+}
+
+func keySnapshot(f map[string]string, alg string) (*CandidateKey, string) {
+	pk := f["pubkey"]
+	kalg, b64, ok := strings.Cut(pk, ":")
+	if !ok || kalg != keyTypeFor(alg) {
+		if !ok {
+			kalg = ""
+		}
+		return nil, fmt.Sprintf("pubkey key type %q does not match alg %q", kalg, alg)
+	}
+	raw, err := fromBase64(b64)
+	if err != nil {
+		return nil, "invalid pubkey: " + err.Error()
+	}
+	key, err := decodePublicKey(kalg, raw)
+	if err != nil {
+		return nil, "invalid pubkey: " + err.Error()
+	}
+	// SPEC 4.2: key_fp names a key, so it has to name this one
+	if fp, has := f["key_fp"]; has && f["method"] == "git-hosting" && kalg == "ed25519" && SSHFingerprint(key) != fp {
+		return nil, "key_fp does not match the embedded pubkey"
+	}
+	return &CandidateKey{Alg: kalg, Key: key, Source: "embedded pubkey"}, ""
+}
+
+func verifyTsaBlock(r *BlockResult, f map[string]string, hashAlg string, opts *VerifyOptions, fail func(status, code, msg string) *BlockResult) *BlockResult {
+	token := UnfoldBinary(f["sig"])
+	if _, err := DecodePrefixedBinary(token); err != nil {
+		return fail(StatusMalformed, "malformed", "sig is not a timestamp token: "+err.Error())
+	}
+	// SPEC 4.6: the token's imprint is the digest of the signed payload, with the block's hash algorithm
+	imprint := digestBytes(hashAlg, SignedPayload(f))
+	c := checkTimestampOver(token, imprint, hashAlg, &opts.TSA, "message imprint does not match "+strings.ToUpper(hashAlg)+"(payload)")
+	r.TSA = &c
+	switch c.Status {
+	case TSAMismatch:
+		return fail(StatusInvalid, "bad-signature", "timestamp token does not cover this block: "+c.Detail)
+	case TSAError:
+		// a token whose imprint matched but whose TSA cannot be trusted is unresolved, like a key that was not found
+		if strings.HasPrefix(c.Detail, "imprint matched") {
+			return fail(StatusUnresolved, KindNotFound, "timestamp could not be verified: "+c.Detail)
+		}
+		return fail(StatusInvalid, "bad-signature", "timestamp token is unusable: "+c.Detail)
+	}
+	r.KeySource = "TSA " + c.Signer
 	return r
 }
 
