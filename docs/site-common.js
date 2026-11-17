@@ -17,6 +17,19 @@ function syncLang() {
   const root = document.documentElement;
   if (!root.hasAttribute("data-own-title")) document.title = t(root.dataset.titleKey || "meta.title");
   for (const b of document.querySelectorAll(".lang-switch [data-lang]")) b.setAttribute("aria-pressed", String(b.dataset.lang === getLang()));
+  labelCells();
+}
+
+// Narrow screens stack table rows; each cell shows its column header through data-label.
+function labelCells() {
+  for (const table of document.querySelectorAll("table[data-cell-labels]")) {
+    const heads = [...table.querySelectorAll("thead th")].map((th) => th.textContent.trim());
+    for (const tr of table.querySelectorAll("tbody tr")) {
+      [...tr.children].forEach((cell, i) => {
+        if (cell.tagName === "TD") cell.dataset.label = heads[i] ?? "";
+      });
+    }
+  }
 }
 
 // ------------------------------------------------------------------ color scheme

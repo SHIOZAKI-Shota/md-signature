@@ -43,13 +43,13 @@ func newVerifyCmd() *cobra.Command {
 	}
 	c.Flags().BoolVar(&o.json, "json", false, "print a JSON result to stdout")
 	c.Flags().BoolVarP(&o.quiet, "quiet", "q", false, "no output; exit code only")
-	c.Flags().BoolVar(&o.offline, "offline", false, "do not use the network (only tofu signatures are fully checked)")
+	c.Flags().BoolVar(&o.offline, "offline", false, "do not use the network (tofu, pgp from the local keyring, and tsa blocks can still be checked)")
 	c.Flags().BoolVar(&o.fetchResources, "fetch-resources", false, "fetch https:// resources and check their hashes (tells the server the document is being verified)")
 	c.Flags().BoolVar(&o.noRevocation, "no-revocation", false, "do not fetch revocation lists")
-	c.Flags().BoolVar(&o.noKeyring, "no-keyring", false, "pgp: do not look in the local gpg keyring (WKD and keyserver only)")
-	c.Flags().BoolVar(&o.acceptNewKey, "accept-new-key", false, "tofu: accept a key that differs from the stored one and replace the stored binding")
-	c.Flags().StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate for TSA tokens (PEM or DER file; repeatable)")
-	c.Flags().StringVar(&o.keyserver, "keyserver", "", "pgp: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+"); use one that confirms email addresses")
+	c.Flags().BoolVar(&o.noKeyring, "no-keyring", false, "pgp only: do not look in the local gpg keyring (WKD and keyserver only)")
+	c.Flags().BoolVar(&o.acceptNewKey, "accept-new-key", false, "tofu only: accept a key that differs from the stored one and replace the stored binding")
+	c.Flags().StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
+	c.Flags().StringVar(&o.keyserver, "keyserver", "", "pgp only: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+"); use one that confirms email addresses")
 	return c
 }
 

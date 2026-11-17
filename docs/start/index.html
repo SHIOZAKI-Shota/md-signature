@@ -10,17 +10,17 @@
     <script src="../color-scheme.js"></script>
     <title>導入 | md-signature</title>
     <meta name="description"
-        content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
+        content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
     <link rel="canonical" href="https://mdsig.dev/start/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="md-signature">
     <meta property="og:title" content="導入 | md-signature">
-    <meta property="og:description" content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
+    <meta property="og:description" content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
     <meta property="og:url" content="https://mdsig.dev/start/">
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,7 +72,7 @@
                     <li><a href="#cli" data-i18n="st.cli.title">コマンドライン（mdsig）</a></li>
                     <li><a href="#typescript" data-i18n="st.ts.title">TypeScript ライブラリ（@md-signature/core）</a></li>
                     <li><a href="#go" data-i18n="st.go.title">Go ライブラリ（mdsig.dev/mdsig）</a></li>
-                    <li><a href="#server" data-i18n="st.srv.title">検証サーバー</a></li>
+                    <li><a href="#server" data-i18n="st.srv.title">検証サーバ</a></li>
                     <li><a href="#automation" data-i18n="st.auto.title">CI と AI エージェント</a></li>
                 </ol>
             </nav>
@@ -80,7 +80,7 @@
                 <header class="docs-head">
                     <p class="eyebrow">md-signature</p>
                     <h1 id="page-title" data-i18n="nav.start">導入</h1>
-                    <p class="lede" data-i18n-html="st.lede">署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバーを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。</p>
+                    <p class="lede" data-i18n-html="st.lede">署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。</p>
                 </header>
         <section class="guide doc-sec" id="cli" tabindex="-1" aria-labelledby="cli-title">
             <div class="section-head">
@@ -109,7 +109,7 @@
                         </div>
                         <div class="term-pane" role="tabpanel" id="cli-win" aria-labelledby="tab-cli-win" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c1w"># インストール（winget）</span>
+                                <pre><code><span class="cmt" data-i18n="start.c1w"># インストール（Go 1.26 以降。winget は準備中）</span>
 <span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
@@ -118,7 +118,7 @@
                         </div>
                         <div class="term-pane" role="tabpanel" id="cli-linux" aria-labelledby="tab-cli-linux" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c1l"># GitHub Releases の .deb / .rpm を導入</span>
+                                <pre><code><span class="cmt" data-i18n="start.c1l"># インストール（Go 1.26 以降。.deb / .rpm は準備中）</span>
 <span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button"
                                     class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
                                     aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
@@ -238,12 +238,14 @@
                             </div>
                             <div class="tblock code">
                                 <pre><code>import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { verifyDocument } from "@md-signature/core";
 
-const markdown = await readFile("contract.md", "utf8");
+const file = "contract.md";
+const markdown = await readFile(file, "utf8");
 const result = await verifyDocument(markdown, {
-  // local resources listed in `resources` are read relative to the file
-  loadResource: (ref) =&gt; readFile(ref).catch(() =&gt; null),
+  // local paths in `resources` are relative to the document's directory
+  loadResource: (ref) =&gt; readFile(join(dirname(file), ref)).catch(() =&gt; null),
 });
 
 console.log(result.ok, result.agreement.status);
@@ -256,7 +258,8 @@ for (const s of result.signatures) console.log(s.index, s.fields.signer, s.statu
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-bun" aria-labelledby="tab-lib-bun" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmd">bun add @md-signature/core</span></code></pre><button
+                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
+<span class="cmd">bun add @md-signature/core</span></code></pre><button
                                     type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
@@ -277,7 +280,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-deno" aria-labelledby="tab-lib-deno" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
+                                <pre><code><span class="cmt" data-i18n="start.denoNote"># npm への公開は準備中（公開後はインストール不要、npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
                                 <pre><code>import { verifyDocument } from "npm:@md-signature/core@0.0.1";
@@ -294,7 +297,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                         </div>
                         <div class="term-pane" role="tabpanel" id="lib-web" aria-labelledby="tab-lib-web" hidden>
                             <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.webNote"># インストール不要（ESM CDN）</span></code></pre>
+                                <pre><code><span class="cmt" data-i18n="start.webNote"># npm への公開は準備中（公開後はインストール不要、ESM CDN）</span></code></pre>
                             </div>
                             <div class="tblock code">
                                 <pre><code>&lt;script type="module"&gt;
@@ -354,7 +357,7 @@ const { text } = await signDocument(markdown, {
                     <ul class="guide-list plain">
                         <li data-i18n-html="st.ts.o1"><code>fetch</code>、<code>resolvers</code>、<code>loadResource</code>：鍵、撤回リスト、リソースの取得方法を差し替える。</li>
                         <li data-i18n-html="st.ts.o2"><code>tsaRoots</code>、<code>extraTsaRoots</code>：TSA のルート証明書を置換、追加する。</li>
-                        <li data-i18n-html="st.ts.o3"><code>tsaVerifier</code>：トークンの検証をサーバーに委ねる（<code>remoteTsaVerifier(url)</code>）。</li>
+                        <li data-i18n-html="st.ts.o3"><code>tsaVerifier</code>：トークンの検証をサーバに委ねる（<code>remoteTsaVerifier(url)</code>）。</li>
                     </ul>
                 </div>
             </div>
@@ -399,8 +402,8 @@ for _, s := range res.Signatures {
 
         <section class="guide doc-sec" id="server" tabindex="-1" aria-labelledby="server-title">
             <div class="section-head">
-                <h2 id="server-title" data-i18n="st.srv.title">検証サーバー</h2>
-                <p data-i18n-html="st.srv.lede">ブラウザ単体では確認できない項目（OS のトラストストアによる TSA の検証、CORS で取得できない鍵など）を、サーバーに委ねられます。応答を受け取った側は、そのサーバーの判定を信頼することになります。</p>
+                <h2 id="server-title" data-i18n="st.srv.title">検証サーバ</h2>
+                <p data-i18n-html="st.srv.lede">ブラウザ単体では確認できない項目（OS のトラストストアによる TSA の検証、CORS で取得できない鍵など）を、サーバに委ねられます。応答を受け取った側は、そのサーバの判定を信頼することになります。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
@@ -430,14 +433,14 @@ jq -Rs '{document: .}' contract.md |
                             </tr>
                             <tr>
                                 <th scope="row"><code>GET /v1/health</code></th>
-                                <td data-i18n-html="st.srv.health">名称、バージョン、API の版を返す。</td>
+                                <td data-i18n-html="st.srv.health">名称、バージョン、API のバージョンを返す。</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">
-                        <figcaption data-i18n="st.srv.embedCap">自前のサーバーに組み込む</figcaption>
+                        <figcaption data-i18n="st.srv.embedCap">自前のサーバに組み込む</figcaption>
                         <pre class="guide-code"><code><span class="cmt">// Go</span>
 http.Handle("/", server.NewHandler(server.Options{
 	AllowOrigins: []string{"https://example.org"},
@@ -447,14 +450,14 @@ http.Handle("/", server.NewHandler(server.Options{
 Deno.serve(createVerifyHandler({ allowOrigins: ["https://example.org"] }));</code></pre>
                     </figure>
                     <figure class="guide-cell">
-                        <figcaption data-i18n="st.srv.clientCap">手元の判定とサーバーの判定を突き合わせる</figcaption>
+                        <figcaption data-i18n="st.srv.clientCap">手元の判定とサーバの判定を突き合わせる</figcaption>
                         <pre class="guide-code"><code>import { verifyDocument, remoteVerify, compareResults } from "@md-signature/core";
 
 const local = await verifyDocument(markdown);
 const remote = await remoteVerify("https://verify.example.org", markdown);
 const diff = compareResults(local, remote);</code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="st.srv.note">サーバーは要求ごとに独立して検証し、TOFU の記録、鍵束、サーバー上のファイルを使用しません。ブラウザからの要求は <code>--allow-origin</code> で許可したオリジンに限ります。2つの判定は統合せず、出所を区別して表示してください。</p>
+                    <p class="guide-note" data-i18n-html="st.srv.note">サーバは要求ごとに独立して検証し、TOFU の記録、鍵束、サーバ上のファイルを使用しません。ブラウザからの要求は <code>--allow-origin</code> で許可したオリジンに限ります。2つの判定は統合せず、出所を区別して表示してください。</p>
                 </div>
             </div>
             <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#36-mdsig-serve"
@@ -481,7 +484,7 @@ const diff = compareResults(local, remote);</code></pre>
       - run: go install mdsig.dev/cmd/mdsig@latest
       - run: mdsig verify docs/*.md</code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="st.auto.ciNote">承認の順番と人数を規定する場合は「連署ワークフロー」を参照してください。</p>
+                    <p class="guide-note" data-i18n-html="st.auto.ciNote">承認の順序と人数を規定する場合は「連署ワークフロー」を参照してください。</p>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 type SignOptions struct {
@@ -54,7 +55,13 @@ type ValueError struct{ Msg string }
 
 func (e *ValueError) Error() string { return e.Msg }
 
+// SPEC 5.1: generators refuse documents that are not valid UTF-8
+var errNotUTF8 = &SignError{Msg: "the document is not valid UTF-8"}
+
 func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult, error) {
+	if !utf8.ValidString(text) {
+		return nil, errNotUTF8
+	}
 	doc := ParseDocument(text)
 	if len(doc.Chain) == 0 && doc.StrayMarker && !o.Force {
 		return nil, &SignError{Msg: fmt.Sprintf("line %d: found an md-signature block that is followed by unsigned content. "+
@@ -121,7 +128,7 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		}
 	case "git-hosting":
 		if isWebAuthn {
-			return nil, &ValueError{Msg: "git-hosting supports only ed25519 SSH keys; use tofu or dns for passkeys"}
+			return nil, &ValueError{Msg: "git-hosting supports only Ed25519 SSH keys; use tofu or dns for passkeys"}
 		}
 		if !isValidGitHostingSigner(o.SignerID) {
 			return nil, &ValueError{Msg: fmt.Sprintf("git-hosting signer must be <host>/<username> with a domain name as host, got %q", o.SignerID)}
@@ -291,6 +298,9 @@ var tsaURLRe = regexp.MustCompile(`^https?://\S+$`)
 
 // TimestampDocument appends a tsa block: a timestamp over everything before it, earlier tokens included (SPEC 4.6).
 func TimestampDocument(ctx context.Context, text string, o TimestampOptions) (*SignResult, error) {
+	if !utf8.ValidString(text) {
+		return nil, errNotUTF8
+	}
 	doc := ParseDocument(text)
 	if len(doc.Chain) == 0 {
 		if doc.StrayMarker {

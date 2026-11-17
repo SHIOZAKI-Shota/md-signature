@@ -4,7 +4,7 @@ export function utf8(s: string): Uint8Array {
   return enc.encode(s);
 }
 
-// ignoreBOM keeps a leading U+FEFF so normalisation can strip it
+// ignoreBOM keeps a leading U+FEFF so normalization can strip it
 export function fromUtf8(b: Uint8Array): string {
   return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(b);
 }

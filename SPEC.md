@@ -106,12 +106,12 @@ Rules that apply in addition to the grammar:
 
    A generator MUST use the folded form for any value that contains `LF`.
 
-### 3.3 Common Fields
+### 3.3 Common fields
 
 | Key | Requirement | Description |
 | --- | --- | --- |
 | `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
-| `method` | MUST | How the public key is found: `dns`, `git-hosting`, `pgp`, or `tofu`; or `tsa` for a timestamp block that has no signer (Section 4). |
+| `method` | MUST | How the public key is resolved: `dns`, `git-hosting`, `pgp`, or `tofu`; or `tsa` for a timestamp block that has no signer (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
 | `reason` | MAY | Free-text reason or comment. |
@@ -119,8 +119,8 @@ Rules that apply in addition to the grammar:
 | `alg` | MAY | Signature algorithm. Default `ed25519`. See Section 6. `rfc3161` in a `tsa` block (Section 4.6). |
 | `hash` | MUST | Digest of the covered document slice: `<hash-alg>:<lowercase-hex>`. Default `sha256`. |
 | `sig` | MUST | Signature over the signed payload: `base64:<standard base64 with padding>` [RFC4648, Section 4]. |
-| `tsa_url` | MAY | RFC 3161 Time-Stamping Authority endpoint used to obtain `tsa_token`. |
-| `tsa_token` | MAY | RFC 3161 `TimeStampResp`, DER-encoded, with an encoding prefix: `base64:`, `gzip+base64:` (RECOMMENDED), or `zstd+base64:`. |
+| `tsa_url` | MAY | Endpoint of the RFC 3161 time-stamping authority (TSA) used to obtain `tsa_token`. |
+| `tsa_token` | MAY | RFC 3161 `TimeStampResp`, DER-encoded, with an encoding prefix: `base64:` or `gzip+base64:` (RECOMMENDED). `zstd+base64:` is reserved and not yet defined for use. |
 | `expires` | MAY | Time after which the signature is no longer valid, same format as `ts` (Section 5.9). |
 | `scope` | MAY | Sign only marked sections of the document instead of the whole slice (Section 5.6). |
 | `require` | MAY | Co-signatures that must follow for the document to be complete (Section 5.8). |
@@ -134,18 +134,18 @@ Method-specific fields are listed in Section 4.
 Verifiers MUST reject a block that is missing a REQUIRED field, or that has a
 `v` they do not support.
 
-**Unknown fields.** A verifier MUST report a block as malformed if it contains
+**Unknown fields.** A verifier MUST report a block as **malformed** if it contains
 a key that is neither defined in this document nor starts with `x_`. Keys
 starting with `x_` carry no meaning defined here: verifiers MUST NOT change
 their verification result because of them, but they are still part of the
 signed payload (Section 5.3), so they cannot be changed without breaking the
-signature. Because unknown keys cause a failure, a future version that adds a
+signature. Because unknown fields cause a failure, a future version that adds a
 field cannot be mistaken for a valid signature by a verifier that does not
 understand that field.
 
 ## 4. Key Resolution Methods
 
-### 4.1 `dns` — Domain TXT record
+### 4.1 `dns`: Domain TXT record
 
 - `signer`: A domain name, lowercase, without a trailing dot.
 - `selector` (MAY): A DNS label. If present, the record is at `<selector>._mdsig.<signer>`. If absent, it is at `_mdsig.<signer>`.
@@ -163,20 +163,20 @@ understand that field.
 - Implementations that cannot use the system resolver (browsers, edge runtimes) SHOULD use DNS-over-HTTPS [RFC8484], for example the JSON API at `https://cloudflare-dns.com/dns-query` with fallback to `https://dns.google/resolve`. This works for any domain; the domain's DNS provider does not have to support DoH.
 - Verifiers SHOULD tell users that DNS records can change after signing (Section 9.3).
 
-### 4.2 `git-hosting` — SSH keys published by a Git forge
+### 4.2 `git-hosting`: SSH keys published by a Git hosting service
 
-- `signer`: `<host>/<username>`, for example `github.com/alice` or `gitlab.com/bob`. `<host>` MUST be a domain name of two or more labels. A block whose `<host>` is an IP address or a single-label name (such as `localhost`) is malformed.
+- `signer`: `<host>/<username>`, for example `github.com/alice` or `gitlab.com/bob`. `<host>` MUST be a domain name of two or more labels. A block whose `<host>` is an IP address or a single-label name (such as `localhost`) is **malformed**.
 - `key_fp` (MAY): The OpenSSH fingerprint of the key, `SHA256:<unpadded base64 of SHA-256 over the SSH wire-format public key blob>` (the format printed by `ssh-keygen -l`).
 - Lookup: `GET https://<signer>.keys` returns one OpenSSH public key per line. Verifiers MUST use only lines whose key type matches `alg` (`ssh-ed25519` for `ed25519`). If `key_fp` is present, verifiers MUST use only the key with that fingerprint. Otherwise the signature is valid if it verifies with any listed key.
 - Generators MUST produce a raw Ed25519 signature [RFC8032] directly over the signed payload (Section 5.3), for example with the raw private key or with an ssh-agent `SSH_AGENTC_SIGN_REQUEST`. Generators MUST NOT use the OpenSSH SSHSIG format (`ssh-keygen -Y sign`), which signs a different, wrapped message and is not compatible.
 - An ssh-agent returns the signature in SSH wire format (`string "ssh-ed25519"`, `string signature`). Generators MUST store only the inner 64-byte signature in `sig`.
 - Verifiers SHOULD tell users that the key list reflects the account's current keys, not the keys at signing time.
 
-### 4.3 `pgp` — OpenPGP
+### 4.3 `pgp`: OpenPGP
 
 - `signer`: A lowercase email address (`local@domain`).
 - `fpr` (MUST): The fingerprint of the key used to sign (the primary key or a signing subkey), 40 uppercase hexadecimal characters (v4 keys) or 64 (v6 keys) [RFC9580].
-- `alg`: MUST be `openpgp`. A block with `method: pgp` whose `alg` is not `openpgp`, and a block whose `method` is not `pgp` and whose `alg` is `openpgp`, are malformed. The signature format is specified in Section 6.2.
+- `alg`: MUST be `openpgp`. A block with `method: pgp` whose `alg` is not `openpgp`, and a block whose `method` is not `pgp` and whose `alg` is `openpgp`, are **malformed**. The signature format is specified in Section 6.2.
 - **Key lookup.** Verifiers look for the key in the following order and stop at the first certificate (transferable public key) that contains a key with fingerprint `fpr`.
   1. The user's local keyring (only in implementations that have one, for example `gpg --export <fpr>`).
   2. WKD [WKD] for the domain of `signer`. The advanced method (`https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<local>`) is tried first, then the direct method (`https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<local>`). `<hash>` is the z-base-32 encoding of the SHA-1 of the lowercased local part.
@@ -187,18 +187,18 @@ understand that field.
   In a verifier running in a browser, a WKD fetch can fail because the WKD server does not allow CORS. In that case the verifier SHOULD go on to the keyserver lookup.
 - **Key validation.** Verifiers MUST check all of the following on the retrieved certificate.
   1. A primary key or subkey matching `fpr` exists.
-  2. A User ID exists that has a valid self-certification by the primary key (signature types 0x10 to 0x13) and whose email address (the part between `<` and `>`, or the whole User ID if there are none) matches `signer`, compared case-insensitively.
+  2. A user ID exists that has a valid self-certification by the primary key (signature types 0x10 to 0x13) and whose email address (the part between `<` and `>`, or the whole user ID if there are none) matches `signer`, compared case-insensitively.
   3. If `fpr` refers to a subkey, a valid subkey binding signature (0x18) by the primary key exists, its key flags include signing (0x02), and it contains a valid embedded primary key binding signature (0x19) made by the subkey. If `fpr` refers to the primary key and the self-certification has key flags, they include signing (0x02).
   4. No valid revocation signature (0x20 or 0x28) exists for the key (the primary key, or the subkey `fpr` refers to).
 
-  If no certificate satisfying conditions 1 to 3 is obtained, the result is **unresolved** (code `not-found`). Some keyservers do not distribute User IDs whose email address has not been confirmed, so condition 2 can fail with them. If condition 4 fails, the block is **invalid** (code `revoked`). If the key has expired at verification time, verifiers SHOULD warn but MUST NOT treat the block as invalid for that reason alone. Evidence of the signing time comes from `tsa_token` (Section 5.5).
+  If no certificate satisfying conditions 1 to 3 is obtained, the result is **unresolved** (code `not-found`). Some keyservers do not distribute user IDs whose email address has not been confirmed, so condition 2 can fail with them. If condition 4 fails, the block is **invalid** (code `revoked`). If the key has expired at verification time, verifiers SHOULD warn but MUST NOT treat the block as invalid for that reason alone. Evidence of the signing time comes from `tsa_token` (Section 5.5).
 - **Distinguishing lookup results.** The result is `not-found` only if every source tried answered that the key does not exist. If any source did not answer because of a communication failure, the result is `network`. Verifiers SHOULD show the user the result for each source.
 - Generators MAY sign with a local OpenPGP implementation (for example `gpg --detach-sign`). In that case too, the signed data is the signed payload (Section 5.3), and the signature MUST satisfy the conditions in Section 6.2.
 
-### 4.4 `tofu` — Trust on first use (embedded key)
+### 4.4 `tofu`: Trust on first use (embedded key)
 
 - `signer`: Any identifier, for example `bob@laptop`.
-- `pubkey` (MUST): `<key-type>:<base64>`, for example `ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`. The key type and encoding are the same as for `dns` (Section 4.1). A `pubkey` whose key type does not match `alg`, or that cannot be decoded, makes the block malformed.
+- `pubkey` (MUST): `<key-type>:<base64>`, for example `ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`. The key type and encoding are the same as for `dns` (Section 4.1). A `pubkey` whose key type does not match `alg`, or that cannot be decoded, makes the block **malformed**.
 - A `tofu` signature proves only that the document has not changed since someone holding that key signed it. It does not prove who that is.
 - Verifiers that keep state SHOULD remember the `signer` → `pubkey` binding the first time they see it and MUST report a block as **invalid** (code `key-changed`) if a later document uses the same `signer` with a different `pubkey`. The binding is stored after the block has verified, and is replaced only when the user explicitly accepts the new key.
 
@@ -218,7 +218,7 @@ to `signer`. A verifier MUST verify a `dns` or `git-hosting` block that has
 
 1. A block whose `pubkey` has a key type that does not match `alg` or cannot be
    decoded, or a `git-hosting` block whose `key_fp` is not the fingerprint of
-   `pubkey`, is malformed.
+   `pubkey`, is **malformed**.
 2. Verify `sig` with `pubkey`. If it does not verify, the block is
    **invalid (bad signature)**. This check comes before fetching keys.
 3. Fetch keys as in Section 4.1 or 4.2. If the fetched keys include the key in
@@ -226,7 +226,7 @@ to `signer`. A verifier MUST verify a `dns` or `git-hosting` block that has
 4. If fetching succeeded but did not include that key, or no key exists,
    perform the remaining steps as usual, and if none of them fails, the block
    is **unresolved** (code `key-not-published`). A fetch that fails because of
-   the network is unresolved as before.
+   the network is **unresolved** as before.
 
 A verifier MUST NOT present a `key-not-published` block as valid. What can be
 reported is that the signature holds with the embedded key and, when a
@@ -235,7 +235,7 @@ existed at that time. It cannot be shown that the key was published as
 `signer`'s key at that time. When the time of a timestamp is confirmed, a
 verifier SHOULD report it as well.
 
-### 4.6 `tsa` — Timestamp block
+### 4.6 `tsa`: Timestamp block
 
 A `tsa` block has no signer. Its RFC 3161 timestamp shows that the whole chain
 before it, earlier timestamps included, existed at a given time. Appending
@@ -244,7 +244,7 @@ being revoked or a hash algorithm weakening. The idea is the same as in
 RFC 4998.
 
 - `v`: `0.0.2` or later.
-- `method`: `tsa`. `alg`: `rfc3161`. A block with only one of the two is malformed.
+- `method`: `tsa`. `alg`: `rfc3161`. A block with only one of the two is **malformed**.
 - `signer`: the `http://` or `https://` URL of the TSA. Verification
   authenticates the TSA certificate in the token, not this value.
 - `ts`: the time claimed by the generator.
@@ -252,7 +252,7 @@ RFC 4998.
   `sha256` or `sha512`.
 - `sig`: the DER-encoded `TimeStampResp` with an encoding prefix, as in
   `tsa_token`.
-- Optionally `reason` and `x_*`. A block with any other field is malformed.
+- Optionally `reason` and `x_*`. A block with any other field is **malformed**.
 
 The generator digests the signed payload (Section 5.3) with the algorithm of
 `hash` and sends a `TimeStampReq` with that digest as `messageImprint` and a
@@ -261,19 +261,19 @@ The generator digests the signed payload (Section 5.3) with the algorithm of
 A verifier MUST verify a `tsa` block as follows, in place of step 4 and the
 steps after it in Section 5.4.
 
-1. If the token cannot be decoded, the block is malformed.
+1. If the token cannot be decoded, the block is **malformed**.
 2. If the response status is not `granted` or `grantedWithMods`, or the
    algorithm and value of `messageImprint` are not the digest of the signed
    payload with the algorithm of `hash`, the block is **invalid (bad
    signature)**.
 3. Verify the CMS signature of the token and the TSA certificate chain against
-   a trust store of the verifier's choice (Section 5.5). If this succeeds the
-   block is valid, and the verifier reports `genTime` and the name of the TSA
+   a trust store of the verifier's choice (Section 5.5). If this succeeds, the
+   block is **valid**, and the verifier reports `genTime` and the name of the TSA
    certificate. If it cannot be verified, the block is **unresolved**.
 
 A `tsa` block does not satisfy `require` (Section 5.8).
 
-## 5. Canonicalization and Cryptographic Procedure
+## 5. Normalization and Cryptographic Procedure
 
 ### 5.1 Document normalization
 
@@ -350,7 +350,7 @@ v=0.0.2
 
 For each block in the chain, in order, a verifier MUST:
 
-1. If the block has exactly one `v` and its value is not a version the verifier supports, the block is **unsupported** (unsupported version). This check comes before every other check, so that a block with fields added by a later version is reported as an unsupported version rather than as malformed. A block whose `v` is missing or repeated is malformed by step 2.
+1. If the block has exactly one `v` and its value is not a version the verifier supports, the block is **unsupported** (unsupported version). This check comes before every other check, so that a block with fields added by a later version is reported as an unsupported version rather than as malformed. A block whose `v` is missing or repeated is **malformed** by step 2.
 2. Parse the block (Section 3). On a syntax error, a missing REQUIRED field, or an unknown field, the block is **malformed**.
 3. Compute the digest of the block's slice (or of its scoped sections, Section 5.6) and compare it with `hash` (constant-time comparison is not required; the values are public). On mismatch the block is **invalid (hash mismatch)**.
 4. Build the payload and resolve candidate public keys with `method` (Section 4). If resolution fails because of the network, the result is **unresolved**, which is different from invalid.
@@ -405,9 +405,9 @@ each alone on its line (trailing spaces and tabs are tolerated):
 <!-- /mdsig:section -->
 ```
 
-- The section id matches `[a-z0-9-]+`.
+- The section ID matches `[a-z0-9-]+`.
 - Marker lines inside fenced code blocks are not markers.
-- Sections MUST NOT be nested, and an id MUST NOT be used twice.
+- Sections MUST NOT be nested, and an ID MUST NOT be used twice.
 - Every begin marker MUST have a matching end marker.
 
 **Field.** `scope` is a comma-separated list of `section:<id>`, for example
@@ -422,9 +422,9 @@ slice (Section 5.2). Normalization gives every section exactly one trailing
 
 **Verification.**
 
-- If the markers in the slice break the rules above, the block is malformed.
-- If a listed id is not found, the block is **invalid (scope missing)**.
-- A verifier MUST show, wherever it reports such a block as valid, that the signature covers only the listed sections (for example "valid — partial: terms, fees").
+- If the markers in the slice break the rules above, the block is **malformed**.
+- If a listed ID is not found, the block is **invalid (scope missing)**.
+- A verifier MUST show, wherever it reports such a block as valid, that the signature covers only the listed sections (for example "valid (partial: terms, fees)").
 
 A block without `scope` still covers its whole slice, including any sections
 and the text around them. A signer who wants later edits outside the sections
@@ -495,7 +495,7 @@ method        = %x61-7A *(%x61-7A / DIGIT / "-")
 count         = %x31-39 *3DIGIT
 ```
 
-A verifier MUST treat a block as malformed if its value breaks any of these
+A verifier MUST treat a block as **malformed** if its value breaks any of these
 rules:
 
 1. An order line appears only as the first line of the value.
@@ -554,7 +554,7 @@ the signer's own claim.
 
 **Expiry.** `expires` MUST be a real calendar date and time in the `ts`
 format (for example, `2026-02-30T00:00:00Z` and `2026-11-16T24:00:00Z` are not);
-otherwise the block is malformed. If the verifier's current time is later than
+otherwise the block is **malformed**. If the verifier's current time is later than
 `expires`, the block is **invalid (expired)**. Verifiers use their own clock.
 
 **Revocation.** `revocation_url` is the `https://` URL of the signer's
@@ -592,7 +592,7 @@ revocation would be bypassed.
 | Hash prefix | Status |
 | --- | --- |
 | `sha256` | REQUIRED to implement, default |
-| `sha512` | Reserved |
+| `sha512` | Available. Used by `tsa` blocks; verifiers accept it on any block. |
 | `sha3-256` | Reserved |
 
 A verifier MUST report a block using an unsupported algorithm as
@@ -691,7 +691,7 @@ signature packet obtained by decoding `sig`.
 
 This document has no IANA actions at this time. A future revision may request:
 
-- a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`);
+- a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`, `tsa`);
 - a registry "md-signature Algorithms" (Section 6);
 - registration of the `_mdsig` underscored DNS node name in the "Underscored and Globally Scoped DNS Node Names" registry [RFC8552].
 
@@ -702,7 +702,7 @@ This document has no IANA actions at this time. A future revision may request:
 A valid block proves that the holder of the resolved private key signed the
 exact bytes of the slice (after normalization) together with the metadata
 fields. How much that says about a real person depends on the method: `dns`
-binds to a domain's operator, and `git-hosting` to a forge account. `pgp` binds
+binds to a domain's operator, and `git-hosting` to a Git hosting account. `pgp` binds
 to the operator of the email address's domain when the key comes from WKD, to
 the confirmation of the email address by the keyserver the verifier chose when
 it comes from a keyserver, and to the user's own judgment when it comes from the local keyring.
@@ -713,7 +713,7 @@ it comes from a keyserver, and to the user's own judgment when it comes from the
 Normalization treats documents that differ only in line endings, a leading BOM,
 or trailing whitespace as the same. Changes to any other byte, including
 whitespace inside the document, break the signature. Unicode text that looks
-the same but is encoded differently (for example NFC vs NFD) is treated as different.
+the same but is encoded differently (for example NFC and NFD) is treated as different.
 
 ### 9.3 Key rotation and revocation
 

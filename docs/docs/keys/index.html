@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -131,24 +131,17 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code>tofu</code></th>
-                                <td data-i18n-html="guide.keys.tofu.src">ブロック内の
-                                    <code>pubkey: ed25519:&lt;base64&gt;</code>。状態を保持する検証者は <code>signer</code> と
-                                    <code>pubkey</code> の対応を記録し、同じ <code>signer</code> の鍵が変化すれば警告する。</td>
+                                <td data-i18n-html="guide.keys.tofu.src">ブロック内の <code>pubkey: ed25519:&lt;base64&gt;</code>。状態を保持する検証者は <code>signer</code> と <code>pubkey</code> の対応を記録し、同じ <code>signer</code> の鍵が変化すれば、利用者が新しい鍵を承認するまで invalid（<code>key-changed</code>）とする。</td>
                                 <td data-i18n="guide.keys.tofu.proves">鍵そのもののみ。署名後に改変されていないことは示すが、署名者が誰であるかは示さない。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>pgp</code></th>
-                                <td data-i18n-html="guide.keys.pgp.src"><code>fpr</code>
-                                    の鍵を、ローカルの鍵束、<code>signer</code> のドメインの WKD、検証者が設定した鍵サーバ（既定は
-                                    <code>keys.openpgp.org</code>）の順に検索する。鍵サーバは署名ブロックでは指定できない。署名は gpg でも作成できるため、スマートカード上の鍵も使用できる。
-                                </td>
+                                <td data-i18n-html="guide.keys.pgp.src"><code>fpr</code> の鍵を、ローカルの鍵束、<code>signer</code> のドメインの WKD、検証者が設定した鍵サーバ（既定は <code>keys.openpgp.org</code>）の順に取得を試みる。鍵サーバは署名ブロックでは指定できない。署名は gpg でも作成できるため、スマートカード上の鍵も使用できる。</td>
                                 <td data-i18n="guide.keys.pgp.proves">メールアドレス（WKD ではドメインの運用者、keys.openpgp.org では確認済みのアドレス）</td>
                             </tr>
                         </tbody>
                     </table>
-                    <p class="guide-note" data-i18n-html="guide.keys.rotate"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code>（WKD・鍵サーバ）
-                        は検証時点の鍵を取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると攻撃者の鍵が公開されます。どちらも文書だけでは検出できないため、長期の証拠には
-                        RFC 3161 タイムスタンプの付与が推奨されています。</p>
+                    <p class="guide-note" data-i18n-html="guide.keys.rotate"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code>（WKD・鍵サーバ）は検証時点の鍵を取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると攻撃者の鍵が公開されます。どちらも文書だけでは検出できないため、長期の証拠にはタイムスタンプと公開鍵のスナップショットを併用します（「長期保存」を参照）。</p>
                 </div>
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="guide.keys.pkT">パスキー（alg: webauthn-es256）</h3>
@@ -194,7 +187,7 @@ sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
 <span class="cmt"># DNS TXT record:</span>
 <span class="cmt">#   2026._mdsig.example.com. IN TXT "v=mdsig1; k=ed25519; p=11qY…URo="</span>
 mdsig sign file.md -m dns -s example.com --selector 2026 -k ~/.mdsig/example</code></pre>
-                        <p class="guide-note" data-i18n-html="docs.keys.pubDns">表示された TXT レコードをドメインの DNS に登録します。セレクタを変えて複数のレコードを置けば、鍵を切り替える期間も旧い署名を検証できます。</p>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubDns">表示された TXT レコードをドメインの DNS に登録します。セレクタを変えて複数のレコードを置けば、鍵を切り替える期間も古い署名を検証できます。</p>
                     </figure>
                     <figure class="guide-cell">
                         <figcaption><code>git-hosting</code></figcaption>
@@ -214,11 +207,11 @@ mdsig sign file.md -m pgp</code></pre>
                         <figcaption><code>tofu</code></figcaption>
                         <pre class="guide-code"><code>mdsig keygen -o ~/.mdsig/bob
 mdsig sign file.md -m tofu -s bob@laptop -k ~/.mdsig/bob</code></pre>
-                        <p class="guide-note" data-i18n-html="docs.keys.pubTofu">公開の手順は不要です。署名者の識別は検証者に委ねられるため、鍵の指紋を別の経路で伝達してください。</p>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubTofu">公開の手順は不要です。署名者の識別は検証者に委ねられるため、鍵のフィンガープリントを別の経路で伝達してください。</p>
                     </figure>
                 </div>
             </div>
-            <p class="guide-note" data-i18n-html="docs.keys.snapNote"><code>dns</code> と <code>git-hosting</code> の署名では、<code>--embed-key</code> で署名に用いた鍵をブロックに格納できます。鍵を削除した後も、その鍵で署名が成立することを確認できます。詳しくは「長期保存」の「公開鍵のスナップショット」を参照してください。</p>
+            <p class="guide-note" data-i18n-html="docs.keys.snapNote"><code>dns</code> と <code>git-hosting</code> の署名では、<code>--embed-key</code> で署名に用いた鍵をブロックに埋め込めます。鍵を削除した後も、その鍵で署名が成立することを確認できます。詳しくは「長期保存」の「公開鍵のスナップショット」を参照してください。</p>
         </section>
 
                 <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">

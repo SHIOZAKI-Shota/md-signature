@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -19,8 +20,18 @@ import (
 	"mdsig.dev/mdsig"
 )
 
-// overridden at release via -ldflags -X (see .goreleaser.yaml)
-var Version = "0.0.1"
+// set at release via -ldflags -X (see .goreleaser.yaml); go install builds take it from the module version
+var Version = ""
+
+func init() {
+	if Version != "" {
+		return
+	}
+	Version = "dev"
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		Version = strings.TrimPrefix(bi.Main.Version, "v")
+	}
+}
 
 const (
 	exitOK       = 0

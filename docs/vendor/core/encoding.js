@@ -2,7 +2,7 @@ const enc = new TextEncoder();
 export function utf8(s) {
     return enc.encode(s);
 }
-// ignoreBOM keeps a leading U+FEFF so normalisation can strip it
+// ignoreBOM keeps a leading U+FEFF so normalization can strip it
 export function fromUtf8(b) {
     return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(b);
 }

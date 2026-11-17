@@ -81,7 +81,7 @@ export async function checkWebAuthnData(fields: Record<string, string>, payload:
     authData = fromBase64(fields.webauthn_authenticator_data!);
     clientData = fromBase64(fields.webauthn_client_data!);
   } catch {
-    return { ok: false, code: "malformed", message: "webauthn fields are not valid base64" };
+    return { ok: false, code: "malformed", message: "WebAuthn fields are not valid base64" };
   }
   let cd: { type?: unknown; challenge?: unknown; origin?: unknown };
   try {
@@ -166,7 +166,7 @@ export async function registerPasskey(rpId: string, userName: string, rpName = "
       attestation: "none",
     },
   })) as PublicKeyCredential | null;
-  if (!cred) throw new Error("passkey registration was cancelled");
+  if (!cred) throw new Error("passkey registration was canceled");
   const resp = cred.response as AuthenticatorAttestationResponse;
   const spki = resp.getPublicKey?.();
   if (!spki) throw new Error("this browser does not expose the passkey public key (getPublicKey)");
@@ -188,7 +188,7 @@ export function passkeySigner(rpId: string, publicKey: Uint8Array, credentialId?
           ...(credentialId ? { allowCredentials: [{ type: "public-key", id: credentialId as BufferSource }] } : {}),
         },
       })) as PublicKeyCredential | null;
-      if (!cred) throw new Error("passkey signing was cancelled");
+      if (!cred) throw new Error("passkey signing was canceled");
       const r = cred.response as AuthenticatorAssertionResponse;
       return {
         signature: new Uint8Array(r.signature),

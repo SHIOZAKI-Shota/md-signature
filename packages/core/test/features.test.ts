@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   signDocument,
+  timestampDocument,
   verifyDocument,
   signerFromSeed,
   fromHex,
@@ -39,6 +40,14 @@ const fixedKeys =
     if (!key) throw new Error("unknown");
     return { keys: [{ alg, key, source: "test" }], warnings: [] };
   };
+
+// --- UTF-8
+test("generators refuse text that has no UTF-8 encoding", async () => {
+  const a = await signerFromSeed(SEED_A);
+  await assert.rejects(signDocument("# a\n\uD800\n", { signer: a, method: "tofu", signerId: "a", ts: TS }), /not valid UTF-8/);
+  await assert.rejects(timestampDocument("# a\n\uDC00\n", { tsaUrl: "https://tsa.test/" }), /not valid UTF-8/);
+  await signDocument("# a \u{1F600}\n", { signer: a, method: "tofu", signerId: "a", ts: TS });
+});
 
 // --- Fields
 test("unknown fields are malformed; x_ fields are allowed and signed", async () => {

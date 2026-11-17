@@ -42,12 +42,12 @@ func newServeCmd() *cobra.Command {
 	}
 	f := c.Flags()
 	f.StringVar(&o.listen, "listen", defaultListen, "address to listen on (host:port)")
-	f.StringArrayVar(&o.allowOrigins, "allow-origin", nil, "web origin that may call the API from a browser, e.g. https://example.org (repeatable)")
+	f.StringArrayVar(&o.allowOrigins, "allow-origin", nil, "web origin that may call the API from a browser, for example https://example.org (repeatable)")
 	f.BoolVar(&o.offline, "offline", false, "do not use the network")
 	f.BoolVar(&o.fetchResources, "fetch-resources", false, "fetch https:// resources and check their hashes")
 	f.BoolVar(&o.noRevocation, "no-revocation", false, "do not fetch revocation lists")
-	f.StringVar(&o.keyserver, "keyserver", "", "pgp: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+")")
-	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate for TSA tokens (PEM or DER file; repeatable)")
+	f.StringVar(&o.keyserver, "keyserver", "", "pgp only: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+")")
+	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
 	return c
 }
 

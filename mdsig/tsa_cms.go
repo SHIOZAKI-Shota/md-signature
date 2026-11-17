@@ -358,7 +358,7 @@ func verifyCMSSignature(cert *x509.Certificate, alg pkix.AlgorithmIdentifier, di
 		}
 		ph, ok := cmsHash(p.Hash.Algorithm)
 		if !ok {
-			return errors.New("RSA-PSS hash is not SHA-256, SHA-384 or SHA-512")
+			return errors.New("RSA-PSS hash is not SHA-256, SHA-384, or SHA-512")
 		}
 		var mgfHash pkix.AlgorithmIdentifier
 		if !p.MGF.Algorithm.Equal(oidMGF1) {
@@ -446,7 +446,7 @@ func verifyTSASignedData(token []byte, genTime time.Time, o *TSAVerifyOptions) (
 
 	digestHash, ok := cmsHash(si.DigestAlgorithm.Algorithm)
 	if !ok {
-		return nil, nil, fmt.Errorf("digest algorithm %s is not SHA-256, SHA-384 or SHA-512", si.DigestAlgorithm.Algorithm)
+		return nil, nil, fmt.Errorf("digest algorithm %s is not SHA-256, SHA-384, or SHA-512", si.DigestAlgorithm.Algorithm)
 	}
 	// RFC 3161 2.4.2 requires the signing-certificate attribute, so a token without signed attributes is rejected
 	if len(si.SignedAttrs.Raw) == 0 {

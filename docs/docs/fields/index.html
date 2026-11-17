@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -102,21 +102,21 @@
         <section class="guide doc-sec" id="scope" tabindex="-1" aria-labelledby="scope-title">
             <div class="section-head">
                 <h2 id="scope-title" data-i18n="fl.scope.title">部分署名（scope）</h2>
-                <p data-i18n-html="fl.scope.lede">マーカーで囲んだセクションのみに署名します。セクション外の注記や記入欄は、署名後も署名を破壊せずに編集できます。</p>
+                <p data-i18n-html="fl.scope.lede">マーカで囲んだセクションのみに署名します。セクション外の注記や記入欄は、署名後も署名を破壊せずに編集できます。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="fl.scope.markT">セクションマーカー</h3>
+                    <h3 class="guide-label" data-i18n="fl.scope.markT">セクションマーカ</h3>
                     <ol class="guide-list compact">
-                        <li data-i18n-html="fl.scope.m1"><code>&lt;!-- mdsig:section id --&gt;</code> と <code>&lt;!-- /mdsig:section --&gt;</code> の行で囲む。各マーカーは単独で1行を占める。</li>
-                        <li data-i18n-html="fl.scope.m2">ID は <code>[a-z0-9-]+</code>。入れ子と同じ ID の重複は不可で、開始マーカーには終了マーカーが必要。</li>
-                        <li data-i18n-html="fl.scope.m3">フェンスで囲まれたコードブロック内のマーカーは無視する。</li>
+                        <li data-i18n-html="fl.scope.m1"><code>&lt;!-- mdsig:section id --&gt;</code> と <code>&lt;!-- /mdsig:section --&gt;</code> の行で囲む。各マーカは単独で1行を占める。</li>
+                        <li data-i18n-html="fl.scope.m2">ID は <code>[a-z0-9-]+</code>。入れ子と同じ ID の重複は不可で、開始マーカには終了マーカが必要。</li>
+                        <li data-i18n-html="fl.scope.m3">フェンスで囲まれたコードブロック内のマーカは無視する。</li>
                     </ol>
                     <h3 class="guide-label" data-i18n="fl.scope.verT">検証</h3>
                     <ol class="guide-list compact">
                         <li data-i18n-html="fl.scope.v1">ハッシュの入力は、列挙した各セクションの <code>normalize(section)</code> を列挙順に連結したもの。</li>
-                        <li data-i18n-html="fl.scope.v2">マーカーが規則に違反していれば malformed、列挙した ID が見つからなければ invalid（<code>scope-missing</code>）。</li>
-                        <li data-i18n-html="fl.scope.v3">検証者は、有効と報告するすべての箇所で部分署名であることを表示する（例：valid — partial: terms, fees）。</li>
+                        <li data-i18n-html="fl.scope.v2">マーカが規則に違反していれば malformed、列挙した ID が見つからなければ invalid（<code>scope-missing</code>）。</li>
+                        <li data-i18n-html="fl.scope.v3">検証者は、有効と報告するすべての箇所で部分署名であることを表示する（例：valid (partial: terms, fees)）。</li>
                     </ol>
                     <p class="guide-note" data-i18n-html="fl.scope.note"><code>scope</code> のないブロックは、セクションを含むスライス全体を対象とします。セクション外の編集後もチェーンを有効に保つには、後続の署名者全員が <code>scope</code> を使用する必要があります。<code>scope</code> を持つブロックは <code>require</code> を満たしません。</p>
                 </div>
@@ -291,7 +291,7 @@ signer: example.com
             <div class="guide-grid">
                 <div class="guide-col">
                     <h3 class="guide-label"><code>alg</code></h3>
-                    <p class="guide-text" data-i18n-html="guide.ext.alg"><code>alg</code> は <code>ed25519</code> が実装必須、<code>webauthn-es256</code> は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code> は予約済みで、未対応のアルゴリズムは unsupported と報告されます。</p>
+                    <p class="guide-text" data-i18n-html="guide.ext.alg"><code>ed25519</code> は実装必須。<code>webauthn-es256</code>・<code>openpgp</code>・<code>rfc3161</code> は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code> は予約済み。未対応のアルゴリズムは unsupported として報告。</p>
                 </div>
                 <div class="guide-col">
                     <h3 class="guide-label"><code>x_*</code></h3>

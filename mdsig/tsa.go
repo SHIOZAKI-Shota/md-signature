@@ -129,7 +129,7 @@ var genTimeRe = regexp.MustCompile(`^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(
 func parseGeneralizedTime(s string) (string, error) {
 	m := genTimeRe.FindStringSubmatch(s)
 	if m == nil {
-		return "", errors.New("TSA token: genTime is not a GeneralizedTime")
+		return "", errors.New("timestamp token: genTime is not a GeneralizedTime")
 	}
 	return fmt.Sprintf("%s-%s-%sT%s:%s:%s%sZ", m[1], m[2], m[3], m[4], m[5], m[6], m[7]), nil
 }
@@ -155,17 +155,17 @@ func parseTimeStampResp(b []byte) (*tstInfo, error) {
 	}
 	signedData := token.child(1).child(0)
 	if signedData == nil || signedData.children == nil {
-		return nil, errors.New("TSA token: SignedData not found")
+		return nil, errors.New("timestamp token: SignedData not found")
 	}
 	encap := signedData.child(2)
 	eType := encap.child(0)
 	wantType, _ := asn1.Marshal(oidTSTInfo)
 	if eType == nil || !bytes.Equal(eType.content, wantType[2:]) {
-		return nil, errors.New("TSA token: content is not TSTInfo")
+		return nil, errors.New("timestamp token: content is not TSTInfo")
 	}
 	octets := encap.child(1).child(0)
 	if octets == nil {
-		return nil, errors.New("TSA token: eContent missing")
+		return nil, errors.New("timestamp token: eContent missing")
 	}
 	tst, _, err := parseDer(octets.content, 0)
 	if err != nil {
@@ -173,7 +173,7 @@ func parseTimeStampResp(b []byte) (*tstInfo, error) {
 	}
 	policy, mi, serial, gen := tst.child(1), tst.child(2), tst.child(3), tst.child(4)
 	if policy == nil || mi == nil || serial == nil || gen == nil {
-		return nil, errors.New("TSA token: malformed TSTInfo")
+		return nil, errors.New("timestamp token: malformed TSTInfo")
 	}
 	genTime, err := parseGeneralizedTime(string(gen.content))
 	if err != nil {
@@ -225,7 +225,7 @@ func CheckTSAToken(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TSAChe
 	return checkTimestampOver(tsaToken, sum[:], "sha256", o, "message imprint does not match SHA-256(sig)")
 }
 
-// a token over an imprint the caller computed, e.g. the payload of a tsa block (SPEC 4.6)
+// a token over an imprint the caller computed, for example the payload of a tsa block (SPEC 4.6)
 func checkTimestampOver(token string, imprint []byte, hashAlg string, o *TSAVerifyOptions, mismatchDetail string) TSACheck {
 	b, err := DecodePrefixedBinary(token)
 	if err != nil {
@@ -247,7 +247,7 @@ func checkTimestampOver(token string, imprint []byte, hashAlg string, o *TSAVeri
 
 type tsaImprintError struct{}
 
-func (*tsaImprintError) Error() string { return "TSA token is for a different imprint" }
+func (*tsaImprintError) Error() string { return "timestamp token is for a different imprint" }
 
 // info is non-nil once the imprint matched, also when the CMS check then fails
 func imprintOID(hashAlg string) asn1.ObjectIdentifier {

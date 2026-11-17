@@ -2,6 +2,7 @@ package mdsig
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -305,5 +306,16 @@ func TestTofuBadPubkeyIsMalformed(t *testing.T) {
 		if v.OK || s.Status != StatusMalformed || s.Code != "malformed" {
 			t.Errorf("%s: got %s:%s (%s), want malformed:malformed", name, s.Status, s.Code, s.Message)
 		}
+	}
+}
+
+func TestGeneratorsRejectInvalidUTF8(t *testing.T) {
+	doc := "# x\xff\n"
+	var se *SignError
+	if _, err := SignDocument(context.Background(), doc, SignOptions{Method: "tofu", SignerID: "a"}); !errors.As(err, &se) {
+		t.Errorf("SignDocument: %v", err)
+	}
+	if _, err := TimestampDocument(context.Background(), doc+"<!-- md-signature\nv: 0.0.2\n-->\n", TimestampOptions{}); !errors.As(err, &se) {
+		t.Errorf("TimestampDocument: %v", err)
 	}
 }

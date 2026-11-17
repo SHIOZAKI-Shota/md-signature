@@ -4,9 +4,9 @@
 
 [English](CLI_SPEC.md) · [形式仕様](SPEC.ja.md)
 
-- **バージョン:** 0.0.1（ドラフト）
-- **ライセンス:** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
-- **形式仕様:** [SPEC.ja.md](SPEC.ja.md)
+- **バージョン：** 0.0.3（ドラフト。形式のバージョンは 0.0.2）
+- **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
+- **形式仕様：** [SPEC.ja.md](SPEC.ja.md)
 
 本書におけるキーワード「MUST」「MUST NOT」「REQUIRED」「SHOULD」「MAY」は、BCP 14 [RFC2119] [RFC8174] の記述に従って解釈する。
 
@@ -15,11 +15,12 @@
 | 対象 | 名称 |
 | --- | --- |
 | バイナリ | `mdsig` |
-| npm CLI パッケージ | `mdsig` |
-| コアライブラリ | `@md-signature/core` |
+| npm CLI パッケージ | `mdsig`（準備中） |
+| コアライブラリ | `@md-signature/core`（npm では未公開） |
 | Homebrew | `brew install SHIOZAKI-Shota/tap/mdsig` |
-| winget | `winget install mdsig` |
-| Debian / RPM | `mdsig` |
+| Go | `go install mdsig.dev/cmd/mdsig@latest`（Go 1.26 以降） |
+| winget | `winget install ShiozakiShota.mdsig`（準備中：リリースワークフローで生成するが、まだ公開していない） |
+| Debian / RPM | `mdsig`（準備中：パッケージはリリースワークフローで生成するが、まだ公開していない） |
 
 ## 2. グローバルフラグ
 
@@ -36,7 +37,7 @@
 Markdown ファイルに署名する。ファイルがすでに署名チェーンを持つ場合、新しい
 署名は連署として追加される（SPEC 7 節）。
 
-| フラグ | デフォルト | 説明 |
+| フラグ | 既定 | 説明 |
 | --- | --- | --- |
 | `-m, --method <m>` | `git-hosting` | `git-hosting`、`dns`、`tofu`、または `pgp`。 |
 | `-s, --signer <id>` | — | 必須（REQUIRED）。`github.com/alice`、`example.com`、`bob@laptop` など。`pgp` では省略でき、鍵のユーザ ID のメールアドレスから決定する（3.1.2 節）。 |
@@ -46,8 +47,8 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--pgp-key <path>` | — | `pgp` のみ。ASCII armor 形式の OpenPGP 秘密鍵ファイル。指定した場合は gpg を使用せず、CLI が直接署名する。 |
 | `-r, --role <role>` | — | `author`、`reviewer`、`approver`、`witness`、または任意の値。 |
 | `--reason <text>` | — | 自由記述のテキスト。 |
-| `--tsa [url]` | オフ | RFC 3161 タイムスタンプを要求する。値を省略した場合は `http://ts.ssl.com` を使用する。 |
-| `--tsa-root <file>` | — | TSA の応答の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。繰り返し指定できる。`--tsa` と併せて指定する。 |
+| `--tsa [url]` | オフ | 時刻認証局（TSA）に RFC 3161 タイムスタンプを要求する。値を省略した場合は `http://ts.ssl.com` を使用する。 |
+| `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。繰り返し指定できる。`--tsa` と併せて指定する。 |
 | `--stdout` | オフ | ファイルを変更せず、署名済み文書を stdout に出力する。 |
 | `--embed-key` | オフ | `dns` と `git-hosting` のみ。署名に用いた公開鍵を `pubkey` としてブロックに含める（SPEC 4.5 節）。鍵が削除された後も、署名が成立することを確認できる。他の方式で指定した場合は終了コード 2。 |
 | `--force` | オフ | ファイルに署名ブロックがあり、その後に未署名の内容が続く場合でも署名する。この場合、ファイル全体が新しい文書として署名される。 |
@@ -58,22 +59,22 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--expires <time>` | — | `YYYY-MM-DDTHH:MM:SSZ`、または現在からの期間：`30d`、`12h`（SPEC 5.9 節）。 |
 | `--revocation-url <url>` | — | 署名者の撤回リストの `https://` URL（SPEC 5.9 節）。 |
 
-動作:
+動作：
 
 - ファイルはアトミックに更新する（同一ディレクトリ内の一時ファイルに書き込んでからリネームする）。改行コード（LF または CRLF）は維持する。
 - `--` または改行を含むフィールド値は、終了コード 2 で拒否しなければならない（MUST）。無効な `--scope`、`--require`、`--resource`、`--expires`、`--revocation-url` の値も同様に拒否しなければならない（MUST）。
 - 存在しない `--resource` ファイルはファイルエラー（終了コード 4）、取得できない URL はネットワークエラー（終了コード 3）とする。
-- パスキー（`webauthn-es256`）による署名は Web ブラウザ（たとえば playground）で行う。CLI はそのような署名を検証するが、作成はしない。
+- パスキー（`webauthn-es256`）による署名は Web ブラウザ（たとえばデモ）で行う。CLI はそのような署名を検証するが、作成はしない。
 - 成功時は stderr に 1 行を出力する：`Signed <file> (signature #N, <method> <signer>)`。
 
 #### 3.1.1 鍵の自動検出
 
-`-k` が指定されない場合（`pgp` 以外）:
+`-k` が指定されない場合（`pgp` 以外）：
 
-1. SSH エージェントが利用可能な場合（`SSH_AUTH_SOCK`、または Windows では OpenSSH エージェントのパイプ `\\.\pipe\openssh-ssh-agent`）、その `ssh-ed25519` 鍵を使用する。鍵が複数ある場合：`git-hosting` では、まず候補を `https://<signer>.keys` に掲載されている鍵に絞り込む（掲載されている鍵がある場合）。候補が複数残った場合、対話型ランチャーでは利用者に選択を求め、それ以外では最初の候補を使用する。
+1. ssh-agent が利用可能な場合（`SSH_AUTH_SOCK`、または Windows では OpenSSH エージェントのパイプ `\\.\pipe\openssh-ssh-agent`）、その `ssh-ed25519` 鍵を使用する。鍵が複数ある場合：`git-hosting` では、まず候補を `https://<signer>.keys` に掲載されている鍵に絞り込む（掲載されている鍵がある場合）。候補が複数残った場合、対話型ランチャーでは利用者に選択を求め、それ以外では最初の候補を使用する。
 2. それ以外の場合は `~/.ssh/id_ed25519` を使用する。
 
-パスフレーズで保護された鍵ファイルをサポートしなければならない（MUST）。パスフレーズは TTY 上で入力を求めるか、stdin が TTY でない場合は `MDSIG_PASSPHRASE` から読み取る。
+パスフレーズで保護された鍵ファイルに対応しなければならない（MUST）。パスフレーズは TTY 上で入力を求めるか、stdin が TTY でない場合は `MDSIG_PASSPHRASE` から読み取る。
 
 #### 3.1.2 `pgp` による署名
 
@@ -93,17 +94,17 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | --- | --- |
 | `--json` | JSON 形式の結果（5 節）を stdout に出力する。 |
 | `-q, --quiet` | 出力なし。終了コードのみ。 |
-| `--offline` | ネットワークを使用しない。ハッシュはすべてのブロックについて検査するが、署名は `tofu` についてのみ検査する。ネットワークを必要とするブロックは "not checked (offline)" と報告する。検査されなかったブロックが 1 つでもあるファイルは、終了コード 3 となる。リモートのリソースおよび撤回リストは取得しない。 |
-| `--fetch-resources` | `https://` のリソースを取得し、そのハッシュを検査する。取得することで文書が検証されていることがサーバーに伝わるため、デフォルトではオフである（SPEC 9.8 節）。 |
-| `--no-revocation` | 撤回リストを取得しない。オンライン時はデフォルトで取得し、取得できない、または信頼できない場合、そのブロックは unresolved（終了コード 3）となる。 |
+| `--offline` | ネットワークを使用しない。ハッシュはすべてのブロックについて検査する。署名を検査できるのは、`tofu`（記録済みの鍵による）、`pgp`（ローカルの gpg 鍵束にある鍵による）、`tsa` ブロック、および `pubkey` を埋め込んだ `dns`・`git-hosting` のブロックである。`tsa_token` の CMS 署名と証明書チェーンもネットワークなしで検証する。埋め込まれた鍵で署名が成立しないブロックは invalid となる。それ以外のブロックは "not checked (offline)" と報告する。検査されなかったブロックが 1 つでもあるファイルは、終了コード 3 となる。リモートのリソースおよび撤回リストは取得しない。 |
+| `--fetch-resources` | `https://` のリソースを取得し、そのハッシュを検査する。取得することで文書が検証されていることがサーバに伝わるため、既定ではオフである（SPEC 9.8 節）。 |
+| `--no-revocation` | 撤回リストを取得しない。オンライン時は既定で取得し、取得できない、または信頼できない場合、そのブロックは unresolved（終了コード 3）となる。 |
 | `--accept-new-key` | `tofu` の `signer` に記録済みの鍵と異なる鍵を受け入れ、記録を更新する。指定しない場合、鍵が変更されたブロックは invalid（code `key-changed`）となる。 |
-| `--no-keyring` | `pgp` の鍵の探索で、ローカルの gpg 鍵束を使用しない（WKD と鍵サーバのみ）。 |
-| `--keyserver <url>` | `pgp` の鍵を探索する鍵サーバの `https://` URL。デフォルト：`https://keys.openpgp.org`。鍵サーバは検証者が選択するものであり、ブロックからは取得しない（SPEC 4.3 節）。メールアドレスを確認する鍵サーバを指定すること。 |
-| `--tsa-root <file>` | `tsa_token` の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。PEM は複数の証明書を含んでよい。繰り返し指定できる。読み込めないファイルは使用方法の誤り（終了コード 2）となる。 |
+| `--no-keyring` | `pgp` の鍵の取得で、ローカルの gpg 鍵束を使用しない（WKD と鍵サーバのみ）。 |
+| `--keyserver <url>` | `pgp` の鍵を取得する鍵サーバの `https://` URL。既定：`https://keys.openpgp.org`。鍵サーバは検証者が選択するものであり、ブロックからは取得しない（SPEC 4.3 節）。メールアドレスを確認する鍵サーバを指定すること。 |
+| `--tsa-root <file>` | タイムスタンプトークン（`tsa_token` と `tsa` ブロック）の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。PEM は複数の証明書を含んでよい。繰り返し指定できる。読み込めないファイルは使用方法の誤り（終了コード 2）となる。 |
 
 `dns` の名前解決はシステムのリゾルバを使用すべきである（SHOULD）。`git-hosting` は
 `https://<signer>.keys` を取得する。`pgp` は、`gpg` が利用可能であれば `gpg --export <fpr>` で
-ローカルの鍵束を探索し、続いて WKD、鍵サーバの順に探索する（SPEC 4.3 節）。TOFU のバインディングは
+ローカルの鍵束から鍵を取得し、続いて WKD、鍵サーバの順に試みる（SPEC 4.3 節）。TOFU のバインディングは
 `<user config dir>/mdsig/known_signers.json` に保存する。バインディングは、そのブロックの検証が
 成功した後にのみ保存し、撤回リスト内のブロックからは保存しない。
 ローカルのリソースは、検証対象ファイルのディレクトリを基準として常に検査する。シンボリックリンクを
@@ -116,24 +117,25 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 ファイル名など）に含まれる制御文字と書式文字を `\u{XXXX}` の形式で表示しなければならない（MUST）。
 端末のエスケープシーケンスによって検証結果の表示を偽装されることを防止するためである。
 
-人間向けの出力（例）:
+人間向けの出力（例）：
 
 ```
 docs/contract.md
   ✓ #1 author    github.com/alice     2026-11-16T09:00:00Z  git-hosting
       partial: terms, fees
       resources: ✓ ./diagram.png  - https://example.com/chart.png (not checked)
-  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ TSA 2026-11-16T09:46:02Z
+  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ TSA 2026-11-16T09:46:02Z (SSL.com Timestamping Unit 2026 E1)
+      TSA: imprint matched; TSA signature and certificate chain verified
   Verified: 2 signatures
-  Agreement: pending — missing dns:partner.example witness
+  Agreement: pending (missing dns:partner.example witness)
 ```
 
 `require` が段階を持つ場合、欠けている連署は段階ごとに表示する。順番より前に署名したため数えられなかった署名者には、その旨を付記する。
 `order guide` の順序違反は警告として、`order strict` の順序違反は合意ステータス `violated` として表示する。
 
 ```
-  Agreement: pending — step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1)
-  Agreement: violated — #2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete
+  Agreement: pending (step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1))
+  Agreement: violated (#2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete)
 ```
 
 パスキーによる署名では、その `rp_id` も表示する。例：`passkey (rp_id mdsig.dev)`。
@@ -144,9 +146,9 @@ docs/contract.md
 
 ネットワークを使用せずに、チェーンと各ブロックの全フィールドを表示する。
 各ブロックについて、`hash` が現在の内容と一致するかどうかも表示する。
-ファイルを読み取れた場合は、ハッシュの結果にかかわらず 0 で終了する（検査には `verify` を使用する）。
+ファイルを読み取れた場合は、ハッシュの結果にかかわらず 0 で終了する（検査には `verify` を使用する）。ただし、ファイルが有効な UTF-8 でない場合は終了コード 1 とする。
 
-`--json` は次を出力する:
+`--json` は次を出力する：
 
 ```json
 {
@@ -166,11 +168,11 @@ Ed25519 鍵ペアを生成する。
 
 | フラグ | 説明 |
 | --- | --- |
-| `-o, --out <prefix>` | `<prefix>`（OpenSSH 秘密鍵、モード 0600）と `<prefix>.pub` を出力する。デフォルトは `./mdsig_ed25519`。既存のファイルを上書きしてはならない（MUST NOT）。 |
+| `-o, --out <prefix>` | `<prefix>`（OpenSSH 秘密鍵、モード 0600）と `<prefix>.pub` を出力する。既定は `./mdsig_ed25519`。既存のファイルを上書きしてはならない（MUST NOT）。 |
 | `-d, --domain <domain>` | このドメイン用の DNS TXT レコードも表示する。 |
-| `--selector <sel>` | DNS レコード名に使用するセレクタ。 |
+| `--selector <sel>` | DNS レコード名に使用するセレクタ。`--domain` なしで指定した場合は終了コード 2。 |
 
-出力（stdout）:
+出力（stdout）：
 
 ```
 Private key: ./mdsig_ed25519
@@ -181,7 +183,12 @@ DNS TXT record:
 
 tofu pubkey:
   ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=
+
+SSH fingerprint (key_fp):
+  SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8
 ```
+
+`DNS TXT record` は `--domain` を指定した場合にのみ出力する（例は `-d example.com --selector 2026`）。
 
 ### 3.5 `mdsig revoke <file> --list <list.md>`
 
@@ -191,28 +198,28 @@ tofu pubkey:
 | --- | --- |
 | `--list <path>` | 必須（REQUIRED）。撤回リストのファイル。存在しない場合は作成する。 |
 | `-m`、`-s`、`-k`、`--selector`、`-u`、`--pgp-key` | `sign` と同じ。撤回する署名（`method` と `signer` が同じもの）を選択し、リストに署名するために使用する。 |
-| `--index <n>` | `<file>` の署名 `#n` のみを撤回する。デフォルト：`<file>` 内で `method` と `signer` が同じすべての署名。 |
+| `--index <n>` | `<file>` の署名 `#n` のみを撤回する。既定：`<file>` 内で `method` と `signer` が同じすべての署名。 |
 
-動作:
+動作：
 
 1. 選択した各ブロックについて撤回の識別子 `SHA-256(signed payload)`（SPEC 5.9 節）を計算し、リスト本文に `revoked: sha256:<hex>` の行を追加する（重複は追加しない）。
 2. リストの古い署名チェーンを削除し、更新後のリストを指定された鍵で新しい文書として署名する。このコマンドによってリストに `revocation_url` を付与してはならない（MUST NOT）。
-3. `pgp` の場合、署名鍵の `fpr` が撤回されたブロックの `fpr` と異なるときは、警告を表示する（リストは `signer` で照合されるため、引き続き信頼される）。
+3. 署名鍵と撤回されたブロックの鍵を照合する。`tofu` の場合、署名鍵が撤回されたブロックの `pubkey` と一致しないときは、終了コード 2 で失敗し、リストを変更しない（検証者は、同一の鍵で署名された `tofu` のリストのみを信頼するため）。`git-hosting` の場合、署名鍵のフィンガープリントが撤回されたブロックの `key_fp` と異なるとき、`pgp` の場合、署名鍵の `fpr` が撤回されたブロックの `fpr` と異なるときは、警告を表示する（リストは `method` と `signer` で照合されるため、引き続き信頼される）。
 4. リストを公開すべき場所、すなわち撤回されたブロックの `revocation_url` を表示する。それらが `revocation_url` を持たない場合は、検証者がリストを見つけられない旨の警告を表示する。
 
 ### 3.6 `mdsig serve`
 
-文書の検証を HTTP で提供する。ブラウザ等、単体では検証できない項目（TSA 証明書チェーン、CORS により取得できない鍵など）を持つ検証者が、検証の全部または一部を委ねるために使用する。応答を受け取った側は、このサーバーの判定を信頼することになる。
+文書の検証を HTTP で提供する。ブラウザなど、単体では検証できない項目（TSA 証明書チェーン、CORS により取得できない鍵など）を持つ検証者が、検証の全部または一部を委ねるために使用する。応答を受け取った側は、このサーバの判定を信頼することになる。
 
-| フラグ | デフォルト | 説明 |
+| フラグ | 既定 | 説明 |
 | --- | --- | --- |
 | `--listen <host:port>` | `127.0.0.1:8787` | 待ち受けるアドレス。ループバック以外を指定した場合は、stderr に警告を出力する。 |
 | `--allow-origin <origin>` | — | ブラウザからの呼び出しを許可するオリジン（例：`https://example.org`）。繰り返し指定できる。 |
 | `--offline` | オフ | ネットワークを使用しない（3.2 節と同じ）。 |
 | `--fetch-resources` | オフ | `https://` のリソースを取得し、そのハッシュを検査する。 |
 | `--no-revocation` | オフ | 撤回リストを取得しない。 |
-| `--keyserver <url>` | `https://keys.openpgp.org` | `pgp` の鍵を探索する鍵サーバ。 |
-| `--tsa-root <file>` | — | `tsa_token` の検証で追加で信頼するルート証明書（3.2 節と同じ）。 |
+| `--keyserver <url>` | `https://keys.openpgp.org` | `pgp` の鍵を取得する鍵サーバ。 |
+| `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
 
 エンドポイントは次のとおり。要求と応答の本文は JSON（UTF-8）である。
 
@@ -222,28 +229,28 @@ tofu pubkey:
 | `POST /v1/tsa` | `{ "tsa_token": "<tsa_token の値>", "sig": "<署名バイト列の base64>" }` | 5 節の `tsa` オブジェクト |
 | `GET /v1/health` | — | `{ "name", "version", "api": "v1" }` |
 
-サーバーは次の規則に従わなければならない（MUST）。
+サーバは次の規則に従わなければならない（MUST）。
 
-1. 要求ごとに独立して検証する。`tofu` の鍵の記録、ローカルの gpg 鍵束、サーバー上のファイルは使用しない。したがって、ローカルのリソースは "not checked" となる。
-2. `Origin` ヘッダを持つ要求は、そのオリジンが `--allow-origin` で指定されている場合に限り処理し、それ以外は `403` で拒否する。`Origin` を持たない要求（サーバー間の呼び出し）は処理する。
+1. 要求ごとに独立して検証する。`tofu` の鍵の記録、ローカルの gpg 鍵束、サーバ上のファイルは使用しない。したがって、ローカルのリソースは "not checked" となる。
+2. `Origin` ヘッダを持つ要求は、そのオリジンが `--allow-origin` で指定されている場合に限り処理し、それ以外は `403` で拒否する。`Origin` を持たない要求（サーバ間の呼び出し）は処理する。
 3. `POST` の要求は `Content-Type: application/json` でなければならず、それ以外は `415` で拒否する。これにより、ブラウザからの要求は必ず CORS のプリフライトを経る。
-4. 外部への取得は、プライベートアドレス等への接続を拒否する（3.2 節の検証と同じ制限）。
+4. 外部への取得は、プライベートアドレスなどへの接続を拒否する（3.2 節の検証と同じ制限）。
 5. 本文は 4 MiB までとし、超過した要求は `413` で拒否する。同時に処理する要求数を制限し、超過した要求は `503` と `Retry-After` で拒否する。
 
 検証の結果（invalid、unresolved など）は HTTP ステータス `200` の本文で返す。要求自体の誤りは `400`、`403`、`404`、`405`、`413`、`415` のいずれかと `{ "error": "<説明>" }` で返す。
 
-2 つの検証者（例：ブラウザとこのサーバー）の結果を併用する場合、それぞれの判定は出所を区別して扱うべきである（SHOULD）。信頼するルート証明書が異なるため、`tsa.verified` は一致しないことがある。
+2 つの検証者（例：ブラウザとこのサーバ）の結果を併用する場合、それぞれの判定は出所を区別して扱うべきである（SHOULD）。信頼するルート証明書が異なるため、`tsa.verified` は一致しないことがある。
 
 ### 3.7 `mdsig timestamp <file>`
 
-ファイルの末尾に `tsa` ブロック（SPEC 4.6 節）を追記する。ブロックは、それより前のチェーン全体（以前のタイムスタンプを含む）を対象とするため、重ねて実行すると、そのままタイムスタンプの更新になる。署名ブロックを持たないファイルは、終了コード 1 で拒否する。
+ファイルの末尾に `tsa` ブロック（SPEC 4.6 節）を追記する。ブロックは、それより前のチェーン全体（以前のタイムスタンプを含む）を対象とするため、重ねて実行すると、そのままタイムスタンプの更新になる。署名ブロックを持たないファイル、および有効な UTF-8 でないファイルは、終了コード 1 で拒否する。
 
-| フラグ | デフォルト | 説明 |
+| フラグ | 既定 | 説明 |
 | --- | --- | --- |
-| `--tsa <url>` | `http://ts.ssl.com` | RFC 3161 タイムスタンプ局の URL。 |
+| `--tsa <url>` | `http://ts.ssl.com` | RFC 3161 の TSA の URL。 |
 | `--hash <alg>` | `sha256` | `hash` と `messageImprint` のアルゴリズム。`sha256` または `sha512`。SHA-256 の危殆化に備えた更新には `sha512` を用いる。 |
 | `--reason <text>` | — | 自由記述のテキスト。 |
-| `--tsa-root <file>` | — | TSA の応答の検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
+| `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
 | `--stdout` | オフ | ファイルを変更せず、結果を stdout に出力する。 |
 
 TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない。
@@ -253,9 +260,9 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 | コード | 意味 |
 | --- | --- |
 | 0 | 成功。`verify` の場合：すべての署名が有効。 |
-| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未サポートのアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、ファイルが有効な UTF-8 でない、または合意ステータスが `violated`（`order strict` の順序違反、SPEC 5.8 節）。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）。 |
+| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未対応のアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、ファイルが有効な UTF-8 でない、または合意ステータスが `violated`（`order strict` の順序違反、SPEC 5.8 節）。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）。 |
 | 2 | 使い方の誤り：未知のフラグ、引数の欠落、無効なフィールド値。 |
-| 3 | ネットワークまたは鍵解決のエラー、および `--offline` により検査されなかった署名がある場合（終了コード 1 となる失敗がない場合）。`sign` の場合：TSA リクエストの失敗（ファイルは変更されない）。 |
+| 3 | ネットワークまたは公開鍵の解決のエラー、および `--offline` により検査されなかった署名がある場合（終了コード 1 となる失敗がない場合）。`sign` の場合：TSA リクエストの失敗（ファイルは変更されない）。 |
 | 4 | ファイル I/O またはパーミッションのエラー。鍵ファイルが存在しない・読み取れない場合、および `keygen` が上書きを拒否した場合を含む。 |
 | 5 | `verify` の場合：すべての署名は有効だが、`require` によって要求された連署が欠けている（合意ステータス `pending`、SPEC 5.8 節）。 |
 
@@ -263,7 +270,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 
 ## 5. JSON 出力
 
-`--json` の出力は、ロケールにかかわらず英語を使用し、次のスキーマに従わなければならない（MUST）:
+`--json` の出力は、ロケールにかかわらず英語を使用し、次のスキーマに従わなければならない（MUST）：
 
 ```json
 {
@@ -311,7 +318,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 `status: "unresolved"` および `code: "offline"` を持ち、`ok` は false となる。
 
 - `partial`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`webauthn` は `{ "rp_id", "origin", "user_verified" }` である。`pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
-- `agreement.status` は `none`、`complete`、`pending`、`violated` のいずれか。要件にロールがない場合、`role` は省略する。
+- `agreement.status` は `none`、`complete`、`pending`、`violated` のいずれか。要件に役割がない場合、`role` は省略する。
 - `required` と `missing` の各要素は、段階の番号 `step` と、その段階で必要な人数 `any` を持つ。段階行のない `require` では `step` は 1、`any` は要件行の件数となる。`missing` の各要素はさらに、その段階であと何件必要かを示す `need` を持ち、前の段階が成立していないため待機中の場合は `blocked_by`（その段階の番号）を、順番より前に署名したため数えられなかった場合は `early: true` を持つ。
 - `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "index", "method", "signer", "role", "order" }` である。`index` は違反したブロックの番号、`order` は宣言の順序行の値（`guide` または `strict`）である。`order guide` の違反も一覧に含むが、合意ステータスには影響しない。
 - リソースの `status` は `ok`、`mismatch`、`missing`、`unreachable`、`not-checked` のいずれか。撤回の `status` は `not-revoked`、`revoked`、`not-checked` のいずれか。
@@ -331,9 +338,9 @@ TTY 上で引数なしで `mdsig` を実行すると、インラインの矢印�
 JavaScript では `@clack/prompts` を使用する。
 
 1. 操作を選択する：sign / verify / inspect / keygen。
-2. **sign:** カレントディレクトリツリー内の `.md` ファイル（深さ 3 まで、`node_modules` およびドットディレクトリを除く）からファイルを選択するか、パスを入力する。すでに署名を持つファイルには `(N existing signatures → will co-sign)` と表示する。続いて、方式、署名者、ロール（プリセット、自由記述、またはスキップ）、理由（任意）、TSA の有無を指定する。
-3. **verify / inspect:** ファイルを選択し、結果を表示する。
-4. **keygen:** 出力プレフィックスと、任意でドメイン／セレクタの入力を求める。
+2. **sign：** カレントディレクトリツリー内の `.md` ファイル（深さ 3 まで、`node_modules` およびドットディレクトリを除く）からファイルを選択するか、パスを入力する。すでに署名を持つファイルには `(N existing signatures → will co-sign)` と表示する。続いて、方式、署名者、役割（プリセット、自由記述、またはスキップ）、理由（任意）、TSA の有無を指定する。
+3. **verify / inspect：** ファイルを選択し、結果を表示する。
+4. **keygen：** 出力プレフィックスと、任意でドメイン／セレクタの入力を求める。
 5. 最後に、同じ操作を行う 1 行のコマンドを表示し、利用者がフラグを覚えられるようにする。
 6. 回答済みの質問は端末上に表示したまま保持しなければならない（MUST）（プロンプトライブラリが消去する場合はランチャーが再表示する）。これにより、セッション全体が操作記録として読める。
 7. 方式の選択肢には `pgp`（OpenPGP 鍵を使用）を含める。`pgp` を選択した場合は、gpg の鍵（`gpg --list-secret-keys` の一覧）または鍵ファイルを選択させ、署名者 ID はユーザ ID から選択させる。
@@ -343,60 +350,60 @@ JavaScript では `@clack/prompts` を使用する。
    ```
    $ mdsig
 
-     md-signature (v0.0.1) — Interactive Mode
+     md-signature v0.0.3：対話モード
 
-   ? 何を実行しますか？ (矢印キーで選択 / Enterで決定)
-     ❯ ✍️  文書に署名・連署する (sign)
-       🔍  文書の署名を検証する (verify)
-       📋  署名履歴・メタデータを見る (inspect)
-       🔑  新しい鍵ペアと DNS TXT レコードを生成する (keygen)
+   ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
+     ❯ ✍️  文書に署名・連署する（sign）
+       🔍  文書の署名を検証する（verify）
+       📋  署名履歴・メタデータを表示する（inspect）
+       🔑  新しい鍵ペアと DNS TXT レコードを生成する（keygen）
 
-   ? 対象の Markdown ファイルは？ (カレントディレクトリの .md 候補 / パス手入力可)
+   ? 対象の Markdown ファイルは？（カレントディレクトリの .md 候補 / パス手入力可）
      ❯ README.md
-       docs/contract.md (1件の署名あり → 連署になります)
+       docs/contract.md  （1件の署名あり → 連署になります）
        [パスを手入力する...]
 
-   ? 検証方式 (method) を選択してください：
-     ❯ git-hosting (GitHub / GitLab の公開鍵を使用)
-       dns         (ドメインの TXT レコードを使用)
-       tofu        (公開鍵を直接埋め込み・オフライン向け)
-       pgp         (OpenPGP 鍵・gpg を使用)
+   ? 検証方式（method）を選択してください：
+     ❯ git-hosting （GitHub / GitLab の公開鍵を使用）
+       dns         （ドメインの TXT レコードを使用）
+       tofu        （公開鍵を直接埋め込み・オフライン向け）
+       pgp         （OpenPGP 鍵・gpg を使用）
 
-   ? 署名者 ID (signer) を入力してください：
+   ? 署名者 ID（signer）を入力してください：
      > github.com/alice
 
-   ? 役割 (role) を選択してください：
-     ❯ author   (作成者)
-       reviewer (確認者)
-       approver (承認者)
-       witness  (立会人)
+   ? 役割（role）を選択してください：
+     ❯ author   （作成者）
+       reviewer （確認者）
+       approver （承認者）
+       witness  （立会人）
        [自由入力]
        [スキップ]
 
-   ? 署名理由 (reason) を入力してください (任意 / Enterでスキップ)：
+   ? 署名理由（reason）を入力してください（任意、Enter でスキップ）：
      > 初版確定
 
-   ? RFC 3161 タイムスタンプ (TSA) を付与しますか？
-     ❯ いいえ (軽量な通常署名)
-       はい   (デフォルト無料TSA: http://ts.ssl.com を使用)
+   ? RFC 3161 タイムスタンプ（TSA）を付与しますか？
+     ❯ いいえ（軽量な通常署名）
+       はい  （既定の無料 TSA：http://ts.ssl.com を使用）
 
-   ✓ 署名を追記しました: docs/contract.md
+   ✓ 署名を追記しました：docs/contract.md
 
-   次回から同じ設定で素早く実行するには:
+   次回から同じ設定で素早く実行するには：
      $ mdsig sign docs/contract.md -m git-hosting -s github.com/alice -r author --reason "初版確定"
    ```
 
-英語 UI も同じ構成とする（例: "Choose a verification method (method):"、"Next time, run the same thing in one line:"）。
+英語 UI も同じ構成とする（例："Choose a verification method (method):"、"Next time, run the same thing in one line:"）。
 
 stdin または stdout が TTY でない場合、引数なしの `mdsig` は使用方法を stderr に出力し、コード 2 で終了しなければならない（MUST）。
 
 ## 7. 言語
 
-UI 言語は次の順序で決定する:
+UI 言語は次の順序で決定する：
 
 1. `--lang <code>`
 2. `MDSIG_LANG`
-3. `LC_ALL`、`LC_MESSAGES`、`LANG` のうち最初に空でないもの（例：`ja_JP.UTF-8` → 日本語）。Windows では、いずれも設定されていない場合、ユーザーの既定の UI 言語を使用してもよい（MAY）。
+3. `LC_ALL`、`LC_MESSAGES`、`LANG` のうち最初に空でないもの（例：`ja_JP.UTF-8` → 日本語）。Windows では、いずれも設定されていない場合、ユーザの既定の UI 言語を使用してもよい（MAY）。
 4. 英語。
 
-0.0.1 でサポートする言語：`en`、`ja`。JSON 出力、および stdout が TTY でない場合の出力は英語でなければならない（MUST）。
+本版で対応する言語：`en`、`ja`。JSON 出力、および stdout が TTY でない場合の出力は英語でなければならない（MUST）。

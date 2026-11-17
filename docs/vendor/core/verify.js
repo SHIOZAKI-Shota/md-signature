@@ -158,7 +158,7 @@ export async function verifyBlock(text, block, opts = {}) {
         input = normalizedBytes(slice);
     }
     r.computedHash = `${hashAlg}:${toHex(await digest(hashAlg, input))}`;
-    // SPEC 5.3: uppercase hex is rejected, not normalised
+    // SPEC 5.3: uppercase hex is rejected, not normalized
     r.hashOk = r.computedHash === f.hash.toLowerCase() && f.hash === f.hash.toLowerCase();
     if (!r.hashOk)
         return fail("invalid", "hash-mismatch", r.partial ? "a signed section was modified after this signature" : "document content was modified after this signature");

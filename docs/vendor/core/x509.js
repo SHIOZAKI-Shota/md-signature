@@ -253,7 +253,7 @@ function pssParams(p) {
         }
     }
     if (!hash)
-        throw new Error("RSA-PSS hash is not SHA-256, SHA-384 or SHA-512");
+        throw new Error("RSA-PSS hash is not SHA-256, SHA-384, or SHA-512");
     if (!mgfHash || shaName(mgfHash) !== hash)
         throw new Error("RSA-PSS MGF1 hash differs from the message hash");
     return { hash, saltLength };
@@ -286,17 +286,17 @@ export async function verifyWithCert(cert, alg, fallbackHash, data, sig) {
             return subtle.verify({ name: "RSA-PSS", saltLength: p.saltLength }, key, sig, data);
         }
         if (!hash)
-            throw new Error("signature hash is not SHA-256, SHA-384 or SHA-512");
+            throw new Error("signature hash is not SHA-256, SHA-384, or SHA-512");
         const key = await subtle.importKey("spki", cert.spki, { name: "RSASSA-PKCS1-v1_5", hash }, false, ["verify"]);
         return subtle.verify("RSASSA-PKCS1-v1_5", key, sig, data);
     }
     if (cert.keyAlg.oid !== OID.ecPublicKey)
         throw new Error("signature algorithm is ECDSA but the certificate key is not");
     if (!hash)
-        throw new Error("signature hash is not SHA-256, SHA-384 or SHA-512");
+        throw new Error("signature hash is not SHA-256, SHA-384, or SHA-512");
     const curve = cert.keyAlg.params?.tag === 0x06 ? CURVES[oidString(cert.keyAlg.params.content)] : undefined;
     if (!curve)
-        throw new Error("elliptic curve is not P-256, P-384 or P-521");
+        throw new Error("elliptic curve is not P-256, P-384, or P-521");
     let raw;
     try {
         raw = ecdsaP1363(sig, curve.size);

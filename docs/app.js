@@ -443,7 +443,7 @@ $("fetch-remote").addEventListener("change", () => scheduleVerify(0));
 
 // ------------------------------------------------------------------ test keys
 let useTestKeys = false;
-const TEST_WARNING = "TEST KEY from examples/keys.json (RFC 8032) — resolved locally, not a real identity";
+const TEST_WARNING = "TEST KEY from examples/keys.json (RFC 8032), resolved locally, not a real identity";
 const testResolvers = {
   async "git-hosting"(fields, opts) {
     const entry = TEST_KEYS["git-hosting"][fields.signer];

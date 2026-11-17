@@ -1,6 +1,12 @@
 package i18n
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+)
 
 func TestDetect(t *testing.T) {
 	for _, k := range []string{"MDSIG_LANG", "LC_ALL", "LC_MESSAGES", "LANG"} {
@@ -41,5 +47,37 @@ func TestCatalogsComplete(t *testing.T) {
 	defer Set(EN)
 	if got := T("sign.done", "a.md", 2, "tofu", "bob"); got != "a.md に署名しました（署名 #2、tofu bob）" {
 		t.Error(got)
+	}
+}
+
+func TestCodeLabels(t *testing.T) {
+	codes := map[string]bool{}
+	for _, c := range []string{"malformed", "unknown-field", "hash-mismatch", "bad-signature", "scope-missing", "resource-mismatch", "resource-missing", "expired", "revoked", "key-changed", "key-not-published", "unsupported-version", "unsupported-alg", "unsupported-hash", "unsupported-method", "network", "not-found", "offline"} {
+		codes[c] = true
+	}
+	files, err := filepath.Glob("../../mdsig/*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatal("mdsig sources not found", err)
+	}
+	re := regexp.MustCompile(`fail\(Status\w+, "([a-z-]+)"|[Cc]ode: +"([a-z-]+)"`)
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			codes[m[1]+m[2]] = true
+		}
+	}
+	for c := range codes {
+		if _, ok := en["code."+c]; !ok {
+			t.Errorf("en has no label for code %q", c)
+		}
+		if _, ok := ja["code."+c]; !ok {
+			t.Errorf("ja has no label for code %q", c)
+		}
 	}
 }

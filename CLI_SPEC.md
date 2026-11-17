@@ -1,6 +1,6 @@
 # `mdsig` Command-Line Interface Specification
 
-- **Version:** 0.0.1 (draft)
+- **Version:** 0.0.3 (draft; format version 0.0.2)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Format specification:** [SPEC.md](SPEC.md)
 - **Normative text:** [日本語 (CLI_SPEC.ja.md)](CLI_SPEC.ja.md). This English version is an informative translation. If they differ, the Japanese text prevails.
@@ -12,11 +12,12 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", and "MAY" are to be inte
 | Thing | Name |
 | --- | --- |
 | Binary | `mdsig` |
-| npm CLI package | `mdsig` |
-| Core library | `@md-signature/core` |
+| npm CLI package | `mdsig` (planned) |
+| Core library | `@md-signature/core` (not published on npm yet) |
 | Homebrew | `brew install SHIOZAKI-Shota/tap/mdsig` |
-| winget | `winget install mdsig` |
-| Debian / RPM | `mdsig` |
+| Go | `go install mdsig.dev/cmd/mdsig@latest` (Go 1.26 or later) |
+| winget | `winget install ShiozakiShota.mdsig` (not available yet: built by the release workflow but not published) |
+| Debian / RPM | `mdsig` (not available yet: packages are built by the release workflow but not published) |
 
 ## 2. Global flags
 
@@ -36,15 +37,15 @@ signature is appended as a co-signature (SPEC Section 7).
 | Flag | Default | Description |
 | --- | --- | --- |
 | `-m, --method <m>` | `git-hosting` | `git-hosting`, `dns`, `tofu`, or `pgp`. |
-| `-s, --signer <id>` | — | REQUIRED. `github.com/alice`, `example.com`, `bob@laptop`, ... With `pgp` it can be omitted; it is then taken from the email address in the key's User ID (3.1.2). |
+| `-s, --signer <id>` | — | REQUIRED. `github.com/alice`, `example.com`, `bob@laptop`, ... With `pgp` it can be omitted; it is then taken from the email address in the key's user ID (3.1.2). |
 | `-k, --key <path>` | auto | OpenSSH Ed25519 private key file. See 3.1.1. |
 | `--selector <sel>` | — | `dns` only. |
-| `-u, --local-user <id>` | gpg default key | `pgp` only. The key to pass to gpg (a fingerprint or User ID). |
+| `-u, --local-user <id>` | gpg default key | `pgp` only. The key to pass to gpg (a fingerprint or user ID). |
 | `--pgp-key <path>` | — | `pgp` only. An ASCII-armored OpenPGP private key file. When given, gpg is not used and the CLI signs directly. |
 | `-r, --role <role>` | — | `author`, `reviewer`, `approver`, `witness`, or any value. |
 | `--reason <text>` | — | Free text. |
-| `--tsa [url]` | off | Request an RFC 3161 timestamp. Without a value, uses `http://ts.ssl.com`. |
-| `--tsa-root <file>` | — | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking the TSA's response. Repeatable. Used together with `--tsa`. |
+| `--tsa [url]` | off | Request an RFC 3161 timestamp from a time-stamping authority (TSA). Without a value, uses `http://ts.ssl.com`. |
+| `--tsa-root <file>` | — | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking a timestamp token. Repeatable. Used together with `--tsa`. |
 | `--stdout` | off | Write the signed document to stdout instead of changing the file. |
 | `--embed-key` | off | `dns` and `git-hosting` only. Include the public key used for signing in the block as `pubkey` (SPEC 4.5), so that the signature can still be checked after the key is removed. Exit code 2 with any other method. |
 | `--force` | off | Sign even if the file has a signature block followed by unsigned content. The whole file is then signed as a new document. |
@@ -67,7 +68,7 @@ Behavior:
 
 When `-k` is not given (methods other than `pgp`):
 
-1. If an SSH agent is available (`SSH_AUTH_SOCK`, or on Windows the OpenSSH agent pipe `\\.\pipe\openssh-ssh-agent`), use its `ssh-ed25519` keys. If there is more than one: with `git-hosting`, first narrow the candidates to the keys that appear in `https://<signer>.keys` (if any do). If more than one candidate remains, ask in the interactive launcher; otherwise use the first candidate.
+1. If ssh-agent is available (`SSH_AUTH_SOCK`, or on Windows the OpenSSH agent pipe `\\.\pipe\openssh-ssh-agent`), use its `ssh-ed25519` keys. If there is more than one: with `git-hosting`, first narrow the candidates to the keys that appear in `https://<signer>.keys` (if any do). If more than one candidate remains, ask in the interactive launcher; otherwise use the first candidate.
 2. Otherwise use `~/.ssh/id_ed25519`.
 
 Passphrase-protected key files MUST be supported: prompt for the passphrase on the TTY, or read it from `MDSIG_PASSPHRASE` when stdin is not a TTY.
@@ -78,7 +79,7 @@ Passphrase-protected key files MUST be supported: prompt for the passphrase on t
 - The CLI MUST check that the gpg output satisfies the conditions in SPEC 6.2 (exactly one signature packet, type 0x00, an Issuer Fingerprint present, and so on), and fail with exit code 2 if it does not. `fpr` is set from the Issuer Fingerprint of the output signature.
 - Because `fpr` has to be recorded in the block before signing, the CLI first identifies the key that will be used with `gpg --list-secret-keys --with-colons`. If the actual Issuer Fingerprint after signing differs from it, the CLI fails.
 - With `--pgp-key`, the CLI signs directly with that private key. For a protected key, it prompts for the passphrase on the TTY, or reads it from `MDSIG_PGP_PASSPHRASE` when stdin is not a TTY. Supported protection is S2K iterated+salted with AES (CFB), as well as Argon2 S2K and AEAD protection.
-- Without `--signer`, the email address of a valid User ID of the key is used. If there are several email addresses, the interactive launcher asks the user to choose; otherwise the CLI fails with exit code 2.
+- Without `--signer`, the email address of a valid user ID of the key is used. If there are several email addresses, the interactive launcher asks the user to choose; otherwise the CLI fails with exit code 2.
 - If `gpg` is not found and `--pgp-key` is not given, the exit code is 2.
 - Byte buffers that held the private key or passphrase are wiped after signing.
 
@@ -90,17 +91,17 @@ Verifies every signature in each file's chain (SPEC Section 5.4).
 | --- | --- |
 | `--json` | Print a JSON result (Section 5) to stdout. |
 | `-q, --quiet` | No output; exit code only. |
-| `--offline` | Do not use the network. Hashes are checked for every block; signatures are checked only for `tofu`. Blocks that need the network are reported as "not checked (offline)". A file with any block that was not checked gives exit code 3. Remote resources and revocation lists are not fetched. |
+| `--offline` | Do not use the network. Hashes are checked for every block. Signatures can be checked for `tofu` (with the stored key), `pgp` (with a key in the local gpg keyring), `tsa` blocks, and `dns` or `git-hosting` blocks with an embedded `pubkey`. The CMS signature and certificate chain of a `tsa_token` are also verified without the network. A block whose signature does not verify with its embedded key is invalid. Any other block is reported as "not checked (offline)". A file with any block that was not checked gives exit code 3. Remote resources and revocation lists are not fetched. |
 | `--fetch-resources` | Fetch `https://` resources and check their hashes. Off by default, because fetching tells the server that the document is being verified (SPEC 9.8). |
 | `--no-revocation` | Do not fetch revocation lists. They are fetched by default when online; if a list cannot be fetched or is not trusted, the block is unresolved (exit code 3). |
 | `--accept-new-key` | Accept a `tofu` key that differs from the one stored for its `signer`, and replace the stored binding. Without it, a block whose key changed is invalid (code `key-changed`). |
-| `--no-keyring` | Do not use the local gpg keyring when looking up `pgp` keys (WKD and keyserver only). |
+| `--no-keyring` | Do not use the local gpg keyring for `pgp` key lookups (WKD and keyserver only). |
 | `--keyserver <url>` | `https://` URL of the keyserver for `pgp` key lookups. Default: `https://keys.openpgp.org`. The verifier chooses the keyserver; it is never taken from the block (SPEC 4.3). Name one that confirms email addresses. |
-| `--tsa-root <file>` | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when verifying a `tsa_token`. A PEM file may hold several certificates. Repeatable. A file that cannot be read is a usage error (exit code 2). |
+| `--tsa-root <file>` | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking a timestamp token (a `tsa_token` or a `tsa` block). A PEM file may hold several certificates. Repeatable. A file that cannot be read is a usage error (exit code 2). |
 
 `dns` lookups SHOULD use the system resolver. `git-hosting` fetches
-`https://<signer>.keys`. `pgp` looks in the local keyring with
-`gpg --export <fpr>` if `gpg` is available, then in WKD, then on the keyserver
+`https://<signer>.keys`. `pgp` takes the key from the local keyring with
+`gpg --export <fpr>` if `gpg` is available, then tries WKD, then the keyserver
 (SPEC 4.3). TOFU bindings are stored in
 `<user config dir>/mdsig/known_signers.json`. A binding is stored only after
 the block has verified, and never from a block inside a revocation list.
@@ -115,7 +116,7 @@ it actually connects to, and therefore does not use HTTP proxies for these
 requests.
 
 In output without `--json`, the CLI MUST show control and format characters in
-text that comes from the document or from a server (field values, User IDs,
+text that comes from the document or from a server (field values, user IDs,
 file names, and so on) as `\u{XXXX}`. This prevents terminal escape sequences
 from forging the displayed result.
 
@@ -126,28 +127,29 @@ docs/contract.md
   ✓ #1 author    github.com/alice     2026-11-16T09:00:00Z  git-hosting
       partial: terms, fees
       resources: ✓ ./diagram.png  - https://example.com/chart.png (not checked)
-  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ TSA 2026-11-16T09:46:02Z
+  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ TSA 2026-11-16T09:46:02Z (SSL.com Timestamping Unit 2026 E1)
+      TSA: imprint matched; TSA signature and certificate chain verified
   Verified: 2 signatures
-  Agreement: pending — missing dns:partner.example witness
+  Agreement: pending (missing dns:partner.example witness)
 ```
 
 When `require` has steps, missing co-signatures are shown per step, and a signer whose signature did not count because it came before its turn is marked as such.
 An `order guide` violation is shown as a warning, and an `order strict` violation as the agreement status `violated`.
 
 ```
-  Agreement: pending — step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1)
-  Agreement: violated — #2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete
+  Agreement: pending (step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1))
+  Agreement: violated (#2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete)
 ```
 
 A passkey signature also shows its `rp_id`, for example `passkey (rp_id mdsig.dev)`.
-A `pgp` signature shows the fingerprint, the User ID, where the key was found, and the creation time of the signature packet.
+A `pgp` signature shows the fingerprint, the user ID, where the key was found, and the creation time of the signature packet.
 The creation time is claimed by the signer, like `ts`, and is shown separately from the TSA time.
 
 ### 3.3 `mdsig inspect <file>`
 
 Prints the chain and all fields of each block without using the network.
 For each block it also prints whether `hash` matches the current content.
-Exits 0 when the file could be read, whatever the hash results (use `verify` to check).
+Exits 0 when the file could be read, whatever the hash results (use `verify` to check). A file that is not valid UTF-8 gives exit code 1.
 
 `--json` prints:
 
@@ -171,7 +173,7 @@ Generates an Ed25519 key pair.
 | --- | --- |
 | `-o, --out <prefix>` | Write `<prefix>` (OpenSSH private key, mode 0600) and `<prefix>.pub`. Default `./mdsig_ed25519`. MUST NOT overwrite existing files. |
 | `-d, --domain <domain>` | Also print the DNS TXT record for this domain. |
-| `--selector <sel>` | Selector for the DNS record name. |
+| `--selector <sel>` | Selector for the DNS record name. Exit code 2 when given without `--domain`. |
 
 Output (stdout):
 
@@ -184,7 +186,12 @@ DNS TXT record:
 
 tofu pubkey:
   ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=
+
+SSH fingerprint (key_fp):
+  SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8
 ```
+
+`DNS TXT record` is printed only with `--domain` (the example uses `-d example.com --selector 2026`).
 
 ### 3.5 `mdsig revoke <file> --list <list.md>`
 
@@ -200,7 +207,7 @@ Behavior:
 
 1. Compute the revocation identifier `SHA-256(signed payload)` (SPEC 5.9) of each selected block and add a line `revoked: sha256:<hex>` to the list body (no duplicates).
 2. Remove the list's old signature chain and sign the updated list as a new document with the given key. The list MUST NOT get a `revocation_url` from this command.
-3. For `pgp`, if the signing key's `fpr` differs from the revoked blocks' `fpr`, print a warning (the list is still trusted, because it is matched by `signer`).
+3. Compare the signing key with the key of the revoked blocks. For `tofu`, if the signing key does not match the revoked block's `pubkey`, fail with exit code 2 and leave the list unchanged (verifiers trust a `tofu` list only when it is signed with the same key). For `git-hosting`, if the signing key's fingerprint differs from the revoked block's `key_fp`, and for `pgp`, if the signing key's `fpr` differs from the revoked block's `fpr`, print a warning (the list is still trusted, because it is matched by `method` and `signer`).
 4. Print where the list must be published: the `revocation_url` of the revoked blocks. If they have none, print a warning that verifiers cannot find the list.
 
 ### 3.6 `mdsig serve`
@@ -215,7 +222,7 @@ Offers document verification over HTTP. It is meant for verifiers that cannot ch
 | `--fetch-resources` | off | Fetch `https://` resources and check their hashes. |
 | `--no-revocation` | off | Do not fetch revocation lists. |
 | `--keyserver <url>` | `https://keys.openpgp.org` | Keyserver for `pgp` key lookups. |
-| `--tsa-root <file>` | — | Additional root certificate to trust when verifying a `tsa_token` (as in section 3.2). |
+| `--tsa-root <file>` | — | Root certificate to trust, in addition to the system trust store, when checking a timestamp token (as in section 3.2). |
 
 The endpoints are listed below. Request and response bodies are JSON (UTF-8).
 
@@ -239,14 +246,14 @@ When the results of two verifiers (for example a browser and this server) are us
 
 ### 3.7 `mdsig timestamp <file>`
 
-Appends a `tsa` block (SPEC 4.6) to the end of the file. The block covers the whole chain before it, earlier timestamps included, so running it again renews the timestamp. A file without signature blocks is refused with exit code 1.
+Appends a `tsa` block (SPEC 4.6) to the end of the file. The block covers the whole chain before it, earlier timestamps included, so running it again renews the timestamp. A file without signature blocks, or one that is not valid UTF-8, is refused with exit code 1.
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--tsa <url>` | `http://ts.ssl.com` | URL of the RFC 3161 time-stamping authority. |
+| `--tsa <url>` | `http://ts.ssl.com` | URL of the RFC 3161 TSA. |
 | `--hash <alg>` | `sha256` | Algorithm of `hash` and of `messageImprint`: `sha256` or `sha512`. Use `sha512` for a renewal that must outlive SHA-256. |
 | `--reason <text>` | — | Free-text reason. |
-| `--tsa-root <file>` | — | Root certificate to trust, in addition to the system trust store, when checking the TSA's response (as in section 3.2). |
+| `--tsa-root <file>` | — | Root certificate to trust, in addition to the system trust store, when checking a timestamp token (as in section 3.2). |
 | `--stdout` | off | Write the result to stdout instead of changing the file. |
 
 The TSA's response is checked as for `--tsa` in section 3.1. If the request or the check fails, the exit code is 3 and the file is not changed.
@@ -341,53 +348,53 @@ in JavaScript, `@clack/prompts`.
 4. **keygen:** ask for the output prefix and optional domain/selector.
 5. At the end, print the equivalent one-line command, so users learn the flags.
 6. Each answered question MUST remain visible on the terminal (the launcher re-prints it if the prompt library clears it), so the session reads as a transcript.
-7. The method choices include `pgp` (uses an OpenPGP key). When `pgp` is chosen, the launcher asks for a gpg key (from the `gpg --list-secret-keys` list) or a key file, and the signer ID is chosen from the key's User IDs.
+7. The method choices include `pgp` (uses an OpenPGP key). When `pgp` is chosen, the launcher asks for a gpg key (from the `gpg --list-secret-keys` list) or a key file, and the signer ID is chosen from the key's user IDs.
 
 Reference session (Japanese UI, `LANG=ja_JP.UTF-8`). Each question is shown while it is being answered:
 
    ```
    $ mdsig
 
-     md-signature (v0.0.1) — Interactive Mode
+     md-signature v0.0.3：対話モード
 
-   ? 何を実行しますか？ (矢印キーで選択 / Enterで決定)
-     ❯ ✍️  文書に署名・連署する (sign)
-       🔍  文書の署名を検証する (verify)
-       📋  署名履歴・メタデータを見る (inspect)
-       🔑  新しい鍵ペアと DNS TXT レコードを生成する (keygen)
+   ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
+     ❯ ✍️  文書に署名・連署する（sign）
+       🔍  文書の署名を検証する（verify）
+       📋  署名履歴・メタデータを表示する（inspect）
+       🔑  新しい鍵ペアと DNS TXT レコードを生成する（keygen）
 
-   ? 対象の Markdown ファイルは？ (カレントディレクトリの .md 候補 / パス手入力可)
+   ? 対象の Markdown ファイルは？（カレントディレクトリの .md 候補 / パス手入力可）
      ❯ README.md
-       docs/contract.md (1件の署名あり → 連署になります)
+       docs/contract.md  （1件の署名あり → 連署になります）
        [パスを手入力する...]
 
-   ? 検証方式 (method) を選択してください：
-     ❯ git-hosting (GitHub / GitLab の公開鍵を使用)
-       dns         (ドメインの TXT レコードを使用)
-       tofu        (公開鍵を直接埋め込み・オフライン向け)
-       pgp         (OpenPGP 鍵・gpg を使用)
+   ? 検証方式（method）を選択してください：
+     ❯ git-hosting （GitHub / GitLab の公開鍵を使用）
+       dns         （ドメインの TXT レコードを使用）
+       tofu        （公開鍵を直接埋め込み・オフライン向け）
+       pgp         （OpenPGP 鍵・gpg を使用）
 
-   ? 署名者 ID (signer) を入力してください：
+   ? 署名者 ID（signer）を入力してください：
      > github.com/alice
 
-   ? 役割 (role) を選択してください：
-     ❯ author   (作成者)
-       reviewer (確認者)
-       approver (承認者)
-       witness  (立会人)
+   ? 役割（role）を選択してください：
+     ❯ author   （作成者）
+       reviewer （確認者）
+       approver （承認者）
+       witness  （立会人）
        [自由入力]
        [スキップ]
 
-   ? 署名理由 (reason) を入力してください (任意 / Enterでスキップ)：
+   ? 署名理由（reason）を入力してください（任意、Enter でスキップ）：
      > 初版確定
 
-   ? RFC 3161 タイムスタンプ (TSA) を付与しますか？
-     ❯ いいえ (軽量な通常署名)
-       はい   (デフォルト無料TSA: http://ts.ssl.com を使用)
+   ? RFC 3161 タイムスタンプ（TSA）を付与しますか？
+     ❯ いいえ（軽量な通常署名）
+       はい  （既定の無料 TSA：http://ts.ssl.com を使用）
 
-   ✓ 署名を追記しました: docs/contract.md
+   ✓ 署名を追記しました：docs/contract.md
 
-   次回から同じ設定で素早く実行するには:
+   次回から同じ設定で素早く実行するには：
      $ mdsig sign docs/contract.md -m git-hosting -s github.com/alice -r author --reason "初版確定"
    ```
 
@@ -401,7 +408,7 @@ The UI language is chosen in this order:
 
 1. `--lang <code>`
 2. `MDSIG_LANG`
-3. The first non-empty of `LC_ALL`, `LC_MESSAGES`, `LANG` (e.g. `ja_JP.UTF-8` → Japanese). On Windows, if none is set, the user's default UI language MAY be used.
+3. The first non-empty of `LC_ALL`, `LC_MESSAGES`, `LANG` (for example `ja_JP.UTF-8` → Japanese). On Windows, if none is set, the user's default UI language MAY be used.
 4. English.
 
-Supported in 0.0.1: `en`, `ja`. JSON output and output when stdout is not a TTY MUST be English.
+Supported in this release: `en`, `ja`. JSON output and output when stdout is not a TTY MUST be English.

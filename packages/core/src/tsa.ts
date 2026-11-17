@@ -77,7 +77,7 @@ function oidToString(content: Uint8Array): string {
 
 function parseGeneralizedTime(s: string): string {
   const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$/.exec(s);
-  if (!m) throw new Error("TSA token: genTime is not a GeneralizedTime");
+  if (!m) throw new Error("timestamp token: genTime is not a GeneralizedTime");
   return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] ?? ""}Z`;
 }
 
@@ -97,18 +97,18 @@ export function parseTimeStampResp(der: Uint8Array): TstInfo {
   }
   // ContentInfo = { OID, [0] SignedData }; SignedData[2] = encapContentInfo
   const signedData = token.children?.[1]?.children?.[0];
-  if (!signedData?.children) throw new Error("TSA token: SignedData not found");
+  if (!signedData?.children) throw new Error("timestamp token: SignedData not found");
   const encap = signedData.children[2];
   const eType = encap?.children?.[0];
   if (!eType || !bytesEqual(eType.content, OID_TSTINFO.subarray(0))) {
-    throw new Error("TSA token: content is not TSTInfo");
+    throw new Error("timestamp token: content is not TSTInfo");
   }
   const octets = encap!.children?.[1]?.children?.[0];
-  if (!octets) throw new Error("TSA token: eContent missing");
+  if (!octets) throw new Error("timestamp token: eContent missing");
   const tst = parseDer(octets.content).node;
   // TSTInfo = { version, policy, messageImprint, serialNumber, genTime, accuracy?, ordering?, nonce?, ... }
   const [, policy, mi, serial, gen, ...opt] = tst.children ?? [];
-  if (!policy || !mi || !serial || !gen) throw new Error("TSA token: malformed TSTInfo");
+  if (!policy || !mi || !serial || !gen) throw new Error("timestamp token: malformed TSTInfo");
   const alg = mi.children?.[0]?.children?.[0];
   const hashed = mi.children?.[1];
   return {
@@ -142,7 +142,7 @@ async function verifyTimeStampResp(der: Uint8Array, imprint: Uint8Array, o: TsaV
   // PKIStatus 0 = granted, 1 = grantedWithMods
   if (info.status !== 0 && info.status !== 1) throw new Error(`TSA status ${info.status} (not granted)`);
   if (info.hashOid !== IMPRINT_OID[hashAlg].dotted) throw new Error(`unsupported imprint hash ${info.hashOid}`);
-  if (!bytesEqual(imprint, info.imprint)) throw new ImprintError("TSA token is for a different imprint");
+  if (!bytesEqual(imprint, info.imprint)) throw new ImprintError("timestamp token is for a different imprint");
   const genTime = Date.parse(info.genTime);
   if (Number.isNaN(genTime)) return { info, error: "genTime is not a valid date" };
   try {

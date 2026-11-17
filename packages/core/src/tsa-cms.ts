@@ -147,7 +147,7 @@ export async function verifyTsaSignedData(token: Uint8Array, genTime: number, o:
 
   const digestOid = parseAlgId(digestAlgNode).oid;
   const digestHash = shaName(digestOid);
-  if (!digestHash) throw new Error(`digest algorithm ${digestOid} is not SHA-256, SHA-384 or SHA-512`);
+  if (!digestHash) throw new Error(`digest algorithm ${digestOid} is not SHA-256, SHA-384, or SHA-512`);
   // RFC 3161 2.4.2 requires the signing-certificate attribute, so a token without signed attributes is rejected
   if (!signedAttrs?.children?.length) throw new Error("token has no signed attributes");
   const attrs: Attr[] = [];

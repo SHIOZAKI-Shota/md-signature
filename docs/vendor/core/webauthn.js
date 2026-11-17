@@ -78,7 +78,7 @@ export async function checkWebAuthnData(fields, payload) {
         clientData = fromBase64(fields.webauthn_client_data);
     }
     catch {
-        return { ok: false, code: "malformed", message: "webauthn fields are not valid base64" };
+        return { ok: false, code: "malformed", message: "WebAuthn fields are not valid base64" };
     }
     let cd;
     try {
@@ -157,7 +157,7 @@ export async function registerPasskey(rpId, userName, rpName = "md-signature") {
         },
     }));
     if (!cred)
-        throw new Error("passkey registration was cancelled");
+        throw new Error("passkey registration was canceled");
     const resp = cred.response;
     const spki = resp.getPublicKey?.();
     if (!spki)
@@ -181,7 +181,7 @@ export function passkeySigner(rpId, publicKey, credentialId) {
                 },
             }));
             if (!cred)
-                throw new Error("passkey signing was cancelled");
+                throw new Error("passkey signing was canceled");
             const r = cred.response;
             return {
                 signature: new Uint8Array(r.signature),

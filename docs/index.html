@@ -10,19 +10,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <script src="./color-scheme.js"></script>
-    <title>md-signature：Markdownにも電子署名を</title>
+    <title>md-signature：Markdown にも電子署名を</title>
     <meta name="description"
-        content="本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマット。署名は HTML コメントとして入るので、表示は変わらず、ファイルは1つのまま。">
+        content="本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマット。署名は HTML コメントとして記述するため、表示に影響せず、ファイルは1つのまま。">
     <link rel="canonical" href="https://mdsig.dev/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="md-signature">
-    <meta property="og:title" content="md-signature：Markdownにも電子署名を">
-    <meta property="og:description" content="本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマット。署名は HTML コメントとして入るので、表示は変わらず、ファイルは1つのまま。">
+    <meta property="og:title" content="md-signature：Markdown にも電子署名を">
+    <meta property="og:description" content="本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマット。署名は HTML コメントとして記述するため、表示に影響せず、ファイルは1つのまま。">
     <meta property="og:url" content="https://mdsig.dev/">
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="./favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -86,8 +86,8 @@
                 <div class="hero-beam" aria-hidden="true"></div>
                 <div class="hero-texture" aria-hidden="true"></div>
                 <div class="hero-copy">
-                    <h1 id="hero-title" data-i18n-html="hero.title">Markdownにも<br>電子署名を</h1>
-                    <p class="lede" data-i18n="hero.lede">本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマットです。署名は HTML コメントとして格納されるため、表示には影響せず、ファイルも1つのまま。後から何人でも連署できます。</p>
+                    <h1 id="hero-title" data-i18n-html="hero.title">Markdown にも<br>電子署名を</h1>
+                    <p class="lede" data-i18n="hero.lede">本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマットです。署名は HTML コメントとして記述するため、表示には影響せず、ファイルも1つのまま。あとから何人でも連署できます。</p>
                     <div class="cta-rows">
                         <div class="cta-row cmd"><code
                                 id="install-cmd">brew install SHIOZAKI-Shota/tap/mdsig</code><button type="button"
@@ -95,11 +95,11 @@
                                 data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                     data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
                                     aria-hidden="true"></i></button></div>
-                        <a class="cta-row" href="./playground/"><span data-i18n="hero.try">ブラウザで試す</span><i
+                        <a class="cta-row" href="./playground/"><span data-i18n="hero.try">ブラウザでデモを開く</span><i
                                 data-lucide="arrow-up-right" aria-hidden="true"></i></a>
                         <a class="cta-row" href="./editor/"><span data-i18n="hero.editor">エディタを使用する</span><i
                                 data-lucide="square-arrow-out-up-right" aria-hidden="true"></i></a>
-                        <a class="cta-row" href="./docs/"><span data-i18n="hero.spec">仕様の解説</span><i
+                        <a class="cta-row" href="./docs/"><span data-i18n="hero.spec">仕様の解説を読む</span><i
                                 data-lucide="arrow-up-right" aria-hidden="true"></i></a>
                     </div>
                 </div>
@@ -140,7 +140,7 @@
                                     data-i18n="fig.seal">検証済み</span></p>
                         </div>
                     </div>
-                    <figcaption data-i18n="fig.caption">署名はファイル末尾にのみ格納され、表示には現れません。</figcaption>
+                    <figcaption data-i18n="fig.caption">署名ブロックは、それより前のすべて（本文と先行する署名）のハッシュに署名します。どのブロックも HTML コメントのため、表示には現れません。</figcaption>
                 </figure>
             </section>
 
@@ -148,23 +148,23 @@
                 <dl class="facts">
                     <div>
                         <dt><i data-lucide="file-text" aria-hidden="true"></i><span
-                                data-i18n="fact.file.t">1ファイルのまま</span></dt>
-                        <dd data-i18n="fact.file.d">.sig のような別ファイルは不要。メールでも Git でも、そのまま渡せます。</dd>
+                                data-i18n="fact.file.t">単一ファイル</span></dt>
+                        <dd data-i18n="fact.file.d">.sig などの別ファイルは不要です。メール添付でも Git 管理でも、そのまま受け渡せます。</dd>
                     </div>
                     <div>
                         <dt><i data-lucide="key-round" aria-hidden="true"></i><span
-                                data-i18n="fact.keys.t">いつもの鍵で</span></dt>
-                        <dd data-i18n="fact.keys.d">GitHub の SSH 鍵、自社ドメインの DNS、パスキーで署名・検証できます。</dd>
+                                data-i18n="fact.keys.t">既存の鍵で署名</span></dt>
+                        <dd data-i18n="fact.keys.d">GitHub 登録済みの SSH 鍵、自社ドメインの DNS、パスキーを署名と検証に使用します。</dd>
                     </div>
                     <div>
                         <dt><i data-lucide="globe" aria-hidden="true"></i><span
-                                data-i18n="fact.open.t">特定の会社に依存しない</span></dt>
-                        <dd data-i18n="fact.open.d">仕様は CC0、実装は MIT。何十年後でも、誰でも検証できます。</dd>
+                                data-i18n="fact.open.t">事業者に非依存</span></dt>
+                        <dd data-i18n="fact.open.d">仕様は CC0、実装は MIT。特定のサービスが終了しても、文書の検証は継続できます。</dd>
                     </div>
                     <div>
                         <dt><i data-lucide="app-window" aria-hidden="true"></i><span
-                                data-i18n="fact.browser.t">ブラウザだけで動く</span></dt>
-                        <dd data-i18n="fact.browser.d">検証も署名も Web 標準の暗号 API で処理します。文書をサーバーへ送信しません。外部への接続は、公開鍵と撤回リストの照会のみです。</dd>
+                                data-i18n="fact.browser.t">ブラウザ内で完結</span></dt>
+                        <dd data-i18n="fact.browser.d">検証も署名も Web 標準の暗号 API で処理します。文書をサーバへ送信しません。外部への接続は、公開鍵と撤回リストの取得のほか、利用者が有効化・許可・指定した接続（リモートのリソース、文書が指定するホスト、検証サーバ）に限ります。</dd>
                     </div>
                 </dl>
                 <span class="cross c1" aria-hidden="true"></span><span class="cross c2" aria-hidden="true"></span>
@@ -181,8 +181,7 @@
                     <i data-lucide="file-signature" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.contract.t">契約業務に非プロプライエタリ</h3>
-                        <p data-i18n="why.contract.d">PDFのような独自形式ではなく、Markdownは誰でも読めるテキストです。署名に使う鍵は手持ちの SSH
-                            鍵や自分で生成したキーで足り、有料の証明書や電子契約サービスの契約は不要です。</p>
+                        <p data-i18n="why.contract.d">Markdown は、PDF のような独自形式と違い、誰でも読めるテキストです。署名に使用する鍵は手持ちの SSH 鍵や自分で生成した鍵で足り、有料の証明書や電子契約サービスの契約は不要です。</p>
                     </div>
                 </li>
                 <li>
@@ -196,10 +195,8 @@
                 <li>
                     <i data-lucide="clock" aria-hidden="true"></i>
                     <div>
-                        <h3 data-i18n="why.long.t">時刻証明と長期の証拠性</h3>
-                        <p data-i18n="why.long.d">RFC 3161
-                            のタイムスタンプで、その時点に署名が存在したことを第三者の時刻認証局が証明します。署名者が申告する時刻と違い、後から書き換えられません。将来 Ed25519
-                            が危殆化しても、耐量子署名を追記すればチェーン全体を保護できます。</p>
+                        <h3 data-i18n="why.long.t">時刻の証明と長期の証拠性</h3>
+                        <p data-i18n="why.long.d">RFC 3161 のタイムスタンプで、その時点に署名が存在したことを第三者の時刻認証局（TSA）が証明します。署名者が申告する時刻と違い、あとから改変できません。将来 Ed25519 が危殆化した場合も、耐量子署名のアルゴリズムが規定されれば、その署名を追記してチェーン全体を保護できます。</p>
                     </div>
                 </li>
                 <li>
@@ -215,8 +212,7 @@
                     <i data-lucide="workflow" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.flow.t">承認ワークフロー</h3>
-                        <p data-i18n="why.flow.d">稟議、契約、仕様変更、リリース判定など、承認が必要な手順を文書だけで進められます。require
-                            に必要な承認者を宣言し、各担当者が順に連署します。CI やブランチ保護で mdsig verify を実行すれば、全員の署名が揃うまで次の工程に進みません。</p>
+                        <p data-i18n="why.flow.d">稟議、契約、仕様変更、リリース判定など、承認が必要な手順を文書だけで進められます。require に必要な承認者を宣言し、各担当者が順に連署します。CI やブランチ保護で mdsig verify を実行すれば、全員の署名がそろうまで次の工程に進みません。</p>
                     </div>
                 </li>
                 <li>
@@ -239,8 +235,7 @@
                     <i data-lucide="user-check" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.hitl.t">AI と人間の協調（Human-in-the-loop）</h3>
-                        <p data-i18n="why.hitl.d">AI が生成・修正した文書や設定に、責任者がパスキーや SSH 鍵で連署するまで、CI は適用を保留します。require
-                            に指定した連署が揃わない間、mdsig verify は終了コード 5 を返します。</p>
+                        <p data-i18n="why.hitl.d">AI が生成・修正した文書や設定に、責任者がパスキーや SSH 鍵で連署するまで、CI は適用を保留します。require に指定した連署がそろわない間、mdsig verify は終了コード 5 を返します。</p>
                     </div>
                 </li>
                 <li>
@@ -262,8 +257,7 @@
                     <i data-lucide="shield-check" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.local.t">機密文書を外部に出さない</h3>
-                        <p data-i18n="why.local.d">検証も署名もブラウザ内またはローカルの CLI で完結し、文書をサーバーへ送信しません。tofu
-                            方式ならネットワーク接続なしでも検証できます。</p>
+                        <p data-i18n="why.local.d">検証も署名もブラウザ内またはローカルの CLI で完結し、文書をサーバへ送信しません。tofu 方式ならネットワーク接続なしでも検証できます。</p>
                     </div>
                 </li>
             </ol>
@@ -278,17 +272,16 @@
             <div class="how-grid">
                 <ol class="steps">
                     <li>
-                        <h3 data-i18n="how.s1.t">末尾に署名ブロックを追記する</h3>
-                        <p data-i18n="how.s1.d">署名は HTML コメントなので、GitHub や VS Code の表示には出ません。本文には一切手を加えません。</p>
+                        <h3 data-i18n="how.s1.t">末尾に署名ブロックを追記</h3>
+                        <p data-i18n="how.s1.d">署名は HTML コメントのため、GitHub や VS Code の表示には出ません。本文は一切変更しません。</p>
                     </li>
                     <li>
-                        <h3 data-i18n="how.s2.t">連署は、前の署名ごと包む</h3>
-                        <p data-i18n="how.s2.d">2人目の署名は、本文と1人目の署名をまとめて対象にします。誰かが途中を書き換えると、それ以降の署名がすべて無効になります。</p>
+                        <h3 data-i18n="how.s2.t">連署は先行する署名ごと保護</h3>
+                        <p data-i18n="how.s2.d">2人目の署名は、本文と1人目の署名をまとめて対象とします。途中を改変すると、それ以降の署名はすべて無効になります。</p>
                     </li>
                     <li>
-                        <h3 data-i18n="how.s3.t">公開鍵は、すでにある場所から</h3>
-                        <p data-i18n="how.s3.d">GitHub に登録済みの SSH 鍵、自社ドメインの DNS TXT レコード、パスキーなど。検証のために新しいアカウントは要りません。
-                        </p>
+                        <h3 data-i18n="how.s3.t">公開鍵は既存の公開先から取得</h3>
+                        <p data-i18n="how.s3.d">GitHub に登録済みの SSH 鍵、自社ドメインの DNS TXT レコード、パスキーなど。検証のための新規アカウントは不要です。</p>
                     </li>
                 </ol>
                 <div class="how-code">
@@ -311,16 +304,16 @@ sig: base64:q1Xv…
 
         <section class="compare slide" id="compare" tabindex="-1" aria-labelledby="compare-title">
             <div class="section-head">
-                <h2 id="compare-title" data-i18n="cmp.title">ほかの方法との違い</h2>
+                <h2 id="compare-title" data-i18n="cmp.title">他方式との比較</h2>
             </div>
             <div class="table-wrap">
-                <table>
+                <table data-cell-labels>
                     <thead>
                         <tr>
                             <th scope="col"><span class="sr-only" data-i18n="cmp.feature">項目</span></th>
                             <th scope="col">md-signature</th>
                             <th scope="col" data-i18n="cmp.saas">電子契約サービス</th>
-                            <th scope="col" data-i18n="cmp.detached">別ファイルの署名（.sig / .asc）</th>
+                            <th scope="col" data-i18n="cmp.detached">別ファイル署名（.sig / .asc）</th>
                             <th scope="col" data-i18n="cmp.pgp">PGP クリア署名</th>
                         </tr>
                     </thead>
@@ -328,48 +321,48 @@ sig: base64:q1Xv…
                         <tr>
                             <th scope="row" data-i18n="cmp.r1">単一ファイルで完結</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                             <td class="no" data-i18n="cmp.r1.saas">PDF と事業者側の記録</td>
                             <td class="no" data-i18n="cmp.r1.det">2ファイル</td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                         </tr>
                         <tr>
                             <th scope="row" data-i18n="cmp.r2">表示への影響なし</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span><span
                                     data-i18n="cmp.r2.md">HTML コメント</span></td>
                             <td data-i18n="cmp.r2.saas">PDF のみ</td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                             <td class="no" data-i18n="cmp.r2.pgp">署名文字列が表示される</td>
                         </tr>
                         <tr>
                             <th scope="row" data-i18n="cmp.r3">複数人の署名</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span><span
                                     data-i18n="cmp.r3.md">追記型ハッシュチェーン</span></td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                             <td data-i18n="cmp.r3.det">署名者ごとに別ファイル</td>
                             <td class="no" data-i18n="cmp.r3.pgp">入れ子構造で扱いにくい</td>
                         </tr>
                         <tr>
                             <th scope="row" data-i18n="cmp.r4">事業者なしで検証可能</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span><span
                                     data-i18n="cmp.r4.md">公開仕様</span></td>
                             <td class="no" data-i18n="cmp.r4.saas">事業者に依存</td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span></td>
                         </tr>
                         <tr>
                             <th scope="row" data-i18n="cmp.r5">既存の鍵を使用可能</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r5.md">SSH 鍵・DNS・パスキー・PGP 鍵（gpg やスマートカードで署名、WKD・keys.openpgp.org で公開）</span></td>
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span><span
+                                    data-i18n="cmp.r5.md">SSH 鍵・DNS・パスキー・OpenPGP 鍵（gpg やスマートカードで署名、WKD・keys.openpgp.org で公開）</span></td>
                             <td class="no" data-i18n="cmp.r5.saas">サービスのアカウント</td>
                             <td>PGP / SSH</td>
                             <td data-i18n="cmp.r5.pgp">PGP のみ</td>
@@ -377,20 +370,20 @@ sig: base64:q1Xv…
                         <tr>
                             <th scope="row" data-i18n="cmp.r6">ブラウザのみで動作</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                        class="sr-only" data-i18n="cmp.yes">対応</span></span><span
                                     data-i18n="cmp.r6.md">Web Crypto のみで実装</span></td>
                             <td data-i18n="cmp.r6.saas">サービスの Web アプリ</td>
                             <td class="rare"><span class="mark"><i data-lucide="triangle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.rarely">まれ</span></span></td>
+                                        class="sr-only" data-i18n="cmp.rarely">限定的</span></span></td>
                             <td class="rare"><span class="mark"><i data-lucide="triangle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.rarely">まれ</span></span></td>
+                                        class="sr-only" data-i18n="cmp.rarely">限定的</span></span></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <p class="legend"><span class="mark yes"><i data-lucide="circle" aria-hidden="true"></i></span><span
                     data-i18n="cmp.legendYes">対応</span><span class="mark rare"><i data-lucide="triangle"
-                        aria-hidden="true"></i></span><span data-i18n="cmp.legendRare">まれ・一部のみ</span></p>
+                        aria-hidden="true"></i></span><span data-i18n="cmp.legendRare">限定的</span></p>
         </section>
 
         <section class="explore slide" id="explore" tabindex="-1" aria-labelledby="explore-title">
@@ -427,7 +420,7 @@ sig: base64:q1Xv…
                     <a href="./start/">
                         <i data-lucide="terminal" aria-hidden="true"></i>
                         <h3 data-i18n="top.ex.start.t">導入</h3>
-                        <p data-i18n="top.ex.start.d">CLI のインストール、TypeScript と Go のライブラリ、検証サーバー、CI での利用方法。</p>
+                        <p data-i18n="top.ex.start.d">CLI のインストール、TypeScript と Go のライブラリ、検証サーバ、CI での利用方法。</p>
                         <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
                     </a>
                 </li>

@@ -54,7 +54,7 @@ export type ScopeInput =
   | { ok: true; input: string; ids: string[] }
   | { ok: false; code: "malformed" | "scope-missing"; message: string };
 
-// SPEC 5.6: hash input = normalised sections concatenated in scope order
+// SPEC 5.6: hash input = normalized sections concatenated in scope order
 export function scopedHashInput(slice: string, scope: string): ScopeInput {
   const ids = parseScope(scope);
   if (!ids) return { ok: false, code: "malformed", message: `invalid scope "${scope}" (expected section:<id>[,section:<id>...] with unique ids)` };

@@ -10,20 +10,21 @@
 //
 // [VerifyDocument] checks every block of a document and returns one
 // [BlockResult] per block. A block is StatusValid, StatusInvalid,
-// StatusMalformed, StatusUnresolved or StatusUnsupported. StatusUnresolved
-// means a key or a revocation list could not be fetched, so there is no
-// verdict: do not treat it as valid. [ToJSON] converts a result to the JSON
+// StatusMalformed, StatusUnresolved, or StatusUnsupported. StatusUnresolved
+// means the block could not be fully checked (a key, a revocation list, or a
+// resource could not be fetched or trusted), so there is no verdict: do not
+// treat it as valid. [ToJSON] converts a result to the JSON
 // shape of "mdsig verify --json" (CLI_SPEC.md section 5).
 //
 // # What the caller decides
 //
 // The zero [VerifyOptions] verifies with network access and no stored state.
-// A program that takes documents from other people should set:
+// Outbound requests use [SafeHTTPClient] by default, which refuses
+// connections to private addresses; a document names the hosts that are
+// contacted (Git hosting, WKD, revocation lists, resources). A program that
+// replaces ResolveOptions.HTTPClient, ResolveOptions.PGPClient, or
+// ResourceCheckOptions.FetchClient takes over that protection. A caller may also set:
 //
-//   - ResolveOptions.HTTPClient, ResolveOptions.PGPClient and
-//     ResourceCheckOptions.FetchClient to [SafeHTTPClient], which refuses
-//     connections to private addresses. A document names the hosts that are
-//     contacted (git hosting, WKD, revocation lists, resources).
 //   - ResolveOptions.TofuStore, if "tofu" signers should be remembered between
 //     calls. A key that differs from the stored one is then invalid with the
 //     code "key-changed".
@@ -42,6 +43,6 @@
 //
 // # Status
 //
-// Version 0.0.1 is a draft without an independent security audit. The API may
-// change before 1.0.
+// This release writes format version 0.0.2 and verifies 0.0.1 and 0.0.2. It is
+// a draft without an independent security audit. The API may change before 1.0.
 package mdsig

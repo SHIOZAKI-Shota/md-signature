@@ -4,7 +4,7 @@
 
 **Electronic signatures, for Markdown too.**
 
-[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://mdsig.dev/)
+[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://mdsig.dev/playground/)
 
 `md-signature` is an open, vendor-neutral format for Markdown that appends a signature after the last line of a document and verifies it.
 Each signature is an HTML comment appended to the end of the file:
@@ -44,7 +44,8 @@ sig: base64:q1Xv...
 ### CLI (`mdsig`)
 
 ```sh
-# Install (needs Go 1.26 or later; Homebrew, winget, npm and prebuilt binaries are not available yet)
+# Install with Homebrew, or with Go 1.26 or later (winget and .deb/.rpm packages are not available yet)
+brew install SHIOZAKI-Shota/tap/mdsig
 go install mdsig.dev/cmd/mdsig@latest
 
 # Sign with the SSH key you already use for GitHub (ssh-agent or ~/.ssh/id_ed25519)
@@ -75,7 +76,7 @@ mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees
 mdsig
 ```
 
-Exit codes: `0` verified, `1` verification failed, `2` usage error, `3` network / key lookup error, `4` file error, `5` verified but required co-signatures are missing.
+Exit codes: `0` verified, `1` verification failed, `2` usage error, `3` network or key resolution error (also when `--offline` left a block unchecked), `4` file error, `5` verified but required co-signatures are missing.
 
 ### Use case: signed instructions for AI agents
 
@@ -91,7 +92,7 @@ does not protect against prompt injection through tool output or web content.
 
 md-signature is built as a library first. The CLI and the playground are two users of it.
 
-**TypeScript (`@md-signature/core`):** runs in browsers, Node.js, Deno, Bun and Cloudflare Workers. It is not on npm yet.
+**TypeScript (`@md-signature/core`):** runs in browsers, Node.js, Deno, Bun, and Cloudflare Workers. It is not on npm yet.
 
 ```ts
 import { verifyDocument, signDocument, generateEd25519 } from "@md-signature/core";
@@ -113,7 +114,7 @@ r := mdsig.VerifyDocument(ctx, text, &mdsig.VerifyOptions{})
 
 **Verifying on a server:** what a browser cannot check by itself can be handed to a server. Go offers the `http.Handler` in `mdsig/server` (the one behind `mdsig serve`), TypeScript offers `createVerifyHandler`, and both speak the same HTTP API ([CLI spec, section 3.6](CLI_SPEC.md)). A client calls it with `remoteVerify` and compares the answer with its own verdict using `compareResults`.
 
-For the list of options, TSA root certificates and notes on running a server, see [packages/core/README.md](packages/core/README.md).
+For the list of options, TSA root certificates, and notes on running a server, see [packages/core/README.md](packages/core/README.md).
 
 ## Verification methods
 
@@ -124,7 +125,7 @@ For the list of options, TSA root certificates and notes on running a server, se
 | `pgp` | `alice@example.com` + `fpr` | Local keyring (CLI), then WKD, then a keyserver (keys.openpgp.org by default) |
 | `tofu` | anything | Embedded `pubkey` field. Proves integrity, not identity. |
 
-OpenPGP signatures (`alg: openpgp`) store a detached signature in `sig`, the same format `gpg --detach-sign` writes. The CLI signs through gpg, so keys held by gpg-agent or on a smartcard work as they are. You can also sign with a key file, in the CLI or in the browser. Supported keys are Ed25519 (v4 and v6), RSA (2048 bits or more) and ECDSA P-256. Passphrase-protected key files are supported in gpg's default protection (iterated+salted S2K with AES). Argon2 and AEAD protection work in the CLI, not in the browser.
+OpenPGP signatures (`alg: openpgp`) store a detached signature in `sig`, the same format `gpg --detach-sign` writes. The CLI signs through gpg, so keys held by gpg-agent or on a smartcard work as they are. You can also sign with a key file, in the CLI or in the browser. Supported keys are Ed25519 (v4 and v6), RSA (2048 bits or more), and ECDSA P-256. Passphrase-protected key files are supported in gpg's default protection (iterated+salted S2K with AES). Argon2 and AEAD protection work in the CLI, not in the browser.
 
 Passkey signatures (`alg: webauthn-es256`) use `tofu` or `dns` for the public key.
 Passkeys are bound to the domain of the signing page (currently
@@ -136,12 +137,12 @@ verifiable.
 
 | Path | Contents |
 | --- | --- |
-| [`SPEC.md`](SPEC.md) | Format and cryptographic specification (RFC 2119 style). Normative English text; the original is written in Japanese: [`SPEC.ja.md`](SPEC.ja.md) |
+| [`SPEC.md`](SPEC.md) | Format and cryptographic specification (RFC 2119 style). Normative English text, kept for a possible IETF submission; the original is written in Japanese: [`SPEC.ja.md`](SPEC.ja.md) |
 | [`CLI_SPEC.md`](CLI_SPEC.md) | CLI behavior, flags, exit codes. Informative translation; the normative text is Japanese: [`CLI_SPEC.ja.md`](CLI_SPEC.ja.md) |
 | [`packages/core`](packages/core) | `@md-signature/core`, TypeScript, zero dependencies |
 | [`mdsig`](mdsig) | Go library (`mdsig.dev/mdsig`); [`mdsig/server`](mdsig/server) is the HTTP handler |
 | [`cmd/mdsig`](cmd/mdsig), [`internal`](internal) | `mdsig`, the native CLI (Go) |
-| [`docs`](docs) | Playground at https://mdsig.dev/ |
+| [`docs`](docs) | Website at https://mdsig.dev/, with the [playground](https://mdsig.dev/playground/) |
 | [`examples`](examples) | Test vectors shared by all implementations |
 
 ## Development
@@ -160,11 +161,11 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-This is a draft. Releases (CLI and libraries) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both. The format and the APIs may change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases of the CLI and the Go library (currently `v0.0.3`) and the signature format have separate version numbers; the current format is `0.0.2`, and `0.0.1` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.3 (format 0.0.2)`. `@md-signature/core` is not published yet and keeps its own version (`0.0.1` in `package.json`) until it is. The format and the APIs may change before 1.0. Feedback is welcome in issues.
 
 This is an experimental implementation. It has had no independent security audit. Do not rely on it alone where a wrong signature verdict has serious consequences, such as contracts. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## License
 
-- Specification documents (`SPEC.md`, `CLI_SPEC.md`): [CC0 1.0](LICENSE-SPEC)
+- Specification documents (`SPEC.ja.md` and `SPEC.md`, `CLI_SPEC.ja.md` and `CLI_SPEC.md`): [CC0 1.0](LICENSE-SPEC)
 - Code: [MIT](LICENSE)

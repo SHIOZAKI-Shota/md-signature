@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,7 +104,7 @@
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="guide.verify.stepsT">ブロックごとの手順</h3>
                     <ol class="guide-list steps-out">
-                        <li><span data-i18n-html="guide.verify.v0"><code>v</code> がちょうど1つあり、その値が対応する版でなければ、ほかのすべての検査より先に</span> <code
+                        <li><span data-i18n-html="guide.verify.v0"><code>v</code> がちょうど1つあり、その値が対応するバージョンでなければ、ほかのすべての検査より先に</span> <code
                                 class="st warn">unsupported · unsupported-version</code></li>
                         <li><span data-i18n-html="guide.verify.v1">ブロックを解析する。構文エラー、必須フィールドの欠落、未知のフィールドがあれば</span> <code
                                 class="st bad">malformed</code></li>
@@ -175,12 +175,12 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code class="st warn">unresolved</code></th>
-                                <td data-i18n="guide.verify.st.unresolved">鍵やリソースを取得できず、判定できない。</td>
+                                <td data-i18n="guide.verify.st.unresolved">判定を確定できない。鍵・撤回リスト・リソースの取得失敗、信頼できない撤回リスト、未公開の埋め込み鍵、証明書チェーンを検証できない &lt;code&gt;tsa&lt;/code&gt; ブロックなど。</td>
                                 <td class="codes"><code>network</code> <code>not-found</code> <code>offline</code> <code>key-not-published</code></td>
                             </tr>
                             <tr>
                                 <th scope="row"><code class="st warn">unsupported</code></th>
-                                <td data-i18n="guide.verify.st.unsupported">未対応の版・アルゴリズム・方式。有効とは報告しない。</td>
+                                <td data-i18n="guide.verify.st.unsupported">未対応のバージョン・アルゴリズム・方式。有効とは報告しない。</td>
                                 <td class="codes"><code>unsupported-version</code> <code>unsupported-alg</code>
                                     <code>unsupported-hash</code> <code>unsupported-method</code></td>
                             </tr>
@@ -191,11 +191,11 @@
                         <tbody>
                             <tr>
                                 <th scope="row"><code>0</code></th>
-                                <td data-i18n-html="guide.verify.e0">すべての署名が有効（<code>--offline</code> で未検査のものを含む）</td>
+                                <td data-i18n-html="guide.verify.e0">すべての署名が有効</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>1</code></th>
-                                <td data-i18n-html="guide.verify.e1">検証失敗：ハッシュ不一致、不正な署名、形式不正、未対応、署名なし、末尾の未署名内容など</td>
+                                <td data-i18n-html="guide.verify.e1">検証失敗：ハッシュ不一致、不正な署名、形式不正、未対応、署名なし、末尾の未署名内容、合意の順序違反（<code>violated</code>）など</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>2</code></th>
@@ -203,7 +203,7 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code>3</code></th>
-                                <td data-i18n-html="guide.verify.e3">ネットワークまたは鍵解決のエラー（終了コード 1 となる失敗がない場合）</td>
+                                <td data-i18n-html="guide.verify.e3">ネットワークまたは公開鍵の解決のエラー、または <code>--offline</code> で未検査の署名がある（終了コード 1 となる失敗がない場合）</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>4</code></th>
@@ -232,7 +232,7 @@
         <section class="guide doc-sec" id="json" tabindex="-1" aria-labelledby="json-title">
             <div class="section-head">
                 <h2 id="json-title" data-i18n="docs.verify.jsonT">JSON 出力の読み方</h2>
-                <p data-i18n-html="docs.verify.jsonLede"><code>mdsig verify --json</code> は、言語設定にかかわらず英語のキーと値で結果を出力します。TypeScript の <code>toJsonResult</code>、Go の <code>mdsig.ToJSON</code>、検証サーバーの <code>/v1/verify</code> も同じ形です。</p>
+                <p data-i18n-html="docs.verify.jsonLede"><code>mdsig verify --json</code> は、言語設定にかかわらず英語のキーと値で結果を出力します。TypeScript の <code>toJsonResult</code>、Go の <code>mdsig.ToJSON</code>、検証サーバの <code>/v1/verify</code> も同じ形です。</p>
             </div>
             <div class="guide-grid wide-left-s">
                 <div class="guide-col">

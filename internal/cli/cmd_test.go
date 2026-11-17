@@ -222,10 +222,10 @@ func TestHumanOutputRequireSteps(t *testing.T) {
 	_ = runVerify(o, []string{ex("require-serial-pending.md"), ex("require-serial-guide.md"), ex("require-serial-strict.md"), ex("require-any-pending.md")})
 	s := out.String()
 	for _, want := range []string{
-		"Agreement: pending — step 2 needs 1 more of: tofu:bob@laptop reviewer [signed before the previous step, sign again]",
+		"Agreement: pending (step 2 needs 1 more of: tofu:bob@laptop reviewer [signed before the previous step, sign again])",
 		"! order not followed: #2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete",
-		"Agreement: violated — #2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete",
-		"Agreement: pending — step 1 needs 1 more of: tofu:carol@laptop, tofu:dave@laptop",
+		"Agreement: violated (#2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete)",
+		"Agreement: pending (step 1 needs 1 more of: tofu:carol@laptop, tofu:dave@laptop)",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in\n%s", want, s)
@@ -240,7 +240,7 @@ func TestHumanOutput(t *testing.T) {
 	s := out.String()
 	for _, want := range []string{
 		"resources: ✓ ./assets/diagram.svg  - https://example.com/chart.png (not checked)",
-		"Agreement: pending — missing dns:example.com approver",
+		"Agreement: pending (missing dns:example.com approver)",
 		"partial: terms, fees",
 		"passkey (rp_id mdsig.dev)",
 	} {
@@ -387,5 +387,17 @@ func TestSignRevokeFlow(t *testing.T) {
 	}
 	if c := exitCode(runRevoke(&revokeOptions{list: p("rev.md"), method: "tofu", signer: "alice@laptop", keyPath: p("alice"), index: 2}, p("doc.md"))); c != exitUsage {
 		t.Errorf("index of other signer: %d", c)
+	}
+}
+
+func TestTimestampRejectsInvalidUTF8(t *testing.T) {
+	isolate(t)
+	p := filepath.Join(t.TempDir(), "bad.md")
+	if err := os.WriteFile(p, []byte("# x\xff\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var ee *exitError
+	if err := runTimestamp(&timestampOptions{tsa: "http://127.0.0.1:1/", hash: "sha256"}, p); !errors.As(err, &ee) || ee.code != exitFail {
+		t.Fatalf("got %v", err)
 	}
 }

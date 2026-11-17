@@ -92,7 +92,7 @@ func gunzipBytes(data []byte, maxBytes int64) ([]byte, error) {
 	return b, nil
 }
 
-// zstd+base64: is recognised but unsupported, as in the TS core
+// zstd+base64: is recognized but unsupported, as in the TS core
 func DecodePrefixedBinary(v string) ([]byte, error) {
 	i := strings.IndexByte(v, ':')
 	if i < 0 {

@@ -44,7 +44,7 @@ export function parseScope(value) {
     const ids = value.split(",").map((s) => s.slice("section:".length));
     return new Set(ids).size === ids.length ? ids : null;
 }
-// SPEC 5.6: hash input = normalised sections concatenated in scope order
+// SPEC 5.6: hash input = normalized sections concatenated in scope order
 export function scopedHashInput(slice, scope) {
     const ids = parseScope(scope);
     if (!ids)

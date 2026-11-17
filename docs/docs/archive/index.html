@@ -10,17 +10,17 @@
     <script src="../../color-scheme.js"></script>
     <title>長期保存 | md-signature</title>
     <meta name="description"
-        content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると旧い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
+        content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
     <link rel="canonical" href="https://mdsig.dev/docs/archive/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="md-signature">
     <meta property="og:title" content="長期保存 | md-signature">
-    <meta property="og:description" content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると旧い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
+    <meta property="og:description" content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
     <meta property="og:url" content="https://mdsig.dev/docs/archive/">
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -87,7 +87,7 @@
                 <header class="docs-head">
                     <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
                     <h1 id="page-title" data-i18n="docs.nav.archive">長期保存</h1>
-                    <p class="lede" data-i18n-html="docs.archive.lede"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code> の公開鍵は検証のたびに取得します。署名者が鍵を削除すると旧い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。</p>
+                    <p class="lede" data-i18n-html="docs.archive.lede"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code> の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。</p>
                     <nav class="toc" aria-labelledby="toc-title">
                         <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
                         <ol>
@@ -102,7 +102,7 @@
         <section class="guide doc-sec" id="overview" tabindex="-1" aria-labelledby="overview-title">
             <div class="section-head">
                 <h2 id="overview-title" data-i18n="ar.ov.title">3つの手段</h2>
-                <p data-i18n-html="ar.ov.lede"><code>ts</code> は署名者の申告にすぎません。第三者の時刻認証局（TSA）による RFC 3161 タイムスタンプと、署名に用いた公開鍵の格納を組み合わせて使用します。</p>
+                <p data-i18n-html="ar.ov.lede"><code>ts</code> は署名者の申告にすぎません。第三者の時刻認証局（TSA）による RFC 3161 タイムスタンプと、署名に用いた公開鍵の埋め込みを組み合わせて使用します。</p>
             </div>
             <table class="guide-table means">
                 <thead>
@@ -140,7 +140,7 @@
         <section class="guide doc-sec" id="tsa-token" tabindex="-1" aria-labelledby="tsa-token-title">
             <div class="section-head">
                 <h2 id="tsa-token-title" data-i18n="ar.tok.title">署名へのタイムスタンプ（tsa_token）</h2>
-                <p data-i18n-html="ar.tok.lede">署名ブロックに <code>tsa_url</code> と <code>tsa_token</code> を付与すると、その署名がある時刻に存在したことを TSA が証明します。証拠の連鎖は <code>document → hash → sig → tsa_token</code> です。</p>
+                <p data-i18n-html="ar.tok.lede">署名ブロックに <code>tsa_url</code> と <code>tsa_token</code> を付与すると、その署名がある時刻に存在したことを TSA が証明します。証拠のチェーンは <code>document → hash → sig → tsa_token</code> です。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
@@ -159,7 +159,7 @@
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">
-                        <figcaption data-i18n="ar.tok.chainCap">証拠の連鎖</figcaption>
+                        <figcaption data-i18n="ar.tok.chainCap">証拠のチェーン</figcaption>
                         <pre class="guide-code formula"><code>document → hash → sig → tsa_token
 messageImprint = SHA-256(base64-decode(sig))</code></pre>
                     </figure>
@@ -221,7 +221,7 @@ tsa_token: |
                     <h3 class="guide-label" data-i18n="ar.blk.verT">検証の手順（5.4 節の手順 4 以降に代えて）</h3>
                     <ol class="guide-list steps-out">
                         <li><span data-i18n-html="ar.blk.v1">トークンをデコードできない</span> <code class="st bad">malformed</code></li>
-                        <li><span data-i18n-html="ar.blk.v2">応答ステータスが granted でない、または <code>messageImprint</code> のアルゴリズムと値がペイロードのダイジェストと一致しない</span> <code class="st bad">invalid · bad-signature</code></li>
+                        <li><span data-i18n-html="ar.blk.v2">応答ステータスが granted または grantedWithMods でない、または <code>messageImprint</code> のアルゴリズムと値がペイロードのダイジェストと一致しない</span> <code class="st bad">invalid · bad-signature</code></li>
                         <li><span data-i18n-html="ar.blk.v3">CMS 署名と TSA 証明書チェーンを検証できた。<code>genTime</code> と TSA の名前を報告する</span> <code class="st ok">valid</code></li>
                         <li><span data-i18n-html="ar.blk.v4">チェーンを、検証者のトラストストアに照らして検証できない</span> <code class="st warn">unresolved · not-found</code></li>
                     </ol>
@@ -264,7 +264,7 @@ mdsig timestamp contract.md --hash sha512 --reason renewal</code></pre>
         <section class="guide doc-sec" id="snapshot" tabindex="-1" aria-labelledby="snapshot-title">
             <div class="section-head">
                 <h2 id="snapshot-title" data-i18n="ar.snap.title">公開鍵のスナップショット（pubkey）</h2>
-                <p data-i18n-html="ar.snap.lede"><code>dns</code> と <code>git-hosting</code> のブロックは、署名に用いた公開鍵を <code>pubkey</code> に格納できます（<code>v</code> が <code>0.0.2</code> 以降、指定した場合のみ）。<code>pgp</code> のブロックには格納できません。<code>pubkey</code> は署名者自身が書いた値で、偽造者も自身の鍵を埋め込めるため、公開中の鍵との照合を経なければ有効とはしません。</p>
+                <p data-i18n-html="ar.snap.lede"><code>dns</code> と <code>git-hosting</code> のブロックは、署名に用いた公開鍵を <code>pubkey</code> に埋め込めます（<code>v</code> が <code>0.0.2</code> 以降、指定した場合のみ）。<code>pgp</code> のブロックには埋め込めません。<code>pubkey</code> は署名者自身が書いた値で、偽造者も自身の鍵を埋め込めるため、公開中の鍵との照合を経なければ有効とはしません。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
@@ -278,7 +278,7 @@ mdsig timestamp contract.md --hash sha512 --reason renewal</code></pre>
                         </thead>
                         <tbody>
                             <tr>
-                                <td data-i18n-html="ar.snap.c1">鍵種別が <code>alg</code> と一致しない、デコードできない、<code>key_fp</code> が <code>pubkey</code> の指紋と一致しない</td>
+                                <td data-i18n-html="ar.snap.c1">鍵種別が <code>alg</code> と一致しない、デコードできない、<code>key_fp</code> が <code>pubkey</code> のフィンガープリントと一致しない</td>
                                 <td><code class="st bad">malformed</code></td>
                             </tr>
                             <tr>
@@ -324,7 +324,7 @@ sig: |
                         <pre class="guide-code"><code>mdsig sign contract.md -m dns -s example.com --selector 2026 \
   -k ~/.mdsig/example --embed-key --tsa</code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="ar.snap.note">TypeScript は <code>signDocument</code> の <code>embedKey: true</code>、Go は <code>SignOptions.EmbedKey</code> で指定します。プレイグラウンドとエディタでは、連署の追加画面の「公開鍵を埋め込む」で指定できます。</p>
+                    <p class="guide-note" data-i18n-html="ar.snap.note">TypeScript は <code>signDocument</code> の <code>embedKey: true</code>、Go は <code>SignOptions.EmbedKey</code> で指定します。デモとエディタでは、連署の追加画面の「公開鍵を埋め込む」で指定できます。</p>
                 </div>
             </div>
         </section>
@@ -356,7 +356,7 @@ sig: |
                                 <td><code>tsaRoots</code><br><code>extraTsaRoots</code></td>
                             </tr>
                             <tr>
-                                <th scope="row" data-i18n="ar.roots.pg">プレイグラウンド、エディタ</th>
+                                <th scope="row" data-i18n="ar.roots.pg">デモ、エディタ</th>
                                 <td data-i18n-html="ar.roots.pg.trust">起動時に <code>tsa-roots.json</code> を読み込む。読み込めない場合はライブラリの同梱分</td>
                                 <td data-i18n-html="ar.roots.pg.add">「TSA ルート証明書」欄で PEM／DER を追加（メモリ内のみ）</td>
                             </tr>

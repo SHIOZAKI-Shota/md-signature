@@ -47,7 +47,14 @@ export interface SignResult {
 
 export class SignError extends Error {}
 
+// SPEC 5.1: generators refuse documents that are not valid UTF-8; a lone surrogate has no UTF-8 encoding.
+const LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+function assertUtf8(text: string): void {
+  if (LONE_SURROGATE_RE.test(text)) throw new SignError("the document is not valid UTF-8");
+}
+
 export async function signDocument(text: string, o: SignOptions): Promise<SignResult> {
+  assertUtf8(text);
   const doc = parseDocument(text);
   if (doc.chain.length === 0 && doc.strayMarker && !o.force) {
     throw new SignError(
@@ -73,7 +80,7 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
     if (o.selector) fields.selector = o.selector;
   }
   if (o.method === "git-hosting") {
-    if (isWebAuthn) throw new SignError("git-hosting supports only ed25519 SSH keys; use tofu or dns for passkeys");
+    if (isWebAuthn) throw new SignError("git-hosting supports only Ed25519 SSH keys; use tofu or dns for passkeys");
     if (!GIT_HOSTING_SIGNER_RE.test(o.signerId)) throw new SignError(`git-hosting signer must be <host>/<username> with a domain name as host, got "${o.signerId}"`);
     if (o.keyFp !== false) fields.key_fp = o.keyFp ?? (await sshFingerprint((o.signer as Signer).publicKey));
   }
@@ -165,6 +172,7 @@ export interface TimestampOptions {
 
 // SPEC 4.6: appends a tsa block, a timestamp over everything before it, earlier tokens included
 export async function timestampDocument(text: string, o: TimestampOptions = {}): Promise<SignResult> {
+  assertUtf8(text);
   const doc = parseDocument(text);
   if (doc.chain.length === 0) throw new SignError(doc.strayMarker ? `line ${doc.strayMarkerLine}: a signature block is followed by unsigned content` : "the document has no signature to timestamp");
   const malformed = doc.chain.find((b) => b.errors.length);

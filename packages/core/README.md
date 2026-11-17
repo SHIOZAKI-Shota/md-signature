@@ -4,7 +4,7 @@ TypeScript implementation of [md-signature](../../README.md), a signature format
 
 [日本語](README.ja.md) · [Format specification](../../SPEC.md) · [CLI and HTTP API specification](../../CLI_SPEC.md)
 
-- Runs in browsers, Node.js 22 or later, Deno, Bun and Cloudflare Workers. No `node:*` modules are used.
+- Runs in browsers, Node.js 22 or later, Deno, Bun, and Cloudflare Workers. No `node:*` modules are used.
 - Not on npm yet. Once published, install it with `npm install @md-signature/core`.
 - This is a draft. It signs with format `0.0.2` and verifies `0.0.1` and `0.0.2`. The API may change before 1.0.
 
@@ -15,7 +15,7 @@ import { verifyDocument } from "@md-signature/core";
 
 const result = await verifyDocument(text);
 
-result.ok;          // true when every signature is valid
+result.ok;          // true when there is no document-level error, every block is valid, and agreement is not violated
 result.error;       // a problem with the document as a whole (no signature, unsigned content after the last signature, ...)
 result.signatures;  // one result per block
 result.agreement;   // co-signatures asked for with `require`: none / complete / pending / violated
@@ -33,14 +33,16 @@ Each block result has these fields.
 | `revocation`, `resources`, `partial`, `pgp`, `webauthn` | Present when they apply |
 | `warnings` | Things a user should be told although the block is valid |
 
-`unresolved` means the key or the revocation list could not be fetched, so there is no verdict. Do not treat it as valid.
+`unresolved` means there is no verdict: the key could not be obtained, the revocation list could not be fetched or is not signed by the signer, a resource could not be fetched, the embedded key is no longer published (`key-not-published`), or the chain of a `tsa` block does not verify. Do not treat it as valid. Under `offline`, blocks that could not be checked are `unresolved` too, so `result.ok` is `false`.
+
+A pending agreement leaves `result.ok` `true`; check `agreement.status` (the CLI exits with 5).
 
 ### Main options
 
 | Option | Meaning |
 | --- | --- |
 | `fetch` | Function used for outbound requests. Set it to go through a relay, or to replace the network in tests |
-| `offline` | Do not use the network. Signatures other than `tofu` become `unresolved` |
+| `offline` | Do not use the network. `tofu` blocks are checked as usual and `tsa` blocks and `tsa_token` checks need no network. A `dns` or `git-hosting` block with an embedded `pubkey` is still `invalid` when the signature does not match it. Other blocks become `unresolved` (code `offline`) |
 | `resolvers` | Replace how keys are found, per method (`dns`, `git-hosting`, `tofu`, `pgp`) |
 | `tofuStore` | Where the signer-to-key bindings of `tofu` are kept. A key that differs from the stored one is invalid with `key-changed` |
 | `acceptNewTofuKey` | Accept a changed `tofu` key and replace the stored binding |
@@ -72,7 +74,7 @@ const roots = await readTsaRoots(pemText);
 
 A value is DER (`Uint8Array`) or PEM text, and PEM text may hold several certificates. `signDocument` takes the same options and uses them to check the response it gets from `tsaUrl`.
 
-The built-in list is chosen from the roots that Microsoft's root program (CCADB) trusts for time stamping. Certificate revocation (CRL, OCSP) is not checked.
+The built-in list is chosen from the roots that Microsoft's root program (CCADB) trusts for time-stamping. Certificate revocation (CRL, OCSP) is not checked.
 
 ## Signing
 
@@ -91,7 +93,7 @@ const { text } = await signDocument(markdown, {
 });
 ```
 
-Pass `require` one line per string. Steps, thresholds and the order handling are lines too (format specification, section 5.8).
+Pass `require` one line per string. Steps, thresholds, and the order handling are lines too (format specification, section 5.8).
 
 ```ts
 await signDocument(markdown, {
@@ -102,7 +104,7 @@ await signDocument(markdown, {
 
 In the result, `agreement.missing` tells what each step still lacks (`step`, `need`, `blockedBy`, `early`) and `agreement.violations` lists order violations. An `order strict` violation makes `agreement.status` `violated` and `result.ok` `false`.
 
-Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl`, `tsaUrl` and `embedKey` (embed the public key with `dns` and `git-hosting`). Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
+Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl`, `tsaUrl`, and `embedKey` (embed the public key with `dns` and `git-hosting`). Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
 
 A signer is made from an OpenSSH private key with `parseOpenSshPrivateKey`, from an OpenPGP secret key with `readPgpSecretKey` and `unlockPgpSecretKey`, and from a passkey with `registerPasskey` and `passkeySigner`.
 
@@ -145,7 +147,7 @@ The handler fixes the following.
 - Each request is verified on its own. Stored `tofu` bindings, local files and keyrings are not used.
 - A request with an `Origin` header is processed only if the origin is in `allowOrigins`.
 - A body is at most 4 MiB and at most 8 requests run at once (`maxBodyBytes`, `maxConcurrent`).
-- Outbound requests to IP literals, `localhost` and internal names are refused.
+- Outbound requests to IP literals, `localhost`, and internal names are refused.
 
 The last limit cannot catch a public name that resolves to an internal address, because Web APIs do not show what a name resolves to. Where the server can reach an internal network, restrict its outbound traffic at the network level as well. The Go server (`mdsig serve`) checks the address when it connects.
 
@@ -180,10 +182,10 @@ A verdict that comes from a server is trusted as far as that server is. Keep the
 | --- | --- | --- |
 | Trust anchors for TSAs | Built-in roots and the ones you pass | The operating system's trust store and `--tsa-root` |
 | Local gpg keyring, ssh-agent | Not used | Used by the CLI |
-| Limits on outbound requests | Server handler only, by name | Always, by connection address |
+| Limits on outbound requests | Server handler only, by name | Fetches a document triggers (keys, revocation lists, resources), by connection address |
 | CLI | None | Yes |
 
-The signature format, the verdict vocabulary, the JSON shape and the HTTP API are shared, and both implementations check the test vectors in [examples](../../examples).
+The signature format, the verdict vocabulary, the JSON shape, and the HTTP API are shared, and both implementations check the test vectors in [examples](../../examples).
 
 ## License
 

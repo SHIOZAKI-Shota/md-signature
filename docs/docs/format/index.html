@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -118,14 +118,12 @@
                             <tr>
                                 <th scope="row"><code>v</code></th>
                                 <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.v">形式のバージョン。本書の版は <code>0.0.2</code>（<code>0.0.1</code> も検証できる）。</td>
+                                <td data-i18n-html="guide.block.f.v">形式のバージョン。現行のバージョンは <code>0.0.2</code>（<code>0.0.1</code> も検証できる）。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>method</code></th>
                                 <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.method">
-                                    公開鍵の解決方法。<code>dns</code>・<code>git-hosting</code>・<code>pgp</code>・<code>tofu</code>
-                                    のいずれか。</td>
+                                <td data-i18n-html="guide.block.f.method">公開鍵の解決方法。<code>dns</code>・<code>git-hosting</code>・<code>pgp</code>・<code>tofu</code> のいずれか。タイムスタンプ専用ブロックは <code>tsa</code>。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>signer</code></th>
@@ -142,8 +140,7 @@
                             <tr>
                                 <th scope="row"><code>hash</code></th>
                                 <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.hash">対象スライスのダイジェスト。<code>sha256:</code> に続けて小文字の16進数。
-                                </td>
+                                <td data-i18n-html="guide.block.f.hash">対象スライスのダイジェスト。<code>&lt;hash-alg&gt;:</code> に続けて小文字の16進数。既定は <code>sha256</code>（<code>tsa</code> ブロックは <code>sha512</code> も使用できる）。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>sig</code></th>
@@ -178,8 +175,7 @@
                                 <th scope="row"><code>expires</code> <code>scope</code> <code>require</code>
                                     <code>resources</code> <code>revocation_url</code> <code>tsa_*</code></th>
                                 <td class="req" data-i18n="guide.req.may">任意</td>
-                                <td data-i18n-html="guide.block.f.ext">期限・部分署名・必須連署・リソース・撤回・タイムスタンプの拡張（「拡張フィールド」で説明）。
-                                </td>
+                                <td data-i18n-html="guide.block.f.ext">期限・部分署名・リソース・撤回（「拡張フィールド」）、必須の連署（「連署ワークフロー」）、タイムスタンプ（「長期保存」）。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>x_*</code></th>
@@ -203,8 +199,8 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: <span class="k">|</span>
-  base64:ezSYKHgypWrnc0/in6fUVU5FtrcFjI5eQs/YeuqI5U+IVpsIeobcgH09fwhCdnOpuq5Tw
-  MY2VycXK5EdwAZEBw==
+  base64:L+agHbaU8iBuejrzPWgQpCrXjJoWmtyKYGho0iGOWzy/XNIsWF0CwRQTLf5azW0Gubg1x
+  bp5QDS+poEfmIodBA==
 <span class="c">--&gt;</span></code></pre>
                     </figure>
                     <h3 class="guide-label" data-i18n="guide.block.rulesT">構文規則</h3>
@@ -345,8 +341,8 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 <span class="x">sig: |
-  base64:ezSYKHgypWrnc0/in6fUVU5FtrcFjI5eQs/YeuqI5U+IVpsIeobcgH09fwhCdnOpuq5Tw
-  MY2VycXK5EdwAZEBw==</span>
+  base64:L+agHbaU8iBuejrzPWgQpCrXjJoWmtyKYGho0iGOWzy/XNIsWF0CwRQTLf5azW0Gubg1x
+  bp5QDS+poEfmIodBA==</span>
 <span class="c">--&gt;</span></code></pre>
                     </figure>
                     <figure class="guide-cell">

@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta property="og:image:alt" content="md-signature：Markdown にも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -93,7 +93,7 @@
                         <ol>
                             <li><a href="#declare" data-i18n="wf.declare.title">require の宣言</a></li>
                             <li><a href="#match" data-i18n="wf.match.title">照合の規則</a></li>
-                            <li><a href="#order" data-i18n="wf.order.title">順番の扱い（order）</a></li>
+                            <li><a href="#order" data-i18n="wf.order.title">順序の扱い（order）</a></li>
                             <li><a href="#status" data-i18n="wf.status.title">合意ステータスと終了コード</a></li>
                             <li><a href="#cli" data-i18n="wf.cli.title">CLI と CI での利用</a></li>
                         </ol>
@@ -217,7 +217,7 @@
 
         <section class="guide doc-sec" id="order" tabindex="-1" aria-labelledby="order-title">
             <div class="section-head">
-                <h2 id="order-title" data-i18n="wf.order.title">順番の扱い（order）</h2>
+                <h2 id="order-title" data-i18n="wf.order.title">順序の扱い（order）</h2>
                 <p data-i18n-html="wf.order.lede">段階のある宣言では、前の段階が成立する前に署名される場合があります。その署名の扱いは、宣言した署名者が順序行で選択します。</p>
             </div>
             <div class="guide-grid wide-left-s">
@@ -226,7 +226,7 @@
                         <thead>
                             <tr>
                                 <th scope="col"><code>order</code></th>
-                                <th scope="col" data-i18n="wf.order.th.count">順番前の署名</th>
+                                <th scope="col" data-i18n="wf.order.th.count">順番より前の署名</th>
                                 <th scope="col" data-i18n="wf.order.th.report">報告</th>
                                 <th scope="col" data-i18n="wf.order.th.result">合意への影響</th>
                             </tr>
@@ -235,7 +235,7 @@
                             <tr>
                                 <th scope="row"><code>pending</code></th>
                                 <td data-i18n="wf.order.pending.count">数えない</td>
-                                <td data-i18n-html="wf.order.pending.report">不足する連署の一覧に、順番前に署名済みである旨（<code>early</code>）を付記</td>
+                                <td data-i18n-html="wf.order.pending.report">不足する連署の一覧に、順番より前に署名済みである旨（<code>early</code>）を付記</td>
                                 <td data-i18n-html="wf.order.pending.result">その署名者が改めて署名するまで <code>pending</code></td>
                             </tr>
                             <tr>
@@ -259,7 +259,7 @@
                         <figcaption data-i18n="wf.case.cap">例：bob が承認より前に署名した場合</figcaption>
                         <ol class="wf-chain">
                             <li><b>#1</b><span>github.com/alice</span><em data-i18n="wf.case.b1">require を宣言</em></li>
-                            <li class="early"><b>#2</b><span>github.com/bob</span><em data-i18n="wf.case.b2">step 2（順番前）</em></li>
+                            <li class="early"><b>#2</b><span>github.com/bob</span><em data-i18n="wf.case.b2">step 2（順番より前）</em></li>
                             <li><b>#3</b><span>example.com</span><em data-i18n="wf.case.b3">step 1 の承認</em></li>
                         </ol>
                         <pre class="guide-code"><code>require: |
@@ -320,7 +320,7 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code class="st warn">pending</code></th>
-                                <td data-i18n-html="wf.status.pending">不足する連署がある。各要素はあと何件必要か（<code>need</code>）、待機中の段階（<code>blocked_by</code>）、順番前の署名（<code>early</code>）を持つ</td>
+                                <td data-i18n-html="wf.status.pending">不足する連署がある。各要素はあと何件必要か（<code>need</code>）、待機中の段階（<code>blocked_by</code>）、順番より前の署名（<code>early</code>）を持つ</td>
                                 <td><code>5</code></td>
                             </tr>
                             <tr>
@@ -372,7 +372,7 @@
   --require "git-hosting:github.com/carol" \
   --require "git-hosting:github.com/dave"</code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="wf.cli.signNote">プレイグラウンドとエディタでは、連署の追加画面の詳細設定で同じ宣言を作成できます。</p>
+                    <p class="guide-note" data-i18n-html="wf.cli.signNote">デモとエディタでは、連署の追加画面の詳細設定で同じ宣言を作成できます。</p>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">

@@ -147,7 +147,7 @@ func checkWebAuthnData(fields map[string]string, payload []byte) webAuthnCheck {
 	authData, err1 := fromBase64(fields["webauthn_authenticator_data"])
 	clientData, err2 := fromBase64(fields["webauthn_client_data"])
 	if err1 != nil || err2 != nil {
-		return webAuthnCheck{code: "malformed", msg: "webauthn fields are not valid base64"}
+		return webAuthnCheck{code: "malformed", msg: "WebAuthn fields are not valid base64"}
 	}
 	// TextDecoder strips one leading BOM before JSON.parse
 	cdText := bytes.TrimPrefix(clientData, []byte(bom))

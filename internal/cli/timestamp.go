@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -33,7 +34,7 @@ func newTimestampCmd() *cobra.Command {
 	f.StringVar(&o.tsa, "tsa", mdsig.DefaultTSAURL, "URL of the RFC 3161 time-stamping authority")
 	f.StringVar(&o.hash, "hash", "sha256", "imprint and block hash: sha256, or sha512 for a renewal that must outlive SHA-256")
 	f.StringVar(&o.reason, "reason", "", "free-text reason")
-	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking the TSA's response (PEM or DER file; repeatable)")
+	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
 	f.BoolVar(&o.toStdout, "stdout", false, "write the result to stdout instead of changing the file")
 	return c
 }
@@ -49,6 +50,9 @@ func runTimestamp(o *timestampOptions, file string) error {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return exitf(exitIO, "%v", err)
+	}
+	if !utf8.Valid(data) {
+		return exitf(exitFail, "%s", i18n.T("file.not_utf8", safeText(file)))
 	}
 	res, err := mdsig.TimestampDocument(context.Background(), string(data), mdsig.TimestampOptions{
 		TSAURL: o.tsa, Hash: o.hash, Reason: o.reason, TSA: mdsig.TSAVerifyOptions{ExtraRoots: roots},

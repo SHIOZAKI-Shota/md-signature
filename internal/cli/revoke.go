@@ -38,9 +38,9 @@ func newRevokeCmd() *cobra.Command {
 	f := c.Flags()
 	f.StringVar(&o.list, "list", "", "the revocation list file (created if it does not exist; required)")
 	f.StringVarP(&o.method, "method", "m", "git-hosting", "git-hosting, dns, tofu, or pgp")
-	f.StringVarP(&o.signer, "signer", "s", "", "signer id whose signatures are revoked (required; pgp: defaults to the key's email)")
+	f.StringVarP(&o.signer, "signer", "s", "", "signer ID whose signatures are revoked (required; pgp: defaults to the key's email)")
 	f.StringVarP(&o.keyPath, "key", "k", "", "OpenSSH Ed25519 private key file (default: ssh-agent, then ~/.ssh/id_ed25519)")
-	f.StringVar(&o.selector, "selector", "", "DNS selector (dns only)")
+	f.StringVar(&o.selector, "selector", "", "dns only: DNS selector")
 	f.StringVarP(&o.localUser, "local-user", "u", "", "pgp only: key for gpg to sign the list with (fingerprint or user ID; default: gpg's default key)")
 	f.StringVar(&o.pgpKey, "pgp-key", "", "pgp only: ASCII-armored OpenPGP secret key file to sign the list with directly instead of gpg")
 	f.IntVar(&o.index, "index", 0, "revoke only signature #n of <file> (default: every signature by the signer)")
@@ -149,7 +149,7 @@ func runRevoke(o *revokeOptions, file string) error {
 		}
 	}
 	if len(ids) == 0 {
-		return exitf(exitFail, "%s", i18n.T("revoke.none", file, o.method, o.signer))
+		return exitf(exitFail, "%s", i18n.T("revoke.none", safeText(file), o.method, safeText(o.signer)))
 	}
 
 	listText, exists, err := readTextFile(o.list)
@@ -197,12 +197,12 @@ func runRevoke(o *revokeOptions, file string) error {
 	// SPEC 5.9: tofu lists are trusted only with the same pubkey, git-hosting/dns by method + signer
 	for _, f := range keyHints {
 		if o.method == "tofu" && f["pubkey"] != "ed25519:"+base64.StdEncoding.EncodeToString(pub) {
-			return exitf(exitUsage, "%s", i18n.T("revoke.tofu_key_mismatch", f["pubkey"]))
+			return exitf(exitUsage, "%s", i18n.T("revoke.tofu_key_mismatch", safeText(f["pubkey"])))
 		}
 	}
 	for _, f := range keyHints {
 		if o.method == "git-hosting" && f["key_fp"] != "" && f["key_fp"] != mdsig.SSHFingerprint(pub) {
-			fmt.Fprintln(stderr, "mdsig: "+i18n.T("revoke.key_mismatch", f["key_fp"]))
+			fmt.Fprintln(stderr, "mdsig: "+i18n.T("revoke.key_mismatch", safeText(f["key_fp"])))
 			break
 		}
 	}
@@ -227,7 +227,7 @@ func runRevoke(o *revokeOptions, file string) error {
 func signPgpRevocation(o *revokeOptions, so *signOptions, key *pgpKeyChoice, file, body string, keyHints []map[string]string, indexes, urls []string, added int) error {
 	for _, f := range keyHints {
 		if f["fpr"] != key.fpr {
-			fmt.Fprintln(stderr, "mdsig: "+i18n.T("revoke.pgp_key_mismatch", f["fpr"]))
+			fmt.Fprintln(stderr, "mdsig: "+i18n.T("revoke.pgp_key_mismatch", safeText(f["fpr"])))
 			break
 		}
 	}
@@ -264,7 +264,7 @@ func finishRevoke(o *revokeOptions, file, list string, indexes, urls []string, a
 	} else {
 		fmt.Fprintln(stderr, i18n.T("revoke.publish"))
 		for _, u := range urls {
-			fmt.Fprintln(stderr, "  "+u)
+			fmt.Fprintln(stderr, "  "+safeText(u))
 		}
 	}
 	return nil
