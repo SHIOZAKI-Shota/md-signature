@@ -82,7 +82,7 @@ homebrew_casks:
       branch: main
       # pushed with a deploy key that can write to the tap only (secret TAP_DEPLOY_KEY)
       git:
-        url: "ssh://git@github.com:SHIOZAKI-Shota/homebrew-tap.git"
+        url: "ssh://git@github.com/SHIOZAKI-Shota/homebrew-tap.git"
         private_key: "{{ .Env.TAP_DEPLOY_KEY }}"
     homepage: https://mdsig.dev/
     description: Sign and verify Markdown documents with embedded md-signature blocks.
@@ -97,16 +97,17 @@ homebrew_casks:
 winget:
   - name: mdsig
     publisher: SHIOZAKI-Shota
-    package_identifier: SHIOZAKI-Shota.mdsig
+    package_identifier: ShiozakiShota.mdsig
     short_description: Sign and verify Markdown documents with embedded md-signature blocks.
     license: MIT
     homepage: https://mdsig.dev/
-    publisher_url: https://github.com/SHIOZAKI-Shota
+    publisher_url: https://shiozakishota.com/
     repository:
       owner: SHIOZAKI-Shota
       name: winget-pkgs
       branch: "mdsig-{{ .Version }}"
-      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      # classic token with public_repo, the same one ClauseDown uses (secret DISTRIBUTE_TOKEN)
+      token: "{{ .Env.DISTRIBUTE_TOKEN }}"
       pull_request:
         enabled: true
         base:

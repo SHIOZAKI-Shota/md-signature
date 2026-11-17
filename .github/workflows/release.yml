@@ -1,11 +1,12 @@
 name: Release
 
 # Pushing a tag vX.Y.Z builds the binaries, signs the checksums, publishes the GitHub release,
-# and updates the Homebrew tap (and winget, when its token is set).
+# updates the Homebrew tap, and opens a pull request on microsoft/winget-pkgs when DISTRIBUTE_TOKEN is set.
 #
 # Secrets:
 #   TAP_DEPLOY_KEY       private half of a deploy key with write access to SHIOZAKI-Shota/homebrew-tap
-#   WINGET_GITHUB_TOKEN  optional; classic token with public_repo for the SHIOZAKI-Shota/winget-pkgs fork
+#   DISTRIBUTE_TOKEN     optional; classic token with public_repo, used to push to the SHIOZAKI-Shota/winget-pkgs
+#                        fork and open the pull request on microsoft/winget-pkgs
 
 on:
   push:
@@ -40,11 +41,11 @@ jobs:
         id: skip
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
-          WINGET_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+          DISTRIBUTE_TOKEN: ${{ secrets.DISTRIBUTE_TOKEN }}
         run: |
           skip=""
           if [ -z "$TAP_DEPLOY_KEY" ]; then skip="homebrew"; echo "::warning::TAP_DEPLOY_KEY is not set: the Homebrew tap is not updated"; fi
-          if [ -z "$WINGET_GITHUB_TOKEN" ]; then skip="${skip:+$skip,}winget"; echo "::notice::WINGET_GITHUB_TOKEN is not set: winget is skipped"; fi
+          if [ -z "$DISTRIBUTE_TOKEN" ]; then skip="${skip:+$skip,}winget"; echo "::notice::DISTRIBUTE_TOKEN is not set: winget is skipped"; fi
           echo "args=${skip:+--skip=$skip}" >> "$GITHUB_OUTPUT"
       - uses: goreleaser/goreleaser-action@v6
         with:
@@ -53,4 +54,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
-          WINGET_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+          DISTRIBUTE_TOKEN: ${{ secrets.DISTRIBUTE_TOKEN }}
