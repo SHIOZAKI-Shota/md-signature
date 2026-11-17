@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -22,6 +22,6 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:C7iVVHumfkH3aVIRck7LBJITqAVFMHDVTWNdNawx03vQwme98S9SaqGzQtT+U4zwJQo40
-  gXWJWvX6i8T7pbwDQ==
+  base64:guycahvnfwJtaYb4Rk/UI8RzbpadHhPkk082NMkFQYgx2hN3tQ0y5GZ4u+q1GEhEuJUn1
+  Hn6ilnc3cDnXOEJBA==
 -->

@@ -62,12 +62,32 @@ type JSONRequirement struct {
 	Signer     string `json:"signer"`
 	Role       string `json:"role,omitempty"`
 	DeclaredBy int    `json:"declared_by"`
+	Step       int    `json:"step"`
+	Any        int    `json:"any"`
+}
+
+type JSONMissingRequirement struct {
+	JSONRequirement
+	Need      int  `json:"need"`
+	BlockedBy int  `json:"blocked_by,omitempty"`
+	Early     bool `json:"early,omitempty"`
+}
+
+type JSONOrderViolation struct {
+	DeclaredBy int    `json:"declared_by"`
+	Step       int    `json:"step"`
+	Index      int    `json:"index"`
+	Method     string `json:"method"`
+	Signer     string `json:"signer"`
+	Role       string `json:"role,omitempty"`
+	Order      string `json:"order"`
 }
 
 type JSONAgreement struct {
-	Status   string            `json:"status"`
-	Required []JSONRequirement `json:"required"`
-	Missing  []JSONRequirement `json:"missing"`
+	Status     string                   `json:"status"`
+	Required   []JSONRequirement        `json:"required"`
+	Missing    []JSONMissingRequirement `json:"missing"`
+	Violations []JSONOrderViolation     `json:"violations"`
 }
 
 // JSONResult is the result of one document in the shape of CLI_SPEC 5 (`verify --json`, without "file")
@@ -79,20 +99,25 @@ type JSONResult struct {
 	Signatures []JSONSignature `json:"signatures"`
 }
 
-func toJSONRequirements(rs []Requirement) []JSONRequirement {
-	out := []JSONRequirement{}
-	for _, r := range rs {
-		out = append(out, JSONRequirement{Method: r.Method, Signer: r.Signer, Role: r.Role, DeclaredBy: r.DeclaredBy})
-	}
-	return out
+func toJSONRequirement(r Requirement) JSONRequirement {
+	return JSONRequirement{Method: r.Method, Signer: r.Signer, Role: r.Role, DeclaredBy: r.DeclaredBy, Step: r.Step, Any: r.Any}
 }
 
 func toJSONAgreement(a Agreement) JSONAgreement {
-	st := a.Status
-	if st == "" {
-		st = AgreementNone
+	out := JSONAgreement{Status: a.Status, Required: []JSONRequirement{}, Missing: []JSONMissingRequirement{}, Violations: []JSONOrderViolation{}}
+	if out.Status == "" {
+		out.Status = AgreementNone
 	}
-	return JSONAgreement{Status: st, Required: toJSONRequirements(a.Required), Missing: toJSONRequirements(a.Missing)}
+	for _, r := range a.Required {
+		out.Required = append(out.Required, toJSONRequirement(r))
+	}
+	for _, m := range a.Missing {
+		out.Missing = append(out.Missing, JSONMissingRequirement{JSONRequirement: toJSONRequirement(m.Requirement), Need: m.Need, BlockedBy: m.BlockedBy, Early: m.Early})
+	}
+	for _, v := range a.Violations {
+		out.Violations = append(out.Violations, JSONOrderViolation{DeclaredBy: v.DeclaredBy, Step: v.Step, Index: v.Index, Method: v.Method, Signer: v.Signer, Role: v.Role, Order: v.Order})
+	}
+	return out
 }
 
 func toJSONSignature(s *BlockResult) JSONSignature {
@@ -144,13 +169,13 @@ func ToJSONTSA(c TSACheck) JSONTSA {
 }
 
 // ToJSON converts a verification result; nil gives the empty result used for a file that could not be read.
-// OK is true when there is no error and every signature is valid (a pending agreement is still OK, CLI_SPEC 4).
+// OK is true when there is no error, every signature is valid and the agreement is not violated (a pending agreement is still OK, CLI_SPEC 4).
 func ToJSON(r *VerifyResult) JSONResult {
 	out := JSONResult{Warnings: []string{}, Signatures: []JSONSignature{}, Agreement: toJSONAgreement(Agreement{})}
 	if r == nil {
 		return out
 	}
-	out.OK = r.Error == ""
+	out.OK = r.Error == "" && r.Agreement.Status != AgreementViolated
 	out.Error = strPtr(r.Error)
 	out.Agreement = toJSONAgreement(r.Agreement)
 	out.Warnings = append(out.Warnings, r.Warnings...)

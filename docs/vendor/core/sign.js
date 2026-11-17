@@ -73,7 +73,7 @@ export async function signDocument(text, o) {
         fields.scope = o.scope.map((id) => `section:${id}`).join(",");
     if (o.require?.length) {
         fields.require = o.require.map((r) => (typeof r === "string" ? r : formatRequirement(r))).join("\n");
-        const { errors } = parseRequire(fields.require);
+        const { errors } = parseRequire(fields.require, 0, SPEC_VERSION);
         if (errors.length)
             throw new SignError(errors.join("; "));
     }

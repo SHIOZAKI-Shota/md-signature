@@ -24,6 +24,7 @@ export interface SignOptions {
   ts?: string;
   expires?: string;
   scope?: string[];
+  // one line each; "order …" and "step …" lines are passed as strings (SPEC 5.8)
   require?: (Pick<Requirement, "method" | "signer" | "role"> | string)[];
   resources?: { ref: string; bytes: Uint8Array }[];
   revocationUrl?: string;
@@ -92,7 +93,7 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
   if (o.scope?.length) fields.scope = o.scope.map((id) => `section:${id}`).join(",");
   if (o.require?.length) {
     fields.require = o.require.map((r) => (typeof r === "string" ? r : formatRequirement(r))).join("\n");
-    const { errors } = parseRequire(fields.require);
+    const { errors } = parseRequire(fields.require, 0, SPEC_VERSION);
     if (errors.length) throw new SignError(errors.join("; "));
   }
   if (o.resources?.length) {

@@ -223,7 +223,10 @@ func parseExtensionFlags(o *signOptions, now time.Time) (*signExtensions, error)
 		if e := mdsig.ValidateValue(r); e != "" {
 			return nil, exitf(exitUsage, "require: %s", e)
 		}
-		if _, errs := mdsig.ParseRequire(r, 0); len(errs) > 0 {
+	}
+	// each --require is one line; "step" lines only make sense together with the lines after them
+	if len(o.require) > 0 {
+		if _, errs := mdsig.ParseRequire(strings.Join(o.require, "\n"), 0, mdsig.SpecVersion); len(errs) > 0 {
 			return nil, exitf(exitUsage, "%s", strings.Join(errs, "; "))
 		}
 	}

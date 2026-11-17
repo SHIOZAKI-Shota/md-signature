@@ -15,7 +15,7 @@
 甲と乙は以下のとおり合意する。
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:Rx9i...
@@ -32,7 +32,7 @@ sig: base64:q1Xv...
 - 連署 (co-signing) に対応します。後から追記した署名は、本文とそれ以前の全署名を対象とします（追記型ハッシュチェーン）。
 - 検証には既存の鍵を使用できます。GitHub/GitLab に登録済みの SSH 鍵（`https://github.com/<user>.keys`）、自社ドメインの DNS TXT レコード、OpenPGP、埋め込み公開鍵のいずれかです。
 - RFC 3161 タイムスタンプトークンを任意で付与できます。
-- 承認フローを記述できます。署名者が未完了の連署を宣言すると（`require`）、`mdsig verify` は連署が揃うまで「保留（pending）」と表示します。
+- 承認フローを記述できます。署名者が未完了の連署を宣言すると（`require`）、`mdsig verify` は連署が揃うまで「保留（pending）」と表示します。「課長の承認の後に、3 人中 2 人がレビュー」のような順番（`step`）と人数（`any`）も指定できます。
 - スクリーンショットやデータファイル、リモート画像も SHA-256 で文書に固定できます（`resources`）。リンク先が差し替えられると検知します。
 - 指定したセクションだけに署名し、メモ欄や記入欄を編集可能なまま保持できます（`scope`）。この場合、検証結果には必ず「部分署名」と表示されます。
 - `expires` で有効期限を設定できます。署名付きの撤回リスト（`revocation_url`）を公開すれば、後から署名を撤回することも可能です。
@@ -65,6 +65,12 @@ mdsig
 # 承認者の指定、スクリーンショットの固定、有効期限 30 日の設定
 mdsig sign quote.md -m git-hosting -s github.com/alice -r author \
   --require "dns:example.com approver" --auto-resources --expires 30d
+
+# 承認の後に 3 人中 2 人がレビューする流れを宣言
+mdsig sign plan.md -m git-hosting -s github.com/alice -r author \
+  --require "step 1" --require "dns:example.com approver" \
+  --require "step 2 any 2" --require "git-hosting:github.com/bob" \
+  --require "git-hosting:github.com/carol" --require "git-hosting:github.com/dave"
 
 # 「terms」と「fees」セクションのみに署名（その他は編集可能）
 mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees
@@ -147,7 +153,7 @@ go build -o bin/mdsig ./cmd/mdsig   # ./mdsig はライブラリのディレク�
 
 ## ステータス
 
-v0.0.1 はドラフト版で、まだリリースしていません。1.0 までに形式と API を変更する可能性があります。
+ドラフト版です。リリース（CLI とライブラリ）と署名の形式は別々に版を管理しており、現在の形式は `0.0.2` です（`0.0.1` の署名も検証できます）。`mdsig --version` で両方を確認できます。1.0 までに形式と API を変更する可能性があります。
 
 実験的な実装です。第三者によるセキュリティ監査は受けていません。契約など、署名の正しさに重大な結果が伴う用途で、この実装だけに依拠することは避けてください。脆弱性の報告方法は [SECURITY.md](SECURITY.md) を参照してください。
 

@@ -1,17 +1,17 @@
 # example.com revoked signatures
 
-revoked: sha256:7b0e7d9d203f3fbfd65522db470686a35ed841aec00da0df98542dcde91a7863
+revoked: sha256:f2f9b8e76d996223a3f0a801526cc045bc86dde2740965048f9fe0eb5f7f3ea2
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: dns
 signer: example.com
 selector: 2026
 ts: 2026-11-25T00:00:00Z
 revocation_url: https://example.com/.well-known/mdsig-revoked.md
 alg: ed25519
-hash: sha256:0dfd1179a75801c1088bdd7daef914401f2d4d0ab1d1d46d301e53a2a5d6e0be
+hash: sha256:ee0a618a182fd69e650b90576ae3fc56793e88b029ecdadec22056159d1d7019
 sig: |
-  base64:CJSuH9HNoYjLsuHdhXXq+1EsCVmKEdg5JAgG1dH9E32yewMQx2HphqRlVdWj0/2lF9+jP
-  7bKuT5bpZ+63pDaDA==
+  base64:mi5ZHtjqUva/iR+/V2HSO7YgCneXu9BMzwMzCTAN2fzAwOdGeoawvi0fe2rSDq3Mhtlo/
+  ieIqgdJb9dp1K3cDw==
 -->

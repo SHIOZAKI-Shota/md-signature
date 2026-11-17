@@ -15,7 +15,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 See [the data](./assets/chart.csv).
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: bob@laptop
 pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
@@ -24,6 +24,6 @@ resources: sha256:a3f66fbacbe1f9d56d284312795e31768946e67089a6d0e542bb83ebeba509
 alg: ed25519
 hash: sha256:1fc029687f50747909e6b82ac69b88e7f6795fe65fa79ce7cccd7a5d117bb4b7
 sig: |
-  base64:bXXrWBfxXgVwVyKQ6Re2vDRmrnLiYsBiywK2iYYrb9kuR0KqizdLTgoARLPp3SKkmzazJ
-  yjESgFwTDDNUXdgBA==
+  base64:uX7u9xxn6PA/hEVea73cY4zClvAGcvSDvsDDtOcKCDIRoEOl8TCr9N/Xygdb3fCDdxf8B
+  JXJdu3dOFTCvrKDCQ==
 -->

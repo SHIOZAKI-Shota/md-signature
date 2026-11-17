@@ -43,5 +43,6 @@ export function compareResults(local, remote) {
         const b = side(remote, index);
         return { index, local: a, remote: b, agree: !!a && !!b && a.status === b.status && a.code === b.code, tsaAgree: !!a && !!b && a.tsaVerified === b.tsaVerified };
     });
-    return { agree: blocks.every((b) => b.agree) && (l.error ?? null) === (remote.error ?? null), tsaAgree: blocks.every((b) => b.tsaAgree), blocks };
+    const agreementAgree = l.agreement.status === remote.agreement.status;
+    return { agree: blocks.every((b) => b.agree) && (l.error ?? null) === (remote.error ?? null) && agreementAgree, agreementAgree, tsaAgree: blocks.every((b) => b.tsaAgree), blocks };
 }

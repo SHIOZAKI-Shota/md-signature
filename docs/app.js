@@ -513,7 +513,7 @@ async function runVerify() {
       resolvers: useTestKeys ? testResolvers : pgpTestResolvers,
     });
   } catch (e) {
-    result = { ok: false, signatures: [], warnings: [], agreement: { status: "none", required: [], missing: [] }, error: String(e?.message ?? e) };
+    result = { ok: false, signatures: [], warnings: [], agreement: { status: "none", required: [], missing: [], violations: [] }, error: String(e?.message ?? e) };
   }
   if (id !== runId) return;
   for (const s of result.signatures) s.needsHosts = permissionHosts(s, run.blocked);
@@ -672,14 +672,49 @@ function renderInitialSummary() {
   setStatusLine(initialSummaryKey === "summary.no-webcrypto" ? "bad" : "idle", t(initialSummaryKey));
 }
 
+// SPEC 5.8: one plain list for a declaration with a single step that needs everyone, per-step text otherwise
+function missingText(a) {
+  const stepsOf = new Map();
+  for (const q of a.required) stepsOf.set(q.declaredBy, Math.max(stepsOf.get(q.declaredBy) ?? 0, q.step ?? 1));
+  const groups = [];
+  for (const m of a.missing) {
+    let g = groups[groups.length - 1];
+    if (!g || g.declaredBy !== m.declaredBy || g.step !== m.step) groups.push((g = { declaredBy: m.declaredBy, step: m.step ?? 1, need: m.need ?? 1, any: m.any ?? 1, blockedBy: m.blockedBy, names: [] }));
+    g.names.push(visible(`${m.method}:${m.signer}${m.role ? " " + m.role : ""}`) + (m.early ? t("summary.early") : ""));
+  }
+  return groups
+    .map((g) => {
+      const list = g.names.join(", ");
+      if (stepsOf.get(g.declaredBy) === 1 && g.any === g.need && g.need === g.names.length) return list;
+      return t("summary.step-missing", { step: g.step, need: g.need, list }) + (g.blockedBy ? t("summary.step-after", { step: g.blockedBy }) : "");
+    })
+    .join(t("list.sep"));
+}
+
+const violationText = (vs) => vs.map((v) => t("summary.violation-item", { index: v.index, who: visible(`${v.method}:${v.signer}${v.role ? " " + v.role : ""}`), step: v.step })).join(t("list.sep"));
+
+// signatures still needed in total: a step that needs any m counts m
+function agreementTally(a) {
+  const steps = new Map();
+  for (const q of a.required) steps.set(`${q.declaredBy}/${q.step ?? 1}`, q.any ?? 1);
+  const short = new Map();
+  for (const m of a.missing) short.set(`${m.declaredBy}/${m.step ?? 1}`, m.need ?? 1);
+  const req = [...steps.values()].reduce((x, y) => x + y, 0);
+  return { req, got: req - [...short.values()].reduce((x, y) => x + y, 0) };
+}
+
 function renderSummary(r) {
   const n = r.signatures.length;
   const valid = r.signatures.filter((s) => s.status === "valid").length;
   const bad = n - valid;
   const sep = t("list.sep");
   const dot = " · ";
+  if (!r.ok && n > 0 && valid === n && r.agreement?.status === "violated") {
+    setStatusLine("bad", t("summary.violated"), t("summary.violations", { list: violationText(r.agreement.violations) }), t("tally.valid", { ok: valid, n }) + dot + t("tally.violated"));
+    return;
+  }
   if (r.ok) {
-    const a = r.agreement ?? { status: "none", required: [], missing: [] };
+    const a = r.agreement ?? { status: "none", required: [], missing: [], violations: [] };
     const partial = r.signatures.filter((s) => s.partial);
     const sub = [];
     if (partial.length)
@@ -690,12 +725,11 @@ function renderSummary(r) {
       );
     const unchecked = r.signatures.flatMap((s) => (s.resources ?? []).filter((x) => x.status === "not-checked")).length;
     if (unchecked) sub.push(t("summary.unchecked", { resources: count("resource", unchecked) }));
-    const req = a.required.length;
-    const got = req - a.missing.length;
+    const { req, got } = agreementTally(a);
     const tallyValid = t("tally.valid", { ok: valid, n });
+    if (a.violations?.length) sub.push(t("summary.order-warning", { list: violationText(a.violations) }));
     if (a.status === "pending") {
-      const missing = a.missing.map((m) => visible(`${m.method}:${m.signer}${m.role ? " " + m.role : ""}`)).join(", ");
-      sub.unshift(t("summary.pending-missing", { list: missing }));
+      sub.unshift(t("summary.pending-missing", { list: missingText(a) }));
       setStatusLine("pending", t("summary.pending"), sub.join(" "), tallyValid + dot + t("tally.pending", { got, req }));
       return;
     }

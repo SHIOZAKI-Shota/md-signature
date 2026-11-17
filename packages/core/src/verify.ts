@@ -1,4 +1,4 @@
-import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.ts";
+import { SUPPORTED_VERSIONS, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.ts";
 import { digest, ed25519Verify, isSupportedHash, sha256 } from "./crypto.ts";
 import { fromBase64, toHex, utf8 } from "./encoding.ts";
 import { parseDocument, type ParsedBlock } from "./parser.ts";
@@ -87,7 +87,7 @@ function validateSemantics(f: Record<string, string>): string | null {
   if (f.expires !== undefined && !isValidTimestamp(f.expires)) return `expires "${f.expires}" is not a valid YYYY-MM-DDTHH:MM:SSZ date-time`;
   if (f.revocation_url !== undefined && !/^https:\/\/\S+$/.test(f.revocation_url)) return "revocation_url must be an https:// URL";
   if (f.require !== undefined) {
-    const { errors } = parseRequire(f.require);
+    const { errors } = parseRequire(f.require, 0, f.v);
     if (errors.length) return errors.join("; ");
   }
   if (f.resources !== undefined) {
@@ -169,7 +169,7 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
 
   if (block.unknownKeys?.length) return fail("malformed", "unknown-field", block.errors.join("; "));
   if (block.errors.length) return fail("malformed", "malformed", block.errors.join("; "));
-  if (f.v !== SPEC_VERSION) return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
+  if (!SUPPORTED_VERSIONS.has(f.v!)) return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
   if (!TS_RE.test(f.ts!)) r.warnings.push(`ts "${f.ts}" is not in YYYY-MM-DDTHH:MM:SSZ form`);
   const sem = validateSemantics(f);
   if (sem) return fail("malformed", "malformed", sem);
@@ -319,7 +319,7 @@ export const MAX_CHAIN_BLOCKS = 256;
 export async function verifyDocument(text: string, opts: VerifyOptions = {}): Promise<VerifyResult> {
   const doc = parseDocument(text);
   const warnings: string[] = [];
-  const none: Agreement = { status: "none", required: [], missing: [] };
+  const none: Agreement = { status: "none", required: [], missing: [], violations: [] };
   if (doc.chain.length > MAX_CHAIN_BLOCKS) return { ok: false, signatures: [], agreement: none, warnings, error: `too many signature blocks (${doc.chain.length}; the limit is ${MAX_CHAIN_BLOCKS})` };
   if (doc.chain.length === 0) {
     return {
@@ -339,5 +339,6 @@ export async function verifyDocument(text: string, opts: VerifyOptions = {}): Pr
   const agreement = opts.skipAgreement
     ? none
     : evaluateAgreement(signatures.map((s) => ({ index: s.index, valid: s.status === "valid", declares: s.status === "valid" || s.status === "unresolved", fields: s.fields })));
-  return { ok: signatures.every((s) => s.status === "valid"), signatures, agreement, warnings };
+  // SPEC 5.8: an order violation under "order strict" fails the document
+  return { ok: signatures.every((s) => s.status === "valid") && agreement.status !== "violated", signatures, agreement, warnings };
 }

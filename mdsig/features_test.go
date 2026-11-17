@@ -9,10 +9,12 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -285,6 +287,72 @@ func TestRequire(t *testing.T) {
 	}
 	if _, err := SignDocument(context.Background(), fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "x", Require: []string{"not a requirement"}}); err == nil || !strings.Contains(err.Error(), "require") {
 		t.Fatal(err)
+	}
+}
+
+func TestRequireSteps(t *testing.T) {
+	keys := make([]KeySigner, 5)
+	for i := range keys {
+		keys[i], _ = SignerFromSeed(bytesOf(32, byte(i+1)))
+	}
+	sign := func(text string, k int, id string, extra func(*SignOptions)) string {
+		o := SignOptions{Signer: keys[k], Method: "tofu", SignerID: id, TS: fTS}
+		if extra != nil {
+			extra(&o)
+		}
+		return mustSign(t, text, o).Text
+	}
+	offline := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}
+	steps := func(order string) []string {
+		out := []string{}
+		if order != "" {
+			out = append(out, "order "+order)
+		}
+		return append(out, "step 1", "tofu:bob", "step 2 any 2", "tofu:carol", "tofu:dave", "tofu:erin")
+	}
+	declare := func(order string) string {
+		return sign(fDoc, 0, "alice", func(o *SignOptions) { o.Require = steps(order) })
+	}
+	decl := declare("")
+	a := verify(decl, offline).Agreement
+	got := []string{}
+	for _, m := range a.Missing {
+		got = append(got, fmt.Sprintf("%s/%d/%d/%d", m.Signer, m.Step, m.Need, m.BlockedBy))
+	}
+	if a.Status != AgreementPending || strings.Join(got, " ") != "bob/1/1/0 carol/2/2/1 dave/2/2/1 erin/2/2/1" {
+		t.Fatalf("%s %v", a.Status, got)
+	}
+	if st := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 3, "dave", nil), offline).Agreement.Status; st != AgreementComplete {
+		t.Fatal(st)
+	}
+	if a := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 2, "carol", nil), offline).Agreement; a.Status != AgreementPending || a.Missing[0].Need != 1 {
+		t.Fatalf("one signer counted twice: %+v", a)
+	}
+	early := sign(sign(decl, 2, "carol", nil), 1, "bob", nil)
+	a = verify(early, offline).Agreement
+	if a.Status != AgreementPending || !slices.ContainsFunc(a.Missing, func(m MissingRequirement) bool { return m.Signer == "carol" && m.Early }) {
+		t.Fatalf("%+v", a)
+	}
+	if st := verify(sign(sign(early, 2, "carol", nil), 3, "dave", nil), offline).Agreement.Status; st != AgreementComplete {
+		t.Fatal(st)
+	}
+	for order, want := range map[string]string{OrderGuide: AgreementComplete, OrderStrict: AgreementViolated} {
+		text := sign(sign(sign(declare(order), 2, "carol", nil), 1, "bob", nil), 3, "dave", nil)
+		v := verify(text, offline)
+		if v.Agreement.Status != want || len(v.Agreement.Violations) != 1 || v.Agreement.Violations[0].Index != 2 || v.Agreement.Violations[0].Order != order || v.OK != (order == OrderGuide) {
+			t.Fatalf("%s: %s ok=%v %+v", order, v.Agreement.Status, v.OK, v.Agreement.Violations)
+		}
+	}
+	for _, bad := range [][]string{{"step 1 any 3", "tofu:bob", "tofu:carol"}, {"step 2", "tofu:bob"}, {"tofu:bob", "order strict"}, {"tofu:bob", "tofu:bob"}, {"step 1", "step 2", "tofu:bob"}} {
+		if _, err := SignDocument(context.Background(), fDoc, SignOptions{Signer: keys[0], Method: "tofu", SignerID: "x", TS: fTS, Require: bad}); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if _, errs := ParseRequire("step 1\ntofu:bob", 1, "0.0.1"); len(errs) == 0 {
+		t.Error("format 0.0.1 accepted a step line")
+	}
+	if spec, errs := ParseRequire("tofu:bob\ntofu:bob", 1, "0.0.1"); len(errs) != 0 || !spec.Legacy {
+		t.Errorf("format 0.0.1 duplicate lines: %v", errs)
 	}
 }
 

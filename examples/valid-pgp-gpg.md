@@ -13,7 +13,7 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: pgp
 signer: frank@example.org
 fpr: 275E2B9A1BC461282279D5335E7F0C0F098A2BC1
@@ -24,10 +24,10 @@ alg: openpgp
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
   base64:iQFPBAABCAA5FiEEJ14rmhvEYSgiedUzXn8MDwmKK8EFAmr6xhAbFIAAAAAABAAObWFud
-  TIsMi41KzEuMTIsMCwzAAoJEF5/DA8JiivBq48IAJUE6Kiyaf33LtALsMM4oEzbrQyQi/DBOEDqe
-  hhF89BicN0Z+P3Ege8BaoOYFqnvZJyVl9XfmEluif+E/vPf3zJ3GzZem0EknnlTB+DMBR5x+Fojg
-  jF5f90R/SvA3wmAkcMEtsmvzmBuTszIllJaRi6aGpS2PZPOIkgo1cx6KQVeET3aynbChn1NNrzlB
-  XlCteMWJdhfn2rtaW47OQodPwJSdh9fxR/JqHqHNh1Cc5cRGXLdnr64u5okygr+nF23QxXW5Bi2J
-  g00zjM9LYCV26aqfTG+L6rE/OUciPb6smhVmvR1Jg0ybxGY8WdkhDuUA6GhIdg8DaWdw5l/zdPT1
-  Qw=
+  TIsMi41KzEuMTIsMCwzAAoJEF5/DA8JiivBHhsIAMPMagXWJQ4rcwUsEFdXHYPGsezQMAXdsc6Gw
+  R/0lXJROpnNvTjMfEoea0TaFu7CtQUWytvxaVfaVGcGcPd2ixnDZB7YleyN8edA3aPnqjLVW+/2j
+  L9LxBLQjDk3sqx7v0lV42zSpJeuGevsQNjoNKGTpLNVk3+QdWa4a8sPDzldskAFNOsnimmzJa69e
+  geK/xz4adwCySmVJUX4//iweZrV46n9twuw+k2QkUDIFNhGRL4g2+7fLPBDZ7QaAOlXW4k+Oxh/h
+  MD52AZKzp5dZZtGor193DDlRl10zzLqn/e35FCjXWvp0IMYcn5WuA/di/zC41dmuzM3X/a27kOuN
+  u8=
 -->

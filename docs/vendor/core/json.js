@@ -12,13 +12,27 @@ export function tsaFromJson(j) {
     return c;
 }
 function requirement(r) {
-    const out = { method: r.method, signer: r.signer, declared_by: r.declaredBy };
+    const out = { method: r.method, signer: r.signer, declared_by: r.declaredBy, step: r.step, any: r.any };
     if (r.role)
         out.role = r.role;
     return out;
 }
+function missingRequirement(r) {
+    const out = { ...requirement(r), need: r.need };
+    if (r.blockedBy)
+        out.blocked_by = r.blockedBy;
+    if (r.early)
+        out.early = true;
+    return out;
+}
+function violation(v) {
+    const out = { declared_by: v.declaredBy, step: v.step, index: v.index, method: v.method, signer: v.signer, order: v.order };
+    if (v.role)
+        out.role = v.role;
+    return out;
+}
 function agreement(a) {
-    return { status: a.status, required: a.required.map(requirement), missing: a.missing.map(requirement) };
+    return { status: a.status, required: a.required.map(requirement), missing: a.missing.map(missingRequirement), violations: a.violations.map(violation) };
 }
 function signature(s) {
     return {
@@ -39,10 +53,10 @@ function signature(s) {
         warnings: s.warnings ?? [],
     };
 }
-// ok is true when there is no error and every signature is valid (a pending agreement is still ok, CLI_SPEC 4)
+// ok is true when there is no error, every signature is valid and the agreement is not violated (a pending agreement is still ok, CLI_SPEC 4)
 export function toJsonResult(r) {
     return {
-        ok: !r.error && r.signatures.every((s) => s.status === "valid"),
+        ok: !r.error && r.signatures.every((s) => s.status === "valid") && r.agreement.status !== "violated",
         error: str(r.error),
         warnings: r.warnings,
         agreement: agreement(r.agreement),

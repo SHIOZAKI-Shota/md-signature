@@ -112,6 +112,13 @@ The user asked to move hand-written crypto to libraries where a library can do t
 - Naming: initialisms are upper case (`PGPSigner`, `ResolveOptions.PGPClient`, `TSAOK`). One function per job with an optional options pointer (`CheckTSAToken(token, sig, nil)`, `RequestTimestamp(ctx, sig, url, client, nil)`), no `…With` variants.
 - No exported function, method or field mentions an unexported type, and the only exported variable is the sentinel `ErrForbiddenAddress`.
 
+## require steps and format 0.0.2 (2026-11-17, branch feat/pending_enhance, release v0.0.3)
+
+- **Format version 0.0.2.** Generators write `v: 0.0.2`; verifiers accept 0.0.1 and 0.0.2 (`SUPPORTED_VERSIONS` / `supportedVersions`), and chains may mix them. Release tags (`v0.0.3`) and the format version are separate: `mdsig --version` prints `0.0.3 (format 0.0.2)` and the goreleaser release title carries `(format 0.0.2)` (hard-coded in `.goreleaser.yaml`; change it with the next format bump).
+- **`require` lines (SPEC 5.8):** requirement lines plus `step <n> [any <m>]` and an optional first line `order pending|guide|strict`. Steps run in order, members of a step in any order, `any m` needs m different members, one block counts for one requirement per declaration. Order handling is chosen by the declaring signer: `pending` (default) ignores early signatures, `guide` counts them and reports a violation, `strict` makes the agreement `violated`, which fails the document (`ok: false`, CLI exit 1).
+- **0.0.1 blocks keep the old rule:** no step/order lines (malformed if present), duplicates allowed, one block may satisfy several lines (`RequireSpec.legacy`).
+- **Shapes:** `Agreement.violations`, requirements carry `step`/`any`, missing ones `need`/`blockedBy`/`early` (JSON `blocked_by`). CLI `--require` takes one line per flag and validates the joined value. Vectors: `require-serial-*`, `require-any-*`, `malformed-require-steps.md`, `legacy-v001.md`, `mixed-versions.md`, `malformed-require-step-v001.md`.
+
 ## Open items / next steps
 
 - npm wrapper package `mdsig` (JS CLI with `@clack/prompts`), or npm distribution of the Go binary.

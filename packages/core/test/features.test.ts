@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -123,6 +124,68 @@ test("require: pending until the required parties co-sign", async () => {
   assert.equal(v3.agreement.status, "complete");
   assert.equal((await verifyDocument((await signDocument(DOC, { signer: a, method: "tofu", signerId: "x", ts: TS })).text)).agreement.status, "none");
   await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "x", require: ["not a requirement"] }), /require/);
+});
+
+test("require: steps run in order, any M counts distinct signers", async () => {
+  const keys = await Promise.all([1, 2, 3, 4].map((n) => signerFromSeed(new Uint8Array(32).fill(n))));
+  const [a, b, c, d] = keys as [Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>];
+  const sign = (text: string, signer: typeof a, id: string, extra: object = {}) => signDocument(text, { signer, method: "tofu", signerId: id, ts: TS, ...extra }).then((r) => r.text);
+  const agree = async (text: string) => (await verifyDocument(text, { offline: true })).agreement;
+  const steps = (order?: string) => [...(order ? [`order ${order}`] : []), "step 1", "tofu:bob", "step 2 any 2", "tofu:carol", "tofu:dave", "tofu:erin"];
+
+  const decl = await sign(DOC, a, "alice", { require: steps() });
+  const pending1 = await agree(decl);
+  assert.equal(pending1.status, "pending");
+  assert.deepEqual(pending1.missing.map((m) => [m.signer, m.step, m.need, m.blockedBy ?? 0]), [["bob", 1, 1, 0], ["carol", 2, 2, 1], ["dave", 2, 2, 1], ["erin", 2, 2, 1]]);
+  assert.deepEqual(pending1.required.map((r) => [r.signer, r.step, r.any]), [["bob", 1, 1], ["carol", 2, 2], ["dave", 2, 2], ["erin", 2, 2]]);
+
+  const inOrder = await sign(await sign(await sign(decl, b, "bob"), c, "carol"), d, "dave");
+  assert.equal((await agree(inOrder)).status, "complete");
+  const sameTwice = await sign(await sign(await sign(decl, b, "bob"), c, "carol"), c, "carol");
+  const st = await agree(sameTwice);
+  assert.equal(st.status, "pending");
+  assert.deepEqual([...new Set(st.missing.map((m) => m.need))], [1]);
+
+  const early = await sign(await sign(decl, c, "carol"), b, "bob");
+  const pe = await agree(early);
+  assert.equal(pe.status, "pending");
+  assert.equal(pe.missing.find((m) => m.signer === "carol")!.early, true);
+  assert.equal((await agree(await sign(await sign(early, c, "carol"), d, "dave"))).status, "complete");
+
+  for (const [order, status] of [["guide", "complete"], ["strict", "violated"]] as const) {
+    const t = await sign(await sign(await sign(await sign(DOC, a, "alice", { require: steps(order) }), c, "carol"), b, "bob"), d, "dave");
+    const v = await verifyDocument(t, { offline: true });
+    assert.equal(v.agreement.status, status, order);
+    assert.deepEqual(v.agreement.violations.map((x) => [x.index, x.step, x.order]), [[2, 2, order]]);
+    assert.equal(v.ok, order === "guide");
+  }
+
+  // a scoped block never satisfies, also inside a step
+  const scopedDoc = "# Deal\n\n<!-- mdsig:section terms -->\nTerms.\n<!-- /mdsig:section -->\n";
+  const sdecl = await sign(scopedDoc, a, "alice", { require: ["step 1", "tofu:bob"] });
+  assert.equal((await agree(await sign(sdecl, b, "bob", { scope: ["terms"] }))).status, "pending");
+
+  await assert.rejects(sign(DOC, a, "x", { require: ["step 1 any 3", "tofu:bob", "tofu:carol"] }), /any 3 of 2/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["step 2", "tofu:bob"] }), /expected "step 1"/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "order strict"] }), /first line/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "tofu:bob"] }), /appears twice/);
+});
+
+test("require: format 0.0.1 blocks keep their rules", async () => {
+  const text = (name: string) => readFileSync(new URL(`../../../examples/${name}`, import.meta.url), "utf8");
+  const keys = JSON.parse(text("keys.json"));
+  const dns: Record<string, string> = Object.fromEntries(Object.entries(keys.dns as Record<string, { txt: string }>).map(([k, v]) => [k, v.txt]));
+  const fetch = (async (url: string) => {
+    const n = new URL(url).searchParams.get("name")!;
+    return new Response(JSON.stringify({ Status: 0, Answer: dns[n] ? [{ type: 16, data: `"${dns[n]}"` }] : [] }));
+  }) as typeof globalThis.fetch;
+  const mixed = await verifyDocument(text("mixed-versions.md"), { fetch, now: new Date(keys.now), tofuStore: new MemoryTofuStore() });
+  assert.deepEqual(mixed.signatures.map((s) => [s.fields.v, s.status]), [["0.0.1", "valid"], ["0.0.2", "valid"]]);
+  assert.equal(mixed.agreement.status, "complete");
+  const bad = await verifyDocument(text("malformed-require-step-v001.md"), { offline: true });
+  assert.match(bad.signatures[0]!.message!, /need format 0\.0\.2/);
+  const future = text("legacy-v001.md").replace("v: 0.0.1", "v: 0.0.3");
+  assert.equal((await verifyDocument(future, { offline: true })).signatures[0]!.code, "unsupported-version");
 });
 
 // --- Expires

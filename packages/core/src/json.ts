@@ -1,4 +1,4 @@
-import type { Agreement, Requirement } from "./agreement.ts";
+import type { Agreement, MissingRequirement, OrderViolation, Requirement } from "./agreement.ts";
 import type { TsaCheck } from "./tsa.ts";
 import type { BlockResult, VerifyResult } from "./verify.ts";
 
@@ -17,6 +17,24 @@ export interface JsonRequirement {
   signer: string;
   role?: string;
   declared_by: number;
+  step: number;
+  any: number;
+}
+
+export interface JsonMissingRequirement extends JsonRequirement {
+  need: number;
+  blocked_by?: number;
+  early?: boolean;
+}
+
+export interface JsonOrderViolation {
+  declared_by: number;
+  step: number;
+  index: number;
+  method: string;
+  signer: string;
+  role?: string;
+  order: string;
 }
 
 export interface JsonSignature {
@@ -41,7 +59,7 @@ export interface JsonResult {
   ok: boolean;
   error: string | null;
   warnings: string[];
-  agreement: { status: string; required: JsonRequirement[]; missing: JsonRequirement[] };
+  agreement: { status: string; required: JsonRequirement[]; missing: JsonMissingRequirement[]; violations: JsonOrderViolation[] };
   signatures: JsonSignature[];
 }
 
@@ -60,13 +78,26 @@ export function tsaFromJson(j: JsonTsa): TsaCheck {
 }
 
 function requirement(r: Requirement): JsonRequirement {
-  const out: JsonRequirement = { method: r.method, signer: r.signer, declared_by: r.declaredBy };
+  const out: JsonRequirement = { method: r.method, signer: r.signer, declared_by: r.declaredBy, step: r.step, any: r.any };
   if (r.role) out.role = r.role;
   return out;
 }
 
+function missingRequirement(r: MissingRequirement): JsonMissingRequirement {
+  const out: JsonMissingRequirement = { ...requirement(r), need: r.need };
+  if (r.blockedBy) out.blocked_by = r.blockedBy;
+  if (r.early) out.early = true;
+  return out;
+}
+
+function violation(v: OrderViolation): JsonOrderViolation {
+  const out: JsonOrderViolation = { declared_by: v.declaredBy, step: v.step, index: v.index, method: v.method, signer: v.signer, order: v.order };
+  if (v.role) out.role = v.role;
+  return out;
+}
+
 function agreement(a: Agreement): JsonResult["agreement"] {
-  return { status: a.status, required: a.required.map(requirement), missing: a.missing.map(requirement) };
+  return { status: a.status, required: a.required.map(requirement), missing: a.missing.map(missingRequirement), violations: a.violations.map(violation) };
 }
 
 function signature(s: BlockResult): JsonSignature {
@@ -89,10 +120,10 @@ function signature(s: BlockResult): JsonSignature {
   };
 }
 
-// ok is true when there is no error and every signature is valid (a pending agreement is still ok, CLI_SPEC 4)
+// ok is true when there is no error, every signature is valid and the agreement is not violated (a pending agreement is still ok, CLI_SPEC 4)
 export function toJsonResult(r: VerifyResult): JsonResult {
   return {
-    ok: !r.error && r.signatures.every((s) => s.status === "valid"),
+    ok: !r.error && r.signatures.every((s) => s.status === "valid") && r.agreement.status !== "violated",
     error: str(r.error),
     warnings: r.warnings,
     agreement: agreement(r.agreement),

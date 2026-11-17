@@ -50,7 +50,7 @@ test("payload is sorted, excludes sig/tsa fields and has domain prefix", () => {
 test("tofu sign + verify", async () => {
   const signer = await signerFromSeed(SEED_A);
   const r = await signDocument(DOC, { signer, method: "tofu", signerId: "alice@laptop", role: "author", ts: TS });
-  assert.match(r.text, /^# Contract\n\nThe parties agree.\n\n<!-- md-signature\nv: 0.0.1\nmethod: tofu\n/);
+  assert.match(r.text, /^# Contract\n\nThe parties agree.\n\n<!-- md-signature\nv: 0.0.2\nmethod: tofu\n/);
   const v = await verifyDocument(r.text, { offline: true });
   assert.equal(v.ok, true, JSON.stringify(v));
   assert.equal(v.signatures[0]!.status, "valid");

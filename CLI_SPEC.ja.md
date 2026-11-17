@@ -27,7 +27,7 @@
 | --- | --- |
 | `--lang <code>` | UI 言語：`en` または `ja`。7 節を参照。 |
 | `-h, --help` | ヘルプ。 |
-| `--version` | バージョンを表示する。 |
+| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.3 (format 0.0.2)`）。CLI は SPEC が定める形式の `0.0.1` と `0.0.2` を検証し、`0.0.2` で署名する。 |
 
 ## 3. コマンド
 
@@ -51,7 +51,7 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--stdout` | オフ | ファイルを変更せず、署名済み文書を stdout に出力する。 |
 | `--force` | オフ | ファイルに署名ブロックがあり、その後に未署名の内容が続く場合でも署名する。この場合、ファイル全体が新しい文書として署名される。 |
 | `--scope <ids>` | — | 指定したセクションのみに署名する。カンマ区切りで指定する：`--scope terms,fees`（SPEC 5.6 節）。 |
-| `--require <req>` | — | 後続の必須の連署を `<method>:<signer>[ <role>]` の形式で指定する。複数回指定できる（SPEC 5.8 節）。 |
+| `--require <line>` | — | `require` の値の 1 行を指定する。複数回指定でき、指定した順に行を並べる。要件行 `<method>:<signer>[ <role>]` のほか、段階行 `step <n>[ any <m>]` と順序行 `order pending\|guide\|strict` を使用できる（SPEC 5.8 節）。例：`--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`。値全体を SPEC 5.8 節の規則で検査する。 |
 | `--resource <ref>` | — | ファイル（文書からの相対パス）または `https://` URL を、その SHA-256 で固定する。複数回指定できる。URL は署名時に 1 回だけ取得する（SPEC 5.7 節）。 |
 | `--auto-resources` | オフ | コードフェンスの外で `![..](..)` または `<img src>` によって参照されているすべてのローカル画像も固定する。 |
 | `--expires <time>` | — | `YYYY-MM-DDTHH:MM:SSZ`、または現在からの期間：`30d`、`12h`（SPEC 5.9 節）。 |
@@ -127,6 +127,14 @@ docs/contract.md
   Agreement: pending — missing dns:partner.example witness
 ```
 
+`require` が段階を持つ場合、欠けている連署は段階ごとに表示する。順番より前に署名したため数えられなかった署名者には、その旨を付記する。
+`order guide` の順序違反は警告として、`order strict` の順序違反は合意ステータス `violated` として表示する。
+
+```
+  Agreement: pending — step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1)
+  Agreement: violated — #2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete
+```
+
 パスキーによる署名では、その `rp_id` も表示する。例：`passkey (rp_id mdsig.dev)`。
 `pgp` による署名では、フィンガープリント、ユーザ ID、鍵の取得元、および署名パケットの作成時刻を表示する。
 作成時刻は `ts` と同じく署名者の申告であり、TSA の時刻とは区別して表示する。
@@ -146,7 +154,7 @@ docs/contract.md
   "stray_marker_line": null,
   "warnings": [],
   "signatures": [
-    { "index": 1, "line": 16, "fields": { "v": "0.0.1", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
+    { "index": 1, "line": 16, "fields": { "v": "0.0.2", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
   ]
 }
 ```
@@ -230,7 +238,7 @@ tofu pubkey:
 | コード | 意味 |
 | --- | --- |
 | 0 | 成功。`verify` の場合：すべての署名が有効。 |
-| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未サポートのアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、またはファイルが有効な UTF-8 でない。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）。 |
+| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未サポートのアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、ファイルが有効な UTF-8 でない、または合意ステータスが `violated`（`order strict` の順序違反、SPEC 5.8 節）。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）。 |
 | 2 | 使い方の誤り：未知のフラグ、引数の欠落、無効なフィールド値。 |
 | 3 | ネットワークまたは鍵解決のエラー、および `--offline` により検査されなかった署名がある場合（終了コード 1 となる失敗がない場合）。`sign` の場合：TSA リクエストの失敗（ファイルは変更されない）。 |
 | 4 | ファイル I/O またはパーミッションのエラー。鍵ファイルが存在しない・読み取れない場合、および `keygen` が上書きを拒否した場合を含む。 |
@@ -252,8 +260,9 @@ tofu pubkey:
       "warnings": [],
       "agreement": {
         "status": "pending",
-        "required": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1 }],
-        "missing": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1 }]
+        "required": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1 }],
+        "missing": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1, "need": 1 }],
+        "violations": []
       },
       "signatures": [
         {
@@ -262,7 +271,7 @@ tofu pubkey:
           "status": "valid",
           "code": null,
           "message": null,
-          "fields": { "v": "0.0.1", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "fields": { "v": "0.0.2", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
@@ -282,12 +291,14 @@ tofu pubkey:
 }
 ```
 
-ファイルの `ok` は、そのファイル単独で終了コード 0 または 5 となる場合に限り `true` となる。
+ファイルの `ok` は、そのファイル単独で終了コード 0 または 5 となる場合に限り `true` となる。合意ステータスが `violated` のファイルは `false` となる。
 両者は `agreement.status` によって区別する。`--offline` 指定時、検査されなかったブロックは
 `status: "unresolved"` および `code: "offline"` を持ち、`ok` は false となる。
 
 - `partial`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`webauthn` は `{ "rp_id", "origin", "user_verified" }` である。`pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
-- `agreement.status` は `none`、`complete`、`pending` のいずれか。要件にロールがない場合、`role` は省略する。
+- `agreement.status` は `none`、`complete`、`pending`、`violated` のいずれか。要件にロールがない場合、`role` は省略する。
+- `required` と `missing` の各要素は、段階の番号 `step` と、その段階で必要な人数 `any` を持つ。段階行のない `require` では `step` は 1、`any` は要件行の件数となる。`missing` の各要素はさらに、その段階であと何件必要かを示す `need` を持ち、前の段階が成立していないため待機中の場合は `blocked_by`（その段階の番号）を、順番より前に署名したため数えられなかった場合は `early: true` を持つ。
+- `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "index", "method", "signer", "role", "order" }` である。`index` は違反したブロックの番号、`order` は宣言の順序行の値（`guide` または `strict`）である。`order guide` の違反も一覧に含むが、合意ステータスには影響しない。
 - リソースの `status` は `ok`、`mismatch`、`missing`、`unreachable`、`not-checked` のいずれか。撤回の `status` は `not-revoked`、`revoked`、`not-checked` のいずれか。
 - `tsa` は `{ "status", "verified", "signer", "gen_time", "detail" }` である。`status` は `ok`、`mismatch`、`error` のいずれか。CLI は、トークンの CMS 署名と TSA 証明書チェーンを、システムのトラストストアおよび `--tsa-root` で指定したルート証明書に照らして検証する。`verified` は検証に成功した場合に限り `true` となり、`gen_time` と `signer`（TSA 証明書の名前）はその場合にのみ値を持つ。検証できないトークンは `status: "error"` となり、警告として表示する。
 

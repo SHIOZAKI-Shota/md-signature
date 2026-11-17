@@ -13,21 +13,21 @@ This agreement is made between **Example Corp** ("Provider") and **Alice** ("Cli
 日本語の本文も UTF-8 でそのまま署名されます。
 
 <!-- md-signature
-v: 0.0.1
+v: 0.0.2
 method: tofu
 signer: carol@passkey
-pubkey: es256:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE4Hmma5/+sWOEYzrd68H1dT5j89HdPZ2ywS3ZdF7XtODu76FLN2ynI0xr12tdgbPN+yEh7WQURQeupvOdYxsJeA==
+pubkey: es256:MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8tGzucn+vjS+f9QfYvtZMLVWZqeBdfHyeQDSZUf6dXIgZO/eRDbtAj0+2owyEGaBvuhk0j2c4FsouHz549sJ1w==
 rp_id: mdsig.dev
 role: witness
 ts: 2026-11-16T09:00:00Z
 alg: webauthn-es256
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:MEYCIQDCz239fmylYR1G4gaYJqwrkPcGvXDl1YVKKhwvcS0kIQIhAN1MsUOvybhJJ9tgd
-  3ZSTZOvTh1WTeYu+YmQhy83cvjo
+  base64:MEUCID7O1LXFS3Qa2LpcN9mE2AG40yjj+AscXP5PcL9NymQ/AiEAp3adaBbnvykOXsmCs
+  5ZPHJ4jcETrJL6hjFi9A3gdoF0=
 webauthn_authenticator_data: giN8m4J3g+0j/9cKIoAryEjcV7GCQ6NwAhWYv5tYfiYFAAAAAQ==
 webauthn_client_data: |
-  eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiSWhxcFlzcFFaVXpSNk4wTWItN2J1
-  cTZZcGc5NS1YVU16RWNBTWNZNkd1YyIsIm9yaWdpbiI6Imh0dHBzOi8vbWRzaWcuZGV2IiwiY3Jv
+  eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiR0VzVEZ2UXdfVDJWNE1ZV3g0WTk3
+  RHE3YkdxdFJfZG9keTl2MlNfNzZvYyIsIm9yaWdpbiI6Imh0dHBzOi8vbWRzaWcuZGV2IiwiY3Jv
   c3NPcmlnaW4iOmZhbHNlfQ==
 -->

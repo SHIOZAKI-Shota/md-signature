@@ -116,6 +116,86 @@
       ]
     ]
   },
+  "require-serial-complete.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "agreement": "complete"
+  },
+  "require-serial-pending.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "agreement": "pending"
+  },
+  "require-serial-guide.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "agreement": "complete"
+  },
+  "require-serial-strict.md": {
+    "ok": false,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "agreement": "violated"
+  },
+  "require-any-pending.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid"
+    ],
+    "agreement": "pending"
+  },
+  "require-any-complete.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid",
+      "valid"
+    ],
+    "agreement": "complete"
+  },
+  "malformed-require-steps.md": {
+    "ok": false,
+    "signatures": [
+      "malformed:malformed"
+    ]
+  },
+  "legacy-v001.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ],
+    "agreement": "pending"
+  },
+  "mixed-versions.md": {
+    "ok": true,
+    "signatures": [
+      "valid",
+      "valid"
+    ],
+    "agreement": "complete"
+  },
+  "malformed-require-step-v001.md": {
+    "ok": false,
+    "signatures": [
+      "malformed:malformed"
+    ]
+  },
   "expired.md": {
     "ok": false,
     "signatures": [

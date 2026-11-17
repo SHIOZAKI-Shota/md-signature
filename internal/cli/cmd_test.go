@@ -117,16 +117,24 @@ func TestSeverity(t *testing.T) {
 
 func TestVerifyExitCodes(t *testing.T) {
 	cases := map[string]int{
-		"pending-require.md":     exitPending,
-		"complete-require.md":    exitOK,
-		"revoked.md":             exitFail,
-		"not-revoked.md":         exitOK,
-		"unknown-field.md":       exitFail,
-		"valid-resources.md":     exitOK,
-		"tampered-resource.md":   exitFail,
-		"valid-scoped-edited.md": exitOK,
-		"expired.md":             exitFail,
-		"valid-webauthn.md":      exitOK,
+		"pending-require.md":         exitPending,
+		"complete-require.md":        exitOK,
+		"require-serial-complete.md": exitOK,
+		"require-serial-pending.md":  exitPending,
+		"require-serial-guide.md":    exitOK,
+		"require-serial-strict.md":   exitFail,
+		"require-any-pending.md":     exitPending,
+		"require-any-complete.md":    exitOK,
+		"malformed-require-steps.md": exitFail,
+		"mixed-versions.md":          exitOK,
+		"revoked.md":                 exitFail,
+		"not-revoked.md":             exitOK,
+		"unknown-field.md":           exitFail,
+		"valid-resources.md":         exitOK,
+		"tampered-resource.md":       exitFail,
+		"valid-scoped-edited.md":     exitOK,
+		"expired.md":                 exitFail,
+		"valid-webauthn.md":          exitOK,
 	}
 	for file, want := range cases {
 		isolate(t)
@@ -201,11 +209,28 @@ func TestVerifyJSON(t *testing.T) {
 	check(sig(0)["resources"], `[{"ref":"./assets/diagram.svg","status":"ok","detail":null},{"ref":"https://example.com/chart.png","status":"not-checked","detail":"remote resources are fetched only on request"}]`)
 	check(sig(0)["partial"], `null`)
 	check(res.Files[1]["ok"], `true`)
-	check(res.Files[1]["agreement"], `{"status":"pending","required":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1}],"missing":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1}]}`)
-	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[]}`)
+	check(res.Files[1]["agreement"], `{"status":"pending","required":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1,"step":1,"any":1}],"missing":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1,"step":1,"any":1,"need":1}],"violations":[]}`)
+	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[],"violations":[]}`)
 	check(sig(2)["partial"], `{"sections":["terms","fees"]}`)
 	check(sig(3)["webauthn"], `{"rp_id":"mdsig.dev","origin":"https://mdsig.dev","user_verified":true}`)
 	check(sig(4)["revocation"], `{"status":"not-revoked","detail":null}`)
+}
+
+func TestHumanOutputRequireSteps(t *testing.T) {
+	out, _ := isolate(t)
+	o := examplesOptions(t)
+	_ = runVerify(o, []string{ex("require-serial-pending.md"), ex("require-serial-guide.md"), ex("require-serial-strict.md"), ex("require-any-pending.md")})
+	s := out.String()
+	for _, want := range []string{
+		"Agreement: pending — step 2 needs 1 more of: tofu:bob@laptop reviewer [signed before the previous step, sign again]",
+		"! order not followed: #2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete",
+		"Agreement: violated — #2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete",
+		"Agreement: pending — step 1 needs 1 more of: tofu:carol@laptop, tofu:dave@laptop",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in\n%s", want, s)
+		}
+	}
 }
 
 func TestHumanOutput(t *testing.T) {
@@ -241,6 +266,9 @@ func TestExtensionFlags(t *testing.T) {
 	if e := ok(&signOptions{expires: "12h"}); e.expires != "2026-11-16T21:00:00Z" {
 		t.Error(e.expires)
 	}
+	if _, err := parseExtensionFlags(&signOptions{require: []string{"order guide", "step 1", "dns:a.com approver", "step 2 any 1", "tofu:b", "tofu:c"}}, now); err != nil {
+		t.Error(err)
+	}
 	if e := ok(&signOptions{expires: "2027-01-01T00:00:00Z", scope: "terms, section:fees"}); e.expires != "2027-01-01T00:00:00Z" || strings.Join(e.scope, ",") != "terms,fees" {
 		t.Error(e)
 	}
@@ -248,6 +276,7 @@ func TestExtensionFlags(t *testing.T) {
 		{expires: "tomorrow"}, {expires: "0d"}, {expires: "2027-02-30T00:00:00Z"}, {expires: "30m"},
 		{scope: "Terms"}, {scope: "a,a"}, {scope: ","},
 		{require: []string{"nope"}}, {require: []string{"dns:a.com approver extra"}}, {require: []string{"dns:a--b"}},
+		{require: []string{"step 1"}}, {require: []string{"step 2", "dns:a.com"}}, {require: []string{"dns:a.com", "order strict"}}, {require: []string{"step 1 any 2", "dns:a.com"}},
 		{resources: []string{"../x.png"}}, {resources: []string{"/etc/passwd"}}, {resources: []string{"http://example.com/x"}},
 		{revocationURL: "http://example.com/r.md"}, {revocationURL: "https://example.com/a b"},
 	} {
