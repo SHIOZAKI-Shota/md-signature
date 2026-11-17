@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ja" data-title-key="meta.title.docs">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script src="../color-scheme.js"></script>
+    <title>ドキュメント | md-signature</title>
+    <meta name="description"
+        content="md-signature の形式と検証の規則を、主題ごとに1ページずつ解説します。規範となるのは仕様書で、本ページの解説と仕様書が異なる場合は仕様書が優先します。">
+    <link rel="canonical" href="https://mdsig.dev/docs/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="ドキュメント | md-signature">
+    <meta property="og:description" content="md-signature の形式と検証の規則を、主題ごとに1ページずつ解説します。規範となるのは仕様書で、本ページの解説と仕様書が異なる場合は仕様書が優先します。">
+    <meta property="og:url" content="https://mdsig.dev/docs/">
+    <meta property="og:image" content="https://mdsig.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../guide.css">
+    <link rel="stylesheet" href="../docs.css">
+    <script src="../vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="../site.js"></script>
+</head>
+
+<body>
+    <a class="skip" href="#content" data-i18n="nav.skipMain">本文へ移動</a>
+
+    <header class="site-header">
+        <a class="brand" href="../" aria-label="md-signature">
+            <img class="brand-mark" src="../logo.svg" alt="" width="38" height="26">
+            <span class="brand-name">md-signature</span>
+        </a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="../docs/" data-i18n="nav.docs" aria-current="page">ドキュメント</a>
+            <a href="../start/" data-i18n="nav.start">導入</a>
+            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
+                    aria-hidden="true"></i>GitHub</a>
+        </nav>
+        <div class="prefs">
+            <a class="nav-cta" href="../playground/" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta secondary" href="../editor/" data-i18n="nav.editor">エディタ</a>
+            <div class="lang-switch" role="group" aria-label="Language / 言語">
+                <button type="button" data-lang="ja" lang="ja">日本語</button>
+                <button type="button" data-lang="en" lang="en">EN</button>
+            </div>
+            <button type="button" class="theme-toggle" id="theme-toggle">
+                <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+                <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="docs-main" id="content" tabindex="-1">
+        <div class="docs-layout">
+            <nav class="docs-nav" aria-label="ドキュメント" data-i18n-attr="aria-label:docs.nav.label">
+                <p class="docs-nav-title" data-i18n="docs.nav.label">ドキュメント</p>
+                <ol>
+                    <li><a href="../docs/" data-i18n="docs.nav.overview" aria-current="page">概要</a></li>
+                    <li><a href="../docs/format/" data-i18n="docs.nav.format">形式と署名の計算</a></li>
+                    <li><a href="../docs/keys/" data-i18n="docs.nav.keys">公開鍵の解決</a></li>
+                    <li><a href="../docs/verify/" data-i18n="docs.nav.verify">検証手順と結果</a></li>
+                    <li><a href="../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
+                    <li><a href="../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
+                    <li><a href="../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                </ol>
+                <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
+                <ul>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md" data-i18n-attr="href:link.spec">SPEC</a></li>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md" data-i18n-attr="href:link.cli">CLI_SPEC</a></li>
+                </ul>
+            </nav>
+            <article class="docs-body">
+                <header class="docs-head">
+                    <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
+                    <h1 id="page-title" data-i18n="docs.index.title">ドキュメント</h1>
+                    <p class="lede" data-i18n-html="docs.index.lede">md-signature の形式と検証の規則を、主題ごとに1ページずつ解説します。規範となるのは仕様書で、本ページの解説と仕様書が異なる場合は仕様書が優先します。</p>
+                </header>
+        <section class="doc-sec docs-group" aria-labelledby="g-basics">
+            <h2 class="docs-group-title" id="g-basics" data-i18n="docs.g.basics">形式の基本</h2>
+            <ul class="doc-cards">
+                <li>
+                    <a href="../docs/format/">
+                        <i data-lucide="brackets" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.format">形式と署名の計算</h3>
+                        <p data-i18n="docs.card.format">署名ブロックの構文、文書の正規化とハッシュチェーン、秘密鍵で署名する対象ペイロードの組み立て。</p>
+                        <span class="doc-card-tags"><code>v</code> <code>hash</code> <code>sig</code> <code>md-signature/v1</code></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../docs/keys/">
+                        <i data-lucide="key-round" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.keys">公開鍵の解決</h3>
+                        <p data-i18n="docs.card.keys">署名者の公開鍵を、DNS、Git ホスティング、OpenPGP、ブロック内のどこから取得するか。パスキーによる署名。</p>
+                        <span class="doc-card-tags"><code>dns</code> <code>git-hosting</code> <code>pgp</code> <code>tofu</code></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../docs/verify/">
+                        <i data-lucide="shield-check" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.verify">検証手順と結果</h3>
+                        <p data-i18n="docs.card.verify">ブロックごとの検査手順、ステータスと code、CLI の終了コード、JSON 出力の読み方。</p>
+                        <span class="doc-card-tags"><code>valid</code> <code>invalid</code> <code>unresolved</code> <code>--json</code></span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <section class="doc-sec docs-group" aria-labelledby="g-use">
+            <h2 class="docs-group-title" id="g-use" data-i18n="docs.g.use">運用のための機能</h2>
+            <ul class="doc-cards">
+                <li>
+                    <a href="../docs/workflow/">
+                        <i data-lucide="workflow" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.workflow">連署ワークフロー</h3>
+                        <p data-i18n="docs.card.workflow">最初の署名者が必要な連署を宣言する require。承認の順番（step）、M of N（any）、順番を守らない署名の扱い（order）。</p>
+                        <span class="doc-card-tags"><code>require</code> <code>step</code> <code>any</code> <code>order</code></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../docs/archive/">
+                        <i data-lucide="archive" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.archive">長期保存</h3>
+                        <p data-i18n="docs.card.archive">鍵の削除や乗っ取りの後も証拠を保持するための、RFC 3161 タイムスタンプ、タイムスタンプ専用ブロック、公開鍵のスナップショット。</p>
+                        <span class="doc-card-tags"><code>tsa_token</code> <code>method: tsa</code> <code>pubkey</code></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../docs/fields/">
+                        <i data-lucide="list-plus" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.fields">拡張フィールド</h3>
+                        <p data-i18n="docs.card.fields">文書の一部への署名（scope）、添付ファイルの固定（resources）、有効期限（expires）、撤回リスト（revocation_url）。</p>
+                        <span class="doc-card-tags"><code>scope</code> <code>resources</code> <code>expires</code> <code>revocation_url</code></span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <section class="doc-sec docs-group" aria-labelledby="g-goal">
+            <h2 class="docs-group-title" id="g-goal" data-i18n="docs.g.goal">目的から探す</h2>
+            <table class="guide-table goals">
+                <tbody>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.sign">文書に署名して受け渡したい</th>
+                        <td><a href="../start/#cli" data-i18n="nav.start">導入</a> · <a href="../docs/keys/#publish" data-i18n="docs.keys.pubT">公開鍵の公開手順</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.approve">承認の順番と人数を規定したい</th>
+                        <td><a href="../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.long">数年後も検証できる状態で保管したい</th>
+                        <td><a href="../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.partial">一部の節だけに署名したい、画像も固定したい</th>
+                        <td><a href="../docs/fields/#scope">scope</a> · <a href="../docs/fields/#resources">resources</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.ci">CI やフックで自動的に検証したい</th>
+                        <td><a href="../docs/verify/" data-i18n="docs.nav.verify">検証手順と結果</a> · <a href="../start/#automation" data-i18n="st.auto.title">CI と AI エージェント</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.impl">別の言語で実装したい</th>
+                        <td><a href="../docs/format/" data-i18n="docs.nav.format">形式と署名の計算</a> · <a href="https://github.com/SHIOZAKI-Shota/md-signature/tree/main/examples" data-i18n="docs.goal.vectors">テストベクタ（examples/）</a></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="doc-sec docs-group" aria-labelledby="g-specs">
+            <h2 class="docs-group-title" id="g-specs" data-i18n="docs.g.specs">仕様書</h2>
+            <ul class="spec-links">
+                <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md"><b>SPEC.ja.md</b><span data-i18n="docs.spec.ja">形式の仕様（原文、日本語）</span></a></li>
+                <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.md"><b>SPEC.md</b><span data-i18n="docs.spec.en">形式の仕様（英語、規範）</span></a></li>
+                <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md"><b>CLI_SPEC.ja.md</b><span data-i18n="docs.spec.cliJa">CLI の仕様（日本語、規範）</span></a></li>
+                <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.md"><b>CLI_SPEC.md</b><span data-i18n="docs.spec.cliEn">CLI の仕様（英語、参考訳）</span></a></li>
+            </ul>
+            <p class="guide-note" data-i18n-html="docs.versions">本ドキュメントは形式 <code>0.0.2</code>（CLI v0.0.3）に対応します。検証者は <code>0.0.1</code> と <code>0.0.2</code> のブロックを検証でき、両者が同じチェーンに混在してもかまいません。</p>
+        </section>
+
+                <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">
+                    <span></span>
+                    <a class="next" href="../docs/format/"><span data-i18n="docs.next">次へ</span><b data-i18n="docs.nav.format">形式と署名の計算</b></a>
+                </nav>
+            </article>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
+                class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../start/" data-i18n="nav.start">導入</a>
+            <a href="../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
+        <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
+    </footer>
+</body>
+
+</html>

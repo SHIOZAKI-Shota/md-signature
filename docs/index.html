@@ -1,18 +1,19 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" class="snap" data-page="top">
 
 <head>
     <meta charset="utf-8">
     <meta name="go-import" content="mdsig.dev git https://github.com/SHIOZAKI-Shota/md-signature">
     <meta name="go-source" content="mdsig.dev https://github.com/SHIOZAKI-Shota/md-signature https://github.com/SHIOZAKI-Shota/md-signature/tree/main{/dir} https://github.com/SHIOZAKI-Shota/md-signature/blob/main{/dir}/{file}#L{line}">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/gsap@3.13.0/; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/gsap@3.13.0/; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="color-scheme.js"></script>
+    <script src="./color-scheme.js"></script>
     <title>md-signature：Markdownにも電子署名を</title>
     <meta name="description"
         content="本文の最終行に署名を追加し検証する、Markdownのためのオープンフォーマット。署名は HTML コメントとして入るので、表示は変わらず、ファイルは1つのまま。">
+    <link rel="canonical" href="https://mdsig.dev/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="md-signature">
     <meta property="og:title" content="md-signature：Markdownにも電子署名を">
@@ -23,48 +24,38 @@
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="chain.css">
-    <link rel="stylesheet" href="editor-cm.css">
-    <link rel="stylesheet" href="guide.css">
+    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./chain.css">
+    <link rel="stylesheet" href="./docs.css">
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" integrity="sha384-HOvlOYPIs/zjoIkWUGXkVmXsjr8GuZLV+Q+rcPwmJOVZVpvTSXQChiN4t9Euv9Vc" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" integrity="sha384-P8VzCVnT9NBUkMrpcIZrJbA7EBjJvh/fJS6PmP+4nLIM284DtsImIv8D0fFjIkeh" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js" integrity="sha384-xb96EMJeax+NLXMC88ZBa1xAeAW+kn+horHh/zFlbMLG2UPWhMJJSlv7fi57hS+Q" crossorigin="anonymous" defer></script>
-    <script src="vendor/lucide/lucide.min.js" defer></script>
-    <script src="vendor/marked/marked.min.js" defer></script>
-    <script src="vendor/dompurify/purify.min.js" defer></script>
-    <script type="module" src="site.js"></script>
-    <script type="module" src="motion.js"></script>
-    <script type="module" src="preview.js"></script>
-    <script type="module" src="scroll-sync.js"></script>
-    <script type="module" src="tab-indicator.js"></script>
-    <script type="module" src="key-method.js"></script>
-    <script type="module" src="app.js"></script>
-    <script type="module" src="editor-cm.js"></script>
+    <script src="./vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="./site.js"></script>
+    <script type="module" src="./motion.js"></script>
 </head>
 
 <body>
-    <a class="skip" href="#playground" data-i18n="nav.skip">プレイグラウンドへ移動</a>
+    <a class="skip" href="#top" data-i18n="nav.skipMain">本文へ移動</a>
 
     <header class="site-header">
         <a class="brand" href="./" aria-label="md-signature">
-            <img class="brand-mark" src="logo.svg" alt="" width="38" height="26">
+            <img class="brand-mark" src="./logo.svg" alt="" width="38" height="26">
             <span class="brand-name">md-signature</span>
         </a>
-        <nav class="site-nav" aria-label="Main" data-i18n-attr="aria-label:nav.label">
-            <a data-i18n="nav.spec" href="#spec-block">仕様</a>
-            <a data-i18n="nav.cli" data-i18n-attr="href:link.cli"
-                href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md">CLI</a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="./docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="./start/" data-i18n="nav.start">導入</a>
             <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
                     aria-hidden="true"></i>GitHub</a>
         </nav>
         <div class="prefs">
-            <a class="nav-cta" href="#playground" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta" href="./playground/" data-i18n="nav.try">デモ</a>
             <a class="nav-cta secondary" href="./editor/" data-i18n="nav.editor">エディタ</a>
             <div class="lang-switch" role="group" aria-label="Language / 言語">
                 <button type="button" data-lang="ja" lang="ja">日本語</button>
@@ -73,8 +64,8 @@
             <button type="button" class="theme-toggle" id="theme-toggle">
                 <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
                 <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
-                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切り替え</span>
-                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切り替え</span>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
             </button>
         </div>
     </header>
@@ -82,16 +73,9 @@
     <nav class="slide-nav" aria-label="ページ内の位置" data-i18n-attr="aria-label:slide.nav">
         <a href="#top"><span class="sr-only" data-i18n="slide.top">概要</span></a>
         <a href="#why"><span class="sr-only" data-i18n="why.title">md-signature の意義</span></a>
-        <a href="#playground"><span class="sr-only" data-i18n="try.title">試してみる</span></a>
         <a href="#how"><span class="sr-only" data-i18n="how.title">仕組み</span></a>
-        <a href="#spec-block"><span class="sr-only" data-i18n="guide.block.title"></span></a>
-        <a href="#spec-chain"><span class="sr-only" data-i18n="guide.chain.title"></span></a>
-        <a href="#spec-payload"><span class="sr-only" data-i18n="guide.payload.title"></span></a>
-        <a href="#spec-keys"><span class="sr-only" data-i18n="guide.keys.title"></span></a>
-        <a href="#spec-verify"><span class="sr-only" data-i18n="guide.verify.title"></span></a>
-        <a href="#spec-ext"><span class="sr-only" data-i18n="guide.ext.title"></span></a>
-        <a href="#compare"><span class="sr-only" data-i18n="cmp.title">ほかの方法との違い</span></a>
-        <a href="#start"><span class="sr-only" data-i18n="start.title">はじめる</span></a>
+        <a href="#compare"><span class="sr-only" data-i18n="cmp.title">他方式との比較</span></a>
+        <a href="#explore"><span class="sr-only" data-i18n="top.ex.title">次の一歩</span></a>
     </nav>
 
     <main>
@@ -111,12 +95,12 @@
                                 data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                     data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
                                     aria-hidden="true"></i></button></div>
-                        <a class="cta-row" href="#playground"><span data-i18n="hero.try">ブラウザで試す</span><i
-                                data-lucide="arrow-down-right" aria-hidden="true"></i></a>
+                        <a class="cta-row" href="./playground/"><span data-i18n="hero.try">ブラウザで試す</span><i
+                                data-lucide="arrow-up-right" aria-hidden="true"></i></a>
                         <a class="cta-row" href="./editor/"><span data-i18n="hero.editor">エディタを使用する</span><i
                                 data-lucide="square-arrow-out-up-right" aria-hidden="true"></i></a>
-                        <a class="cta-row" href="#spec-block"><span data-i18n="hero.spec">仕様の解説</span><i
-                                data-lucide="arrow-down-right" aria-hidden="true"></i></a>
+                        <a class="cta-row" href="./docs/"><span data-i18n="hero.spec">仕様の解説</span><i
+                                data-lucide="arrow-up-right" aria-hidden="true"></i></a>
                     </div>
                 </div>
 
@@ -286,351 +270,6 @@
             <p class="why-note" data-i18n="why.note">電子署名としての法的な扱いは、使用する鍵、運用、適用される法令によって異なります。</p>
         </section>
 
-        <section class="try slide" id="playground" tabindex="-1" aria-labelledby="try-title">
-            <div class="section-head">
-                <div class="try-title-row">
-                    <h2 id="try-title" data-i18n="try.title">試してみる</h2>
-                    <a class="full-editor-link" href="./editor/"><i data-lucide="square-arrow-out-up-right"
-                            aria-hidden="true"></i><span data-i18n="try.fullEditor">本格的なエディタを使用</span></a>
-                </div>
-                <p data-i18n="try.lede">左の文書は署名済みです。1文字でも改変すると、右の検証結果が即座に変化します。ほかの例文は文書欄のメニューから選択できます。</p>
-                <p class="privacy"><i data-lucide="lock" aria-hidden="true"></i><span
-                        data-i18n="try.privacy">検証と署名はブラウザ内で処理し、文書は送信しません。鍵や撤回リストを照会すると、照会先に検証の事実が伝わります。文書が指定する未知のホストには、許可を得てから接続します。</span></p>
-            </div>
-
-            <div class="playground">
-                <div class="pane editor-pane">
-                    <div class="pane-head">
-                        <h3 id="editor-label"><span data-i18n="pg.document">文書</span> <span id="test-keys-badge"
-                                class="badge badge-warn" hidden data-i18n="pg.testKeys"
-                                data-i18n-attr="title:pg.testKeysTitle">テスト鍵</span></h3>
-                        <div class="pane-actions">
-                            <label class="sr-only" for="example-select" data-i18n="pg.example">例</label>
-                            <select id="example-select" class="example-select"></select>
-                            <button type="button" id="btn-reset" class="ghost" data-i18n="pg.reset">元に戻す</button>
-                            <label class="ghost file-btn"><span data-i18n="pg.open">.md を開く</span><input type="file"
-                                    id="file-input" accept=".md,.markdown,text/markdown,text/plain"></label>
-                            <button type="button" id="btn-download" class="ghost" data-i18n="pg.download">保存</button>
-                        </div>
-                    </div>
-                    <textarea id="editor" aria-labelledby="editor-label" spellcheck="false" autocomplete="off"
-                        autocapitalize="off"></textarea>
-                </div>
-
-                <div class="pane status-pane">
-                    <div class="tabs" role="tablist" aria-label="Panels" data-i18n-attr="aria-label:pg.panels">
-                        <button type="button" role="tab" id="tab-sigs" aria-controls="panel-sigs" aria-selected="true"
-                            data-i18n="pg.tabSigs">検証結果</button>
-                        <button type="button" role="tab" id="tab-preview" aria-controls="panel-preview"
-                            aria-selected="false" tabindex="-1" data-i18n="pv.preview">表示結果</button>
-                        <button type="button" role="tab" id="tab-keys" aria-controls="panel-keys" aria-selected="false"
-                            tabindex="-1" data-i18n="pg.tabKeys">署名の作成・追加</button>
-                        <button type="button" role="tab" id="tab-create" aria-controls="panel-create"
-                            aria-selected="false" tabindex="-1" data-i18n="pg.tabCreate">署名の作成</button>
-                    </div>
-
-                    <div role="tabpanel" id="panel-sigs" aria-labelledby="tab-sigs" class="panel">
-                        <div id="summary" class="summary" role="status" aria-live="polite"></div>
-                        <ol id="cards" class="cards"></ol>
-                        <p id="doc-warnings" class="doc-warnings"></p>
-
-                        <section class="attach" id="attach" aria-labelledby="attach-title">
-                            <div class="attach-head">
-                                <h4 id="attach-title" data-i18n="att.title">リソース</h4>
-                                <div class="attach-actions">
-                                    <label class="ghost file-btn"><i data-lucide="paperclip"
-                                            aria-hidden="true"></i><span data-i18n="att.files">ファイルを添付</span><input
-                                            type="file" id="attach-input" multiple></label>
-                                    <label class="ghost file-btn"><i data-lucide="folder-open"
-                                            aria-hidden="true"></i><span data-i18n="att.folder">フォルダを添付</span><input
-                                            type="file" id="attach-folder" webkitdirectory multiple></label>
-                                </div>
-                            </div>
-                            <p class="hint" data-i18n="att.hint">
-                                署名は画像などのファイルをハッシュで固定できます。このページはディスクを読めないので、確認したいファイルを添付するか、このパネルにドロップしてください。ファイルはこのタブの中だけで使います。
-                            </p>
-                            <ul id="attach-list" class="attach-list" aria-label="Attached files"
-                                data-i18n-attr="aria-label:att.listLabel"></ul>
-                            <label class="check"><input type="checkbox" id="fetch-remote"> <span><span
-                                        data-i18n="att.fetch">リモートのリソースも取得する</span> <span class="opt"
-                                        data-i18n="att.fetchHint">（https の
-                                        URL。配信元に「誰かが検証している」ことが伝わります。多くのサイトはブラウザからの取得を拒否するため「取得できません」と表示されます）</span></span></label>
-                        </section>
-
-                        <section class="attach" id="tsa-roots" aria-labelledby="tsa-roots-title">
-                          <div class="attach-head">
-                            <h4 id="tsa-roots-title" data-i18n="roots.title">TSA ルート証明書</h4>
-                            <div class="attach-actions">
-                              <label class="ghost file-btn"><i data-lucide="shield-check" aria-hidden="true"></i><span data-i18n="roots.add">証明書追加</span><input type="file" id="tsa-root-input" accept=".pem,.cer,.crt,.der" multiple></label>
-                            </div>
-                          </div>
-                          <p class="hint" data-i18n="roots.hint">タイムスタンプの検証には、同梱する公開 TSA のルート証明書を使用します。ほかの TSA のトークンを検証する場合は、そのルート証明書（PEM または DER）を追加してください。</p>
-                          <ul id="tsa-root-list" class="attach-list" aria-label="追加したルート証明書" data-i18n-attr="aria-label:roots.listLabel"></ul>
-                          <p id="tsa-root-note" class="hint" role="status"></p>
-                        </section>
-
-                        <section class="attach" id="server" aria-labelledby="server-title">
-                          <div class="attach-head">
-                            <h4 id="server-title" data-i18n="srv.title">検証サーバー</h4>
-                          </div>
-                          <p class="hint" data-i18n="srv.hint">mdsig serve などの検証サーバーに同じ文書を送信し、その判定をこのページの判定と並べて表示します。</p>
-                          <form id="server-form" class="server-form">
-                            <input type="url" id="server-url" placeholder="http://localhost:8787" aria-labelledby="server-title" autocomplete="off" spellcheck="false">
-                            <button type="submit" class="ghost" data-i18n="srv.set">照会</button>
-                            <button type="button" class="ghost" id="server-clear" data-i18n="srv.clear">解除</button>
-                          </form>
-                          <p id="server-note" class="hint" role="status"></p>
-                        </section>
-
-                        <button type="button" id="btn-add-signature" class="add-signature"><i data-lucide="pen-line"
-                                aria-hidden="true"></i><span data-i18n="pg.addSignature">署名を追加</span></button>
-                    </div>
-
-                    <div role="tabpanel" id="panel-preview" aria-labelledby="tab-preview" class="panel preview-panel"
-                        hidden>
-                        <p class="preview-note" id="preview-note" role="status"></p>
-                        <article class="md-preview" id="preview"></article>
-                    </div>
-
-                    <div role="tabpanel" id="panel-keys" aria-labelledby="tab-keys" class="panel" hidden>
-                        <section class="cosign" id="cosign" aria-labelledby="cosign-title">
-                            <h4 id="cosign-title" data-i18n="cs.title">連署の追加</h4>
-                            <form id="cosign-form">
-                                <label><span data-i18n="cs.method">方式</span>
-                                    <select name="method" id="cosign-method">
-                                        <option value="tofu" data-i18n="cs.m.tofu">tofu：このブラウザで新規の鍵を生成</option>
-                                        <option value="tofu-passkey" data-i18n="cs.m.tofuPasskey">tofu：パスキーで署名</option>
-                                        <option value="git-hosting" data-i18n="cs.m.git">git-hosting：SSH 秘密鍵を貼付</option>
-                                        <option value="dns" data-i18n="cs.m.dns">dns：ドメインの秘密鍵を貼付</option>
-                                        <option value="dns-passkey" data-i18n="cs.m.dnsPasskey">dns：パスキーで署名</option>
-                                        <option value="pgp" data-i18n="cs.m.pgp">pgp：OpenPGP 秘密鍵を読込</option>
-                                    </select>
-                                </label>
-                                <p class="hint" id="passkey-unsupported" hidden data-i18n="cs.passkeyUnsupported">
-                                    このブラウザはパスキー（WebAuthn）に対応していないため、パスキーの方式は選べません。</p>
-                                <label class="only-passkey" hidden><span data-i18n="cs.passkey">パスキー</span>
-                                    <select name="passkey" id="cosign-passkey"></select>
-                                </label>
-                                <p class="hint only-passkey" id="passkey-none" hidden><span
-                                        data-i18n="cs.passkeyNone1">このサイト（</span><code class="rp-host"></code><span
-                                        data-i18n="cs.passkeyNone2">）用のパスキーがまだありません。「鍵と DNS TXT の作成」タブで登録してください。</span>
-                                </p>
-                                <label class="not-pgp"><span data-i18n="cs.signer">署名者</span>
-                                    <input name="signer" required placeholder="carol@example.org" autocomplete="off">
-                                </label>
-                                <label class="only-dns" hidden><span><span data-i18n="cs.selector">セレクタ</span> <span
-                                            class="opt" data-i18n="cs.optional">（任意）</span></span>
-                                    <input name="selector" placeholder="2026" autocomplete="off">
-                                </label>
-                                <label class="check only-snapshot" hidden><input type="checkbox" name="embedKey"> <span><span data-i18n="cs.embedKey">公開鍵を埋め込む</span> <span class="opt" data-i18n="cs.embedKeyHint">（鍵が削除された後も署名の成立を確認できる。鍵が署名者のものかは別途の確認が必要）</span></span></label>
-                                <label class="only-key" hidden><span><span data-i18n="cs.privkey">OpenSSH Ed25519
-                                            秘密鍵</span> <span class="opt"
-                                            data-i18n="cs.privkeyHint">（暗号化なし。このタブの外には出ません）</span></span>
-                                    <textarea name="privkey" rows="4" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                                        spellcheck="false"></textarea>
-                                </label>
-                                <div class="only-pgp pgp-key" hidden>
-                                    <div class="pgp-key-head">
-                                        <label for="cosign-pgpkey"><span><span data-i18n="cs.pgpKey">OpenPGP 秘密鍵</span> <span class="opt" data-i18n="cs.pgpKeyHint">（ASCII armor 形式）</span></span></label>
-                                        <label class="ghost file-btn"><i data-lucide="file-key" aria-hidden="true"></i><span data-i18n="cs.pgpFile">鍵ファイル読込</span><input type="file" id="cosign-pgp-file" accept=".asc,.key,.pgp,.gpg,.txt,application/pgp-keys,text/plain"></label>
-                                    </div>
-                                    <textarea id="cosign-pgpkey" name="pgpkey" rows="4" placeholder="-----BEGIN PGP PRIVATE KEY BLOCK-----" spellcheck="false" autocomplete="off"></textarea>
-                                    <p class="hint" data-i18n="cs.pgpMemory">秘密鍵とパスフレーズはこのページのメモリ内でのみ処理し、保存も送信もしません。署名の完了後は、失敗した場合も含めて破棄します。</p>
-                                    <dl class="pgp-info" id="cosign-pgp-info" hidden></dl>
-                                    <p class="form-error" id="cosign-pgp-error" role="alert"></p>
-                                    <label class="pgp-uid" hidden><span data-i18n="cs.pgpUid">署名者（ユーザ ID）</span>
-                                        <select name="pgpuid" id="cosign-pgp-uid"></select>
-                                    </label>
-                                    <label class="pgp-pass" hidden><span data-i18n="cs.pgpPass">パスフレーズ</span>
-                                        <input type="password" name="pgppass" id="cosign-pgp-pass" autocomplete="off">
-                                    </label>
-                                </div>
-                                <div class="row">
-                                    <label><span data-i18n="cs.role">役割</span>
-                                        <input name="role" list="roles" placeholder="reviewer" autocomplete="off">
-                                        <datalist id="roles">
-                                            <option value="author">
-                                            <option value="reviewer">
-                                            <option value="approver">
-                                            <option value="witness">
-                                        </datalist>
-                                    </label>
-                                    <label><span><span data-i18n="cs.reason">理由</span> <span class="opt"
-                                                data-i18n="cs.optional">（任意）</span></span>
-                                        <input name="reason" data-i18n-attr="placeholder:cs.reasonPh"
-                                            placeholder="内容を確認しました" autocomplete="off">
-                                    </label>
-                                </div>
-                                <details class="advanced" id="cosign-advanced">
-                                    <summary data-i18n="cs.advanced">詳細設定</summary>
-                                    <fieldset class="sections-field">
-                                        <legend><span data-i18n="cs.sections">署名するセクション</span> <span class="opt"
-                                                data-i18n="cs.sectionsHint">（空なら文書全体）</span></legend>
-                                        <div id="cosign-sections" class="checks"></div>
-                                        <p class="hint" id="cosign-sections-none"><span
-                                                data-i18n="cs.sectionsNone1">この文書には</span>
-                                            <code>&lt;!-- mdsig:section id --&gt;</code> <span
-                                                data-i18n="cs.sectionsNone2">の目印がありません。</span></p>
-                                    </fieldset>
-                                    <label><span><span data-i18n="cs.require">必須の連署者</span> <span class="opt"
-                                                data-i18n="cs.requireHint">（1行に1件: method:signer [role]）</span></span>
-                                        <textarea name="require" rows="2"
-                                            placeholder="step 1&#10;dns:example.com approver&#10;step 2 any 1&#10;git-hosting:github.com/bob&#10;git-hosting:github.com/carol"
-                                            spellcheck="false"></textarea>
-                                    </label>
-                                    <div class="row">
-                                        <label><span><span data-i18n="cs.expires">有効期限</span> <span class="opt"
-                                                    data-i18n="cs.expiresHint">（現地時刻で入力、UTC で保存）</span></span>
-                                            <input type="datetime-local" name="expires" step="1">
-                                        </label>
-                                        <label><span><span data-i18n="cs.revocation">撤回リストの URL</span> <span
-                                                    class="opt">（https）</span></span>
-                                            <input type="url" name="revocation"
-                                                placeholder="https://example.com/.well-known/mdsig-revoked.md"
-                                                autocomplete="off">
-                                        </label>
-                                    </div>
-                                    <fieldset>
-                                        <legend data-i18n="cs.resources">固定するリソース</legend>
-                                        <div id="cosign-resources" class="checks"></div>
-                                        <p class="hint" id="cosign-resources-none" data-i18n="cs.resourcesNone">
-                                            上の「リソース」でファイルを添付すると、ここで選べます。</p>
-                                        <label><span><span data-i18n="cs.remote">リモートの URL</span> <span class="opt"
-                                                    data-i18n="cs.remoteHint">（1行に1件。ハッシュ計算のため今すぐ取得します。CORS
-                                                    で失敗することがあります）</span></span>
-                                            <textarea name="remote" rows="2" placeholder="https://example.com/chart.png"
-                                                spellcheck="false"></textarea>
-                                        </label>
-                                    </fieldset>
-                                </details>
-                                <p class="form-error" id="cosign-error" role="alert"></p>
-                                <button type="submit" class="primary" data-i18n="cs.submit">署名して追記する</button>
-                            </form>
-                        </section>
-
-                    </div>
-
-                    <div role="tabpanel" id="panel-create" aria-labelledby="tab-create" class="panel" hidden>
-                        <section class="signer-create" aria-labelledby="mk-title">
-                            <h4 id="mk-title" data-i18n="mk.title">署名の作成</h4>
-                            <label><span data-i18n="mk.method">方式</span>
-                                <select id="mk-method">
-                                    <option value="keypair" data-i18n="mk.keypair">鍵ペア（Ed25519）</option>
-                                    <option value="passkey" data-i18n="mk.passkey">パスキー（WebAuthn・webauthn-es256）
-                                    </option>
-                                    <option value="pgp" data-i18n="mk.pgp">PGP 鍵（OpenPGP）</option>
-                                </select>
-                            </label>
-                            <div class="keygen mk-pane" data-mk="keypair">
-                                <p data-i18n="kg.lede">Ed25519 の鍵ペアをブラウザ内で作ります。どこにも送信されません。</p>
-                                <div class="row">
-                                    <label><span><span data-i18n="kg.domain">ドメイン</span> <span class="opt"
-                                                data-i18n="kg.domainHint">（dns 方式用）</span></span>
-                                        <input id="kg-domain" placeholder="example.com" autocomplete="off">
-                                    </label>
-                                    <label><span><span data-i18n="cs.selector">セレクタ</span> <span class="opt"
-                                                data-i18n="cs.optional">（任意）</span></span>
-                                        <input id="kg-selector" placeholder="2026" autocomplete="off">
-                                    </label>
-                                </div>
-                                <button type="button" id="kg-generate" class="primary"
-                                    data-i18n="kg.generate">鍵ペアを作る</button>
-                                <div id="kg-output" hidden>
-                                    <div class="kv">
-                                        <h4 data-i18n="kg.dns">DNS TXT レコード</h4>
-                                        <pre id="kg-dns"></pre>
-                                        <button type="button" class="copy" data-copy="kg-dns"
-                                            data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <div class="kv">
-                                        <h4 data-i18n="kg.tofu">tofu 公開鍵</h4>
-                                        <pre id="kg-tofu"></pre>
-                                        <button type="button" class="copy" data-copy="kg-tofu"
-                                            data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <div class="kv">
-                                        <h4><span data-i18n="kg.ssh">SSH 公開鍵</span> <span class="opt"
-                                                data-i18n="kg.sshHint">（git-hosting 方式なら GitHub / GitLab に登録）</span>
-                                        </h4>
-                                        <pre id="kg-ssh"></pre>
-                                        <button type="button" class="copy" data-copy="kg-ssh"
-                                            data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <div class="kv">
-                                        <h4><span data-i18n="kg.priv">秘密鍵</span> <span class="warn-text"
-                                                data-i18n="kg.privWarn">（第三者への共有は厳禁）</span></h4>
-                                        <pre id="kg-priv" class="secret"></pre>
-                                        <button type="button" class="copy" data-copy="kg-priv"
-                                            data-i18n="kg.copy">コピー</button>
-                                        <button type="button" id="kg-download" data-i18n="kg.download">mdsig_ed25519
-                                            を保存</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="passkeys mk-pane" data-mk="passkey" hidden>
-                                <p class="hint"><span data-i18n="pk.hint1">パスキーは端末やパスワードマネージャーに保存され、このサイトのドメイン（RP ID:
-                                    </span><code class="rp-host"></code><span
-                                        data-i18n="pk.hint2">）に結び付きます。このドメインでしか署名できません。localhost
-                                        で作った署名は開発用です。このブラウザに保存するのは公開鍵とクレデンシャル ID だけです。</span></p>
-                                <label><span><span data-i18n="pk.name">名前</span> <span class="opt"
-                                            data-i18n="pk.nameHint">（認証器に表示されます）</span></span>
-                                    <input id="pk-name" placeholder="carol@example.org" autocomplete="off">
-                                </label>
-                                <button type="button" id="pk-register" class="primary"
-                                    data-i18n="pk.register">パスキーを登録する</button>
-                                <p class="hint" id="pk-unsupported" hidden data-i18n="pk.unsupported">
-                                    このブラウザはパスキー（WebAuthn）に対応していません。</p>
-                                <p class="form-error" id="pk-error" role="alert"></p>
-                                <div id="pk-output" hidden>
-                                    <div class="kv">
-                                        <h4><span data-i18n="kg.dns">DNS TXT レコード</span> <span class="opt"
-                                                data-i18n="pk.dnsHint">（上のドメインとセレクタを使います）</span></h4>
-                                        <pre id="pk-dns"></pre>
-                                        <button type="button" class="copy" data-copy="pk-dns"
-                                            data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <div class="kv">
-                                        <h4 data-i18n="kg.tofu">tofu 公開鍵</h4>
-                                        <pre id="pk-tofu"></pre>
-                                        <button type="button" class="copy" data-copy="pk-tofu"
-                                            data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                </div>
-                                <h5 data-i18n="pk.stored">このブラウザに保存したパスキー</h5>
-                                <ul id="pk-list" class="pk-list"></ul>
-                            </div>
-                                <div class="pgpguide mk-pane" data-mk="pgp" hidden>
-                                    <p data-i18n="pgpk.lede1">PGP 鍵はこのページでは生成しません。gpg などの OpenPGP 実装で作成し、公開鍵を keys.openpgp.org または自ドメインの WKD で公開します。署名には「署名の追加」タブで秘密鍵を読み込むか、mdsig CLI を使用します（CLI は gpg を経由するため、スマートカード上の鍵も使用可能）。</p>
-                                    <div class="kv">
-                                        <h4><span data-i18n="pgpk.gen">1. 鍵の生成</span></h4>
-                                        <pre id="pg-gen">gpg --quick-gen-key "Your Name &lt;you@example.com&gt;" ed25519 sign,cert</pre>
-                                        <button type="button" class="copy" data-copy="pg-gen" data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <div class="kv">
-                                        <h4><span data-i18n="pgpk.upload">2. keys.openpgp.org への登録</span> <span class="opt" data-i18n="pgpk.uploadHint">（表示される URL から確認メールを送信し、承認するとユーザ ID が配布されます）</span></h4>
-                                        <pre id="pg-upload">gpg --export you@example.com | curl -T - https://keys.openpgp.org</pre>
-                                        <button type="button" class="copy" data-copy="pg-upload" data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <p class="hint"><span data-i18n="pgpk.uploadAlt">ブラウザから登録する場合：</span> <a href="https://keys.openpgp.org/upload" target="_blank" rel="noopener">keys.openpgp.org/upload</a></p>
-                                    <div class="kv">
-                                        <h4><span data-i18n="pgpk.wkd">3. WKD での公開</span> <span class="opt" data-i18n="pgpk.wkdHint">（任意。ドメインの管理者向け）</span></h4>
-                                        <pre id="pg-wkd">gpg --with-wkd-hash --list-keys you@example.com
-gpg --export you@example.com &gt; .well-known/openpgpkey/hu/&lt;hash&gt;</pre>
-                                        <button type="button" class="copy" data-copy="pg-wkd" data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                    <p class="hint" data-i18n="pgpk.wkdNote">1行目の出力にある、メールアドレスの前の32文字が &lt;hash&gt; です。同じディレクトリに空の policy ファイルも配置し、ブラウザから取得できるよう Access-Control-Allow-Origin: * を付与します。</p>
-                                    <div class="kv">
-                                        <h4><span data-i18n="pgpk.sign">4. CLI での署名</span> <span class="opt" data-i18n="pgpk.signHint">（gpg の既定の鍵を使用）</span></h4>
-                                        <pre id="pg-sign">mdsig sign file.md -m pgp</pre>
-                                        <button type="button" class="copy" data-copy="pg-sign" data-i18n="kg.copy">コピー</button>
-                                    </div>
-                                </div>
-                        </section>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <section class="how slide" id="how" tabindex="-1" aria-labelledby="how-title">
             <div class="section-head">
@@ -670,591 +309,6 @@ sig: base64:q1Xv…
             </div>
         </section>
 
-        <section class="guide slide" id="spec-block" tabindex="-1" aria-labelledby="spec-block-title">
-            <div class="section-head">
-                <h2 id="spec-block-title" data-i18n="guide.block.title">署名ブロックの形式</h2>
-                <p data-i18n-html="guide.block.lede">署名ブロックは、<code>&lt;!-- md-signature</code> の行で開始し
-                    <code>--&gt;</code> の行で終了する HTML コメントです。内部には <code>key: value</code>
-                    形式のフィールドを1行に1つずつ記述し、文書の末尾に配置します。</p>
-            </div>
-            <div class="guide-grid wide-left-s">
-                <div class="guide-col">
-                    <table class="guide-table fields">
-                        <thead>
-                            <tr>
-                                <th scope="col" data-i18n="guide.block.th.key">キー</th>
-                                <th scope="col" data-i18n="guide.block.th.req">要否</th>
-                                <th scope="col" data-i18n="guide.block.th.desc">内容</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row"><code>v</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.v">形式のバージョン。本書の版は <code>0.0.2</code>（<code>0.0.1</code> も検証できる）。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>method</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.method">
-                                    公開鍵の解決方法。<code>dns</code>・<code>git-hosting</code>・<code>pgp</code>・<code>tofu</code>
-                                    のいずれか。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>signer</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.signer">署名者の識別子。構文は <code>method</code>
-                                    に依存する（<code>github.com/alice</code>、<code>example.com</code> など）。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>ts</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.ts">
-                                    署名者が申告する署名時刻（UTC、<code>YYYY-MM-DDTHH:MM:SSZ</code>）。申告値にすぎず、第三者の証拠にはならない。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>hash</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.hash">対象スライスのダイジェスト。<code>sha256:</code> に続けて小文字の16進数。
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>sig</code></th>
-                                <td class="req must" data-i18n="guide.req.must">必須</td>
-                                <td data-i18n-html="guide.block.f.sig">署名対象ペイロードに対する署名。<code>base64:</code>
-                                    に続けてパディング付きの標準 base64。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>alg</code></th>
-                                <td class="req" data-i18n="guide.req.may">任意</td>
-                                <td data-i18n-html="guide.block.f.alg">署名アルゴリズム。省略時は <code>ed25519</code>。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>role</code> <code>reason</code></th>
-                                <td class="req" data-i18n="guide.req.may">任意</td>
-                                <td data-i18n-html="guide.block.f.role">役割（推奨値は
-                                    author・reviewer・approver・witness）と、自由記述の理由。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>selector</code> <code>key_fp</code> <code>pubkey</code>
-                                    <code>fpr</code></th>
-                                <td class="req" data-i18n="guide.req.cond">条件付き</td>
-                                <td data-i18n-html="guide.block.f.keys">方式ごとの鍵情報（「公開鍵の解決」で説明）。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>rp_id</code> <code>webauthn_*</code></th>
-                                <td class="req" data-i18n="guide.req.cond">条件付き</td>
-                                <td data-i18n-html="guide.block.f.webauthn"><code>alg</code> が
-                                    <code>webauthn-es256</code> の場合は必須、それ以外の場合は記述不可。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>expires</code> <code>scope</code> <code>require</code>
-                                    <code>resources</code> <code>revocation_url</code> <code>tsa_*</code></th>
-                                <td class="req" data-i18n="guide.req.may">任意</td>
-                                <td data-i18n-html="guide.block.f.ext">期限・部分署名・必須連署・リソース・撤回・タイムスタンプの拡張（「拡張フィールド」で説明）。
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>x_*</code></th>
-                                <td class="req" data-i18n="guide.req.may">任意</td>
-                                <td data-i18n-html="guide.block.f.x">私的利用の拡張。意味は規定されないが、署名対象ペイロードに含まれる。</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="guide-col">
-                    <figure class="guide-cell">
-                        <figcaption data-i18n="guide.block.cap">署名ブロック（examples/valid-single.md）</figcaption>
-                        <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.2
-method: tofu
-signer: bob@laptop
-pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
-role: author
-reason: Initial draft
-ts: 2026-11-16T09:00:00Z
-alg: ed25519
-hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
-sig: <span class="k">|</span>
-  base64:ezSYKHgypWrnc0/in6fUVU5FtrcFjI5eQs/YeuqI5U+IVpsIeobcgH09fwhCdnOpuq5Tw
-  MY2VycXK5EdwAZEBw==
-<span class="c">--&gt;</span></code></pre>
-                    </figure>
-                    <h3 class="guide-label" data-i18n="guide.block.rulesT">構文規則</h3>
-                    <ol class="guide-list compact">
-                        <li data-i18n-html="guide.block.r1">開始行は <code>&lt;!-- md-signature</code>、終了行は
-                            <code>--&gt;</code> のみで構成する。フィールドの順序は任意で、同じキーの重複は malformed。</li>
-                        <li data-i18n-html="guide.block.r2">空行を含めない。CommonMark は空行で HTML ブロックを終了するため、以降の行が表示されてしまう。</li>
-                        <li data-i18n-html="guide.block.r3">値に <code>--</code> と制御文字を含めない。<code>--</code>
-                            はコメントを途中で終了させ、可視の Markdown を注入される原因になる。生成者はこの入力を修正せず拒否する。</li>
-                        <li data-i18n-html="guide.block.r4"><code>key: |</code> と2スペース字下げの継続行で折り返し値となり、各行を
-                            <code>LF</code> で連結して扱う。リストと、76文字を超えるバイナリ値に使用する。</li>
-                        <li data-i18n-html="guide.block.r5">本書で未定義のキーは
-                            malformed（<code>unknown-field</code>）。<code>x_</code> で始まるキーのみ例外。将来の拡張を解釈しない検証者による誤判定を防止する。
-                        </li>
-                    </ol>
-                </div>
-            </div>
-            <p class="guide-ref"><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#3-署名ブロックの構文"
-                    data-i18n-attr="href:guide.block.href"><span data-i18n="guide.block.ref">仕様書 §3 署名ブロックの構文</span><i
-                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
-        <section class="guide slide" id="spec-chain" tabindex="-1" aria-labelledby="spec-chain-title">
-            <div class="section-head">
-                <h2 id="spec-chain-title" data-i18n="guide.chain.title">正規化とハッシュチェーン</h2>
-                <p data-i18n="guide.chain.lede">各ブロックの hash
-                    は、ファイル先頭からそのブロックの開始行の直前までのバイト列（スライス）を正規化して計算します。後続の署名者は先行するブロックも含めて署名するため、署名は追記専用のチェーンを形成します。</p>
-            </div>
-            <div class="guide-grid">
-                <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="guide.chain.normT">正規化 normalize(S)</h3>
-                    <ol class="guide-list">
-                        <li data-i18n-html="guide.chain.n1">先頭の UTF-8 BOM（<code>EF BB BF</code>）を除去する。</li>
-                        <li data-i18n-html="guide.chain.n2"><code>CRLF</code> を <code>LF</code> に置換し、残った <code>CR</code>
-                            も <code>LF</code> に置換する。</li>
-                        <li data-i18n-html="guide.chain.n3">末尾の <code>LF</code>・<code>SP</code>・<code>HTAB</code>
-                            をすべて除去する。</li>
-                        <li data-i18n-html="guide.chain.n4"><code>LF</code> をちょうど1つ付加する。</li>
-                    </ol>
-                    <p class="guide-note" data-i18n="guide.chain.normNote">Unicode 正規化は行わないため、NFC と NFD
-                        は別の文書として扱われます。これ以外のバイトを変更すると、文書内部の空白であっても署名は破壊されます。文書は有効な UTF-8 であることが必要です。</p>
-                    <h3 class="guide-label" data-i18n="guide.chain.detT">チェーンの検出</h3>
-                    <ol class="guide-list">
-                        <li data-i18n-html="guide.chain.d1">ファイル末尾から走査し、末尾の空白は無視する。</li>
-                        <li data-i18n-html="guide.chain.d2">最終行が <code>--&gt;</code> であれば、直前の
-                            <code>&lt;!-- md-signature</code> までを1つのブロックとして読む（間の行がすべて有効なフィールド行の場合）。ブロック間の空白行を読み飛ばして繰り返す。
-                        </li>
-                        <li data-i18n-html="guide.chain.d3">ブロックでも空白でもないテキストに到達した時点で停止する。そこまでが本文。</li>
-                    </ol>
-                    <p class="guide-note" data-i18n="guide.chain.detNote">
-                        本文中のブロック（後ろに文章が続くコード例など）はチェーンに含まれず、検証されません。最後のブロックの後に空白以外のテキストがある場合、そのテキストはどの署名の対象でもないため、検証は失敗します。生成者も、この状態の文書への連署を拒否します。
-                    </p>
-                </div>
-                <div class="guide-col">
-                    <figure class="guide-cell">
-                        <figcaption data-i18n="guide.chain.figCap">2名が署名した文書とスライス</figcaption>
-                        <div class="slices">
-                            <span class="ln"># Purchase Agreement</span>
-                            <span class="ln"></span>
-                            <span class="ln">The parties agree to the following terms...</span>
-                            <span class="ln"></span>
-                            <span class="ln blk b1 open">&lt;!-- md-signature</span>
-                            <span class="ln blk b1">signer: github.com/alice</span>
-                            <span class="ln blk b1">hash: sha256:3a0d0b5c…</span>
-                            <span class="ln blk b1">sig: base64:q1Xv…</span>
-                            <span class="ln blk b1 close">--&gt;</span>
-                            <span class="ln blk b2 open">&lt;!-- md-signature</span>
-                            <span class="ln blk b2">signer: example.com</span>
-                            <span class="ln blk b2">hash: sha256:8f434346…</span>
-                            <span class="ln blk b2">sig: base64:Zm9v…</span>
-                            <span class="ln blk b2 close">--&gt;</span>
-                            <span class="tag t-body" data-i18n="guide.chain.body">本文</span>
-                            <span class="tag t-b1" data-i18n="guide.chain.b1">ブロック 1</span>
-                            <span class="tag t-b2" data-i18n="guide.chain.b2">ブロック 2</span>
-                            <span class="bar s1"><b>slice₁</b><span data-i18n="guide.chain.s1">ブロック 1 の hash
-                                    の対象</span></span>
-                            <span class="bar s2"><b>slice₂</b><span data-i18n="guide.chain.s2">ブロック 2 の hash
-                                    の対象</span></span>
-                        </div>
-                        <pre class="guide-code formula"><code>hash₁ = "sha256:" hex(SHA-256(normalize(slice₁)))
-hash₂ = "sha256:" hex(SHA-256(normalize(slice₂)))</code></pre>
-                        <p class="guide-note" data-i18n="guide.chain.figNote">ブロック 1 の値を1文字でも変更すると slice₂ が変化し、ブロック 2 の
-                            hash が一致しなくなります。</p>
-                    </figure>
-                </div>
-            </div>
-            <p class="guide-ref"><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#52-チェーンと文書スライス"
-                    data-i18n-attr="href:guide.chain.href"><span data-i18n="guide.chain.ref">仕様書 §5.1 文書の正規化、§5.2
-                        チェーンと文書スライス</span><i data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
-        <section class="guide slide" id="spec-payload" tabindex="-1" aria-labelledby="spec-payload-title">
-            <div class="section-head">
-                <h2 id="spec-payload-title" data-i18n="guide.payload.title">署名対象ペイロード</h2>
-                <p data-i18n="guide.payload.lede">秘密鍵で署名する対象は、ブロックのフィールドから組み立てた短いテキストです。このテキストに hash
-                    が含まれるため、1つの署名で文書本体とメタデータの両方を保護します。</p>
-            </div>
-            <div class="guide-grid">
-                <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="guide.payload.stepsT">組み立て手順</h3>
-                    <ol class="guide-list">
-                        <li data-i18n-html="guide.payload.s1">フィールドから
-                            <code>sig</code>、<code>tsa_url</code>、<code>tsa_token</code>、<code>webauthn_authenticator_data</code>、<code>webauthn_client_data</code>
-                            を除外する。</li>
-                        <li data-i18n-html="guide.payload.s2">キーを ASCII バイト列として比較し、昇順に整列する。</li>
-                        <li data-i18n-html="guide.payload.s3">各フィールドを <code>key=value</code> として出力する。値内の <code>LF</code>
-                            は <code>LF</code> と2スペースとして出力する。キーは英小文字で始まるため、継続行が別のフィールドと誤認されることはない。</li>
-                        <li data-i18n-html="guide.payload.s4"><code>LF</code> で連結し（末尾に <code>LF</code> は付けない）、先頭に
-                            <code>md-signature/v1</code> と <code>LF</code> を付加する。</li>
-                        <li data-i18n-html="guide.payload.s5">UTF-8
-                            でエンコードし、<code>sig = "base64:" + base64(Sign(private-key, payload))</code> を計算する。</li>
-                    </ol>
-                    <h3 class="guide-label" data-i18n="guide.payload.notesT">この設計の帰結</h3>
-                    <ul class="guide-list plain">
-                        <li data-i18n-html="guide.payload.n1">
-                            <code>signer</code>・<code>role</code>・<code>reason</code>・<code>ts</code>
-                            もペイロードに含まれるため、いずれかを変更すると署名は破壊されます。</li>
-                        <li data-i18n-html="guide.payload.n2"><code>tsa_url</code> と <code>tsa_token</code>
-                            はペイロード外なので、タイムスタンプは署名後に追加できます。</li>
-                        <li data-i18n-html="guide.payload.n3">先頭行 <code>md-signature/v1</code>
-                            はドメイン分離用です。<code>git-hosting</code> は SSH 認証用の鍵を再利用するため、この行によって SSH 認証データや他プロトコルの署名対象と区別します。
-                        </li>
-                    </ul>
-                </div>
-                <div class="guide-col">
-                    <figure class="guide-cell">
-                        <figcaption data-i18n="guide.payload.blockCap">ブロック（灰色の行はペイロードから除外）</figcaption>
-                        <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.2
-method: tofu
-signer: bob@laptop
-pubkey: ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
-role: author
-reason: Initial draft
-ts: 2026-11-16T09:00:00Z
-alg: ed25519
-hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
-<span class="x">sig: |
-  base64:ezSYKHgypWrnc0/in6fUVU5FtrcFjI5eQs/YeuqI5U+IVpsIeobcgH09fwhCdnOpuq5Tw
-  MY2VycXK5EdwAZEBw==</span>
-<span class="c">--&gt;</span></code></pre>
-                    </figure>
-                    <figure class="guide-cell">
-                        <figcaption data-i18n="guide.payload.payloadCap">署名対象ペイロード（UTF-8、末尾 LF なし）</figcaption>
-                        <pre class="guide-code payload"><code><span class="k">md-signature/v1</span>
-alg=ed25519
-hash=sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
-method=tofu
-pubkey=ed25519:/FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU=
-reason=Initial draft
-role=author
-signer=bob@laptop
-ts=2026-11-16T09:00:00Z
-v=0.0.2</code></pre>
-                    </figure>
-                </div>
-            </div>
-            <p class="guide-ref"><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#53-ダイジェストと署名対象ペイロード"
-                    data-i18n-attr="href:guide.payload.href"><span data-i18n="guide.payload.ref">仕様書 §5.3
-                        ダイジェストと署名対象ペイロード</span><i data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
-        <section class="guide slide" id="spec-keys" tabindex="-1" aria-labelledby="spec-keys-title">
-            <div class="section-head">
-                <h2 id="spec-keys-title" data-i18n="guide.keys.title">公開鍵の解決</h2>
-                <p data-i18n-html="guide.keys.lede"><code>method</code>
-                    は、検証者が公開鍵を取得する場所を指定します。有効な署名が示すのは「解決した鍵の保持者が、このバイト列に署名した」という事実です。その鍵が誰に結び付くかは方式によって異なります。</p>
-            </div>
-            <div class="guide-grid wide-left">
-                <div class="guide-col">
-                    <table class="guide-table methods">
-                        <thead>
-                            <tr>
-                                <th scope="col" data-i18n="guide.keys.th.method">方式</th>
-                                <th scope="col" data-i18n="guide.keys.th.src">鍵の取得先</th>
-                                <th scope="col" data-i18n="guide.keys.th.proves">結び付く対象</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row"><code>dns</code></th>
-                                <td data-i18n-html="guide.keys.dns.src"><code>selector</code> があれば
-                                    <code>&lt;selector&gt;._mdsig.&lt;signer&gt;</code>、なければ
-                                    <code>_mdsig.&lt;signer&gt;</code> の TXT レコード。値は
-                                    <code>v=mdsig1; k=ed25519; p=&lt;base64&gt;</code>。レコードが複数あれば、いずれかで検証できれば有効（鍵のローテーション用）。ブラウザなどシステムのリゾルバを使用できない環境では
-                                    DNS-over-HTTPS で取得する。</td>
-                                <td data-i18n="guide.keys.dns.proves">ドメインの運用者</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>git-hosting</code></th>
-                                <td data-i18n-html="guide.keys.git.src">
-                                    <code>https://&lt;signer&gt;.keys</code>（例：<code>https://github.com/alice.keys</code>）の
-                                    <code>ssh-ed25519</code>
-                                    行。<code>key_fp</code>（<code>SHA256:…</code>）があればその鍵のみを使用する。<code>sig</code>
-                                    はペイロードに対する生の Ed25519 署名で、<code>ssh-keygen -Y sign</code> の SSHSIG 形式は使用しない。</td>
-                                <td data-i18n="guide.keys.git.proves">Git ホスティングサービスのアカウント</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>tofu</code></th>
-                                <td data-i18n-html="guide.keys.tofu.src">ブロック内の
-                                    <code>pubkey: ed25519:&lt;base64&gt;</code>。状態を保持する検証者は <code>signer</code> と
-                                    <code>pubkey</code> の対応を記録し、同じ <code>signer</code> の鍵が変化すれば警告する。</td>
-                                <td data-i18n="guide.keys.tofu.proves">鍵そのもののみ。署名後に改変されていないことは示すが、署名者が誰であるかは示さない。</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>pgp</code></th>
-                                <td data-i18n-html="guide.keys.pgp.src"><code>fpr</code>
-                                    の鍵を、ローカルの鍵束、<code>signer</code> のドメインの WKD、検証者が設定した鍵サーバ（既定は
-                                    <code>keys.openpgp.org</code>）の順に検索する。鍵サーバは署名ブロックでは指定できない。署名は gpg でも作成できるため、スマートカード上の鍵も使用できる。
-                                </td>
-                                <td data-i18n="guide.keys.pgp.proves">メールアドレス（WKD ではドメインの運用者、keys.openpgp.org では確認済みのアドレス）</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p class="guide-note" data-i18n-html="guide.keys.rotate"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code>（WKD・鍵サーバ）
-                        は検証時点の鍵を取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると攻撃者の鍵が公開されます。どちらも文書だけでは検出できないため、長期の証拠には
-                        RFC 3161 タイムスタンプの付与が推奨されています。</p>
-                </div>
-                <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="guide.keys.pkT">パスキー（alg: webauthn-es256）</h3>
-                    <p class="guide-text" data-i18n-html="guide.keys.pk1">認証器は任意のデータには署名しません。生成者は
-                        <code>challenge = SHA-256(payload)</code> と <code>rpId = rp_id</code> を指定して
-                        <code>navigator.credentials.get()</code> を呼び出し、応答を3つのフィールドに格納します。公開鍵は
-                        <code>tofu</code>（<code>pubkey: es256:…</code>）または
-                        <code>dns</code>（<code>k=es256</code>）から取得します。</p>
-                    <pre class="guide-code formula"><code>challenge = SHA-256(payload)
-signed    = authenticatorData || SHA-256(clientDataJSON)
-sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
-                    <h3 class="guide-label" data-i18n="guide.keys.pkCheckT">検証者の確認事項</h3>
-                    <ol class="guide-list compact">
-                        <li data-i18n-html="guide.keys.pkc1"><code>clientDataJSON</code> の <code>type</code> が
-                            <code>webauthn.get</code> で、<code>challenge</code> が <code>SHA-256(payload)</code> の
-                            base64url と一致する。</li>
-                        <li data-i18n-html="guide.keys.pkc2"><code>origin</code> のホストが <code>rp_id</code>
-                            またはそのサブドメインで、<code>localhost</code> 以外は https である。</li>
-                        <li data-i18n-html="guide.keys.pkc3"><code>authenticatorData</code> の先頭32バイトが
-                            <code>SHA-256(rp_id)</code> と等しく、User Present フラグが立っている。</li>
-                        <li data-i18n-html="guide.keys.pkc4">上の式の <code>signed</code> に対する ECDSA P-256 / SHA-256 署名が、候補の
-                            <code>es256</code> 鍵で検証できる。</li>
-                    </ol>
-                </div>
-            </div>
-            <p class="guide-ref"><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#4-公開鍵の解決方法"
-                    data-i18n-attr="href:guide.keys.href"><span data-i18n="guide.keys.ref">仕様書 §4 公開鍵の解決方法</span><i
-                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
-        <section class="guide slide" id="spec-verify" tabindex="-1" aria-labelledby="spec-verify-title">
-            <div class="section-head">
-                <h2 id="spec-verify-title" data-i18n="guide.verify.title">検証手順と結果</h2>
-                <p data-i18n="guide.verify.lede">検証者はチェーンの各ブロックを順に検査し、ブロックごとにステータスを決定します。文書全体が検証済みとなるのは、すべてのブロックが valid
-                    の場合に限られます。</p>
-            </div>
-            <div class="guide-grid">
-                <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="guide.verify.stepsT">ブロックごとの手順</h3>
-                    <ol class="guide-list steps-out">
-                        <li><span data-i18n-html="guide.verify.v1">ブロックを解析する。構文エラー、必須フィールドの欠落、未知のフィールドがあれば</span> <code
-                                class="st bad">malformed</code></li>
-                        <li><span data-i18n-html="guide.verify.v2">スライス（<code>scope</code>
-                                指定時はセクション）のダイジェストを計算し、<code>hash</code> と比較する。不一致なら</span> <code
-                                class="st bad">invalid · hash-mismatch</code></li>
-                        <li><span data-i18n-html="guide.verify.v3">ペイロードを構築し、<code>method</code> で候補鍵を解決する。ネットワーク起因の失敗は
-                                invalid と区別して</span> <code class="st warn">unresolved</code></li>
-                        <li><span data-i18n-html="guide.verify.v4">各候補鍵で <code>sig</code> を検証する。どの鍵でも成立しなければ</span>
-                            <code class="st bad">invalid · bad-signature</code></li>
-                        <li><span data-i18n-html="guide.verify.v5"><code>expires</code> を過ぎていれば</span> <code
-                                class="st bad">invalid · expired</code></li>
-                        <li><span
-                                data-i18n-html="guide.verify.v6"><code>resources</code>、<code>revocation_url</code>、<code>tsa_token</code>
-                                があれば、それぞれ検査する。</span></li>
-                    </ol>
-                    <p class="guide-note verdict" data-i18n-html="guide.verify.verdict">文書が verified となる条件は、チェーンにブロックが1つ以上あり、すべてが valid で、最後のブロックの後に未署名の内容がなく、合意が順序違反（<code>violated</code>）でないことです。<code>require</code> が満たされていなければ verified but pending となり、検証者はこれを完了として提示してはなりません。</p>
-                    <div class="agree">
-                        <h3 class="guide-label" data-i18n="guide.verify.agreeT">合意ステータス</h3>
-                        <dl>
-                            <div>
-                                <dt><code>none</code></dt>
-                                <dd data-i18n="guide.verify.ag.none">要件なし</dd>
-                            </div>
-                            <div>
-                                <dt><code class="st ok">complete</code></dt>
-                                <dd data-i18n="guide.verify.ag.complete">すべて充足</dd>
-                            </div>
-                            <div>
-                                <dt><code class="st warn">pending</code></dt>
-                                <dd data-i18n="guide.verify.ag.pending">不足あり（不足する連署を列挙）</dd>
-                            </div>
-                            <div>
-                                <dt><code class="st bad">violated</code></dt>
-                                <dd data-i18n-html="guide.verify.ag.violated"><code>order strict</code> の順序違反（違反した署名を列挙）</dd>
-                            </div>
-                        </dl>
-                    </div>
-                </div>
-                <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="guide.verify.statusT">ステータス</h3>
-                    <table class="guide-table statuses">
-                        <thead>
-                            <tr>
-                                <th scope="col" data-i18n="guide.verify.th.status">status</th>
-                                <th scope="col" data-i18n="guide.verify.th.meaning">意味</th>
-                                <th scope="col" data-i18n="guide.verify.th.code">主な code</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th scope="row"><code class="st ok">valid</code></th>
-                                <td data-i18n="guide.verify.st.valid">すべての検査に合格した。</td>
-                                <td class="codes"><code>null</code></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code class="st bad">invalid</code></th>
-                                <td data-i18n="guide.verify.st.invalid">改ざん、期限切れ、撤回など。</td>
-                                <td class="codes"><code>hash-mismatch</code> <code>bad-signature</code>
-                                    <code>expired</code> <code>revoked</code> <code>scope-missing</code>
-                                    <code>resource-mismatch</code> <code>resource-missing</code></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code class="st bad">malformed</code></th>
-                                <td data-i18n="guide.verify.st.malformed">ブロックとして解釈できない。</td>
-                                <td class="codes"><code>malformed</code> <code>unknown-field</code></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code class="st warn">unresolved</code></th>
-                                <td data-i18n="guide.verify.st.unresolved">鍵やリソースを取得できず、判定できない。</td>
-                                <td class="codes"><code>network</code> <code>not-found</code> <code>offline</code></td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code class="st warn">unsupported</code></th>
-                                <td data-i18n="guide.verify.st.unsupported">未対応の版・アルゴリズム・方式。有効とは報告しない。</td>
-                                <td class="codes"><code>unsupported-version</code> <code>unsupported-alg</code>
-                                    <code>unsupported-hash</code> <code>unsupported-method</code></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <h3 class="guide-label" data-i18n="guide.verify.exitT">mdsig verify の終了コード</h3>
-                    <table class="guide-table exits">
-                        <tbody>
-                            <tr>
-                                <th scope="row"><code>0</code></th>
-                                <td data-i18n-html="guide.verify.e0">すべての署名が有効（<code>--offline</code> で未検査のものを含む）</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>1</code></th>
-                                <td data-i18n-html="guide.verify.e1">検証失敗：ハッシュ不一致、不正な署名、形式不正、未対応、署名なし、末尾の未署名内容など</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>2</code></th>
-                                <td data-i18n-html="guide.verify.e2">使い方の誤り：未知のフラグ、引数の欠落、無効なフィールド値</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>3</code></th>
-                                <td data-i18n-html="guide.verify.e3">ネットワークまたは鍵解決のエラー（終了コード 1 となる失敗がない場合）</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>4</code></th>
-                                <td data-i18n-html="guide.verify.e4">ファイル I/O またはパーミッションのエラー</td>
-                            </tr>
-                            <tr>
-                                <th scope="row"><code>5</code></th>
-                                <td data-i18n-html="guide.verify.e5">すべての署名は有効だが、<code>require</code>
-                                    の連署が不足（<code>pending</code>）</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p class="guide-note" data-i18n="guide.verify.exitNote">複数ファイルの場合は最も重大なコードを返します（1 &gt; 4 &gt; 3 &gt;
-                        5 &gt; 0）。</p>
-                </div>
-            </div>
-            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#54-検証手順"
-                    data-i18n-attr="href:guide.verify.href"><span data-i18n="guide.verify.ref">仕様書 §5.4 検証手順</span><i
-                        data-lucide="arrow-up-right" aria-hidden="true"></i></a><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#4-終了コード"
-                    data-i18n-attr="href:guide.verify.cliHref"><span data-i18n="guide.verify.cliRef">CLI 仕様 §4
-                        終了コード</span><i data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
-        <section class="guide slide" id="spec-ext" tabindex="-1" aria-labelledby="spec-ext-title">
-            <div class="section-head">
-                <h2 id="spec-ext-title" data-i18n="guide.ext.title">拡張フィールド</h2>
-                <p data-i18n-html="guide.ext.lede">形式 0.0.2 は、基本のフィールドに加えて次の任意フィールドを規定します。<code>tsa_url</code> と
-                    <code>tsa_token</code> 以外は署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。</p>
-            </div>
-            <table class="guide-table ext">
-                <thead>
-                    <tr>
-                        <th scope="col" data-i18n="guide.ext.th.field">フィールド</th>
-                        <th scope="col" data-i18n="guide.ext.th.use">用途</th>
-                        <th scope="col" data-i18n="guide.ext.th.ex">例</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <th scope="row"><code>scope</code></th>
-                        <td data-i18n-html="guide.ext.scope">
-                            マーカーで囲んだセクションのみに署名し、それ以外の部分は署名後も編集できる。ハッシュの入力は、列挙順に連結した各セクションの
-                            <code>normalize(section)</code>。検証者は部分署名であることを必ず表示する。ID が見つからなければ
-                            invalid（<code>scope-missing</code>）。</td>
-                        <td>
-                            <pre class="guide-code"><code>scope: section:terms,section:fees
-
-&lt;!-- mdsig:section terms --&gt;
-## Terms
-&lt;!-- /mdsig:section --&gt;</code></pre>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><code>require</code></th>
-                        <td data-i18n-html="guide.ext.require">文書の完了に必要な後続の連署を宣言する。後続の有効なブロックと <code>method</code>・<code>signer</code>（指定時は <code>role</code> も）で照合する。<code>step 1</code>、<code>step 2 any 2</code> のような段階行で順番と人数を指定でき、順番を守らない署名の扱いは先頭の <code>order pending | guide | strict</code> で選ぶ（既定は <code>pending</code>：数えない）。不足があれば合意ステータスは <code>pending</code>（CLI の終了コード 5）、<code>strict</code> の順序違反は <code>violated</code>（終了コード 1）。</td>
-                        <td>
-                            <pre class="guide-code"><code>require: |
-  step 1
-  dns:example.com approver
-  step 2 any 2
-  git-hosting:github.com/bob
-  git-hosting:github.com/carol
-  git-hosting:github.com/dave</code></pre>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><code>resources</code></th>
-                        <td data-i18n-html="guide.ext.resources">参照する画像などのファイルや URL を SHA-256
-                            で固定する。ローカルの相対パスは常に検査する。<code>https://</code> の URL は、取得すると検証の事実が配信元に伝わるため、利用者が要求した場合のみ取得する。
-                        </td>
-                        <td>
-                            <pre class="guide-code"><code>resources: |
-  sha256:e3b0c442…b855 ./diagram.png
-  sha256:8f434346…7aa4 https://example.com/chart.png</code></pre>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><code>expires</code></th>
-                        <td data-i18n-html="guide.ext.expires">署名の有効期限。検証者の時計で期限を過ぎていれば
-                            invalid（<code>expired</code>）。実在しない日時は malformed。</td>
-                        <td>
-                            <pre class="guide-code"><code>expires: 2027-03-31T23:59:59Z</code></pre>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><code>revocation_url</code></th>
-                        <td data-i18n-html="guide.ext.revocation">署名者の撤回リストの <code>https://</code> URL。リスト自体も
-                            md-signature 文書で、同じ <code>method</code>・<code>signer</code>
-                            の有効な署名を持つ場合のみ信頼する。取得できない場合は「撤回未検査」と報告し、それだけでは無効にしない。</td>
-                        <td>
-                            <pre class="guide-code"><code>revocation_url: https://example.com/.well-known/mdsig-revoked.md
-<span class="c"># list body</span>
-revoked: sha256:&lt;hex of SHA-256(signed payload)&gt;</code></pre>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><code>tsa_url</code> <code>tsa_token</code></th>
-                        <td data-i18n-html="guide.ext.tsa">RFC 3161 タイムスタンプ。<code>messageImprint</code> は
-                            <code>SHA-256(sig の生バイト列)</code>。<code>ts</code>
-                            と異なり、署名がその時刻に存在したことの第三者による証拠になる。検証者は応答ステータスと imprint を確認する。署名者を持たないタイムスタンプ専用ブロック（<code>method: tsa</code>）を末尾に重ねて追記すると、以前のタイムスタンプも含めて覆うので、TSA 証明書の期限やハッシュの危殆化に備えた更新になる（CLI は <code>mdsig timestamp</code>）。</td>
-                        <td>
-                            <pre class="guide-code"><code>tsa_url: http://ts.ssl.com
-tsa_token: |
-  gzip+base64:H4sIAAAAAAAA/+3SW0hTURwG8G+m…</code></pre>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <p class="guide-note alg" data-i18n-html="guide.ext.alg"><code>alg</code> は <code>ed25519</code>
-                が実装必須、<code>webauthn-es256</code>
-                は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code>
-                は予約済みで、未対応のアルゴリズムは unsupported と報告されます。</p>
-            <p class="guide-ref"><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#56-セクション署名scope"
-                    data-i18n-attr="href:guide.ext.href"><span data-i18n="guide.ext.ref">仕様書 §5.5〜5.9、§6</span><i
-                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
-        </section>
-
         <section class="compare slide" id="compare" tabindex="-1" aria-labelledby="compare-title">
             <div class="section-head">
                 <h2 id="compare-title" data-i18n="cmp.title">ほかの方法との違い</h2>
@@ -1272,60 +326,60 @@ tsa_token: |
                     </thead>
                     <tbody>
                         <tr>
-                            <th scope="row" data-i18n="cmp.r1"></th>
+                            <th scope="row" data-i18n="cmp.r1">単一ファイルで完結</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
                                         class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
-                            <td class="no" data-i18n="cmp.r1.saas"></td>
-                            <td class="no" data-i18n="cmp.r1.det"></td>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
-                        </tr>
-                        <tr>
-                            <th scope="row" data-i18n="cmp.r2"></th>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r2.md"></span></td>
-                            <td data-i18n="cmp.r2.saas"></td>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
-                            <td class="no" data-i18n="cmp.r2.pgp"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row" data-i18n="cmp.r3"></th>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r3.md"></span></td>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
-                            <td data-i18n="cmp.r3.det"></td>
-                            <td class="no" data-i18n="cmp.r3.pgp"></td>
-                        </tr>
-                        <tr>
-                            <th scope="row" data-i18n="cmp.r4"></th>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r4.md"></span></td>
-                            <td class="no" data-i18n="cmp.r4.saas"></td>
-                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
-                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                            <td class="no" data-i18n="cmp.r1.saas">PDF と事業者側の記録</td>
+                            <td class="no" data-i18n="cmp.r1.det">2ファイル</td>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
                                         class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
                         </tr>
                         <tr>
-                            <th scope="row" data-i18n="cmp.r5"></th>
+                            <th scope="row" data-i18n="cmp.r2">表示への影響なし</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
                                         class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r5.md"></span></td>
-                            <td class="no" data-i18n="cmp.r5.saas"></td>
+                                    data-i18n="cmp.r2.md">HTML コメント</span></td>
+                            <td data-i18n="cmp.r2.saas">PDF のみ</td>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                            <td class="no" data-i18n="cmp.r2.pgp">署名文字列が表示される</td>
+                        </tr>
+                        <tr>
+                            <th scope="row" data-i18n="cmp.r3">複数人の署名</th>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                    data-i18n="cmp.r3.md">追記型ハッシュチェーン</span></td>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                            <td data-i18n="cmp.r3.det">署名者ごとに別ファイル</td>
+                            <td class="no" data-i18n="cmp.r3.pgp">入れ子構造で扱いにくい</td>
+                        </tr>
+                        <tr>
+                            <th scope="row" data-i18n="cmp.r4">事業者なしで検証可能</th>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                    data-i18n="cmp.r4.md">公開仕様</span></td>
+                            <td class="no" data-i18n="cmp.r4.saas">事業者に依存</td>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span></td>
+                        </tr>
+                        <tr>
+                            <th scope="row" data-i18n="cmp.r5">既存の鍵を使用可能</th>
+                            <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
+                                        class="sr-only" data-i18n="cmp.yes">はい</span></span><span
+                                    data-i18n="cmp.r5.md">SSH 鍵・DNS・パスキー・PGP 鍵（gpg やスマートカードで署名、WKD・keys.openpgp.org で公開）</span></td>
+                            <td class="no" data-i18n="cmp.r5.saas">サービスのアカウント</td>
                             <td>PGP / SSH</td>
-                            <td data-i18n="cmp.r5.pgp"></td>
+                            <td data-i18n="cmp.r5.pgp">PGP のみ</td>
                         </tr>
                         <tr>
-                            <th scope="row" data-i18n="cmp.r6"></th>
+                            <th scope="row" data-i18n="cmp.r6">ブラウザのみで動作</th>
                             <td class="yes"><span class="mark"><i data-lucide="circle" aria-hidden="true"></i><span
                                         class="sr-only" data-i18n="cmp.yes">はい</span></span><span
-                                    data-i18n="cmp.r6.md"></span></td>
-                            <td data-i18n="cmp.r6.saas"></td>
+                                    data-i18n="cmp.r6.md">Web Crypto のみで実装</span></td>
+                            <td data-i18n="cmp.r6.saas">サービスの Web アプリ</td>
                             <td class="rare"><span class="mark"><i data-lucide="triangle" aria-hidden="true"></i><span
                                         class="sr-only" data-i18n="cmp.rarely">まれ</span></span></td>
                             <td class="rare"><span class="mark"><i data-lucide="triangle" aria-hidden="true"></i><span
@@ -1339,215 +393,64 @@ tsa_token: |
                         aria-hidden="true"></i></span><span data-i18n="cmp.legendRare">まれ・一部のみ</span></p>
         </section>
 
-        <section class="start slide" id="start" tabindex="-1" aria-labelledby="start-title">
+        <section class="explore slide" id="explore" tabindex="-1" aria-labelledby="explore-title">
             <div class="section-head">
-                <h2 id="start-title" data-i18n="start.title">導入</h2>
-                <p data-i18n="start.lede">CLI は Go 製の単一バイナリです。ライブラリは依存関係なしの TypeScript で、Web 標準 API
-                    だけを使用するため、同じコードが各実行環境で動作します。</p>
+                <h2 id="explore-title" data-i18n="top.ex.title">次の一歩</h2>
+                <p data-i18n="top.ex.lede">ブラウザで動作を確認し、仕様を読み、手元の環境に導入できます。</p>
             </div>
-            <div class="start-grid">
-                <div class="term" data-term>
-                    <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
-                            class="term-title" data-i18n="start.cli">コマンドライン（mdsig）</span>
-                        <div class="term-tabs" role="tablist" aria-label="cli"><button type="button" role="tab"
-                                id="tab-cli-mac" aria-controls="cli-mac" aria-selected="true">macOS</button><button
-                                type="button" role="tab" id="tab-cli-win" aria-controls="cli-win" aria-selected="false"
-                                tabindex="-1">Windows</button><button type="button" role="tab" id="tab-cli-linux"
-                                aria-controls="cli-linux" aria-selected="false" tabindex="-1">Linux</button></div>
-                    </div>
-                    <div class="term-body">
-                        <div class="term-pane" role="tabpanel" id="cli-mac" aria-labelledby="tab-cli-mac">
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c1"># インストール（Homebrew）</span>
-<span class="cmd">brew install SHIOZAKI-Shota/tap/mdsig</span></code></pre><button type="button"
-                                    class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
-                                    aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
-                                        data-lucide="check" aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="cli-win" aria-labelledby="tab-cli-win" hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c1w"># インストール（winget）</span>
-<span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="cli-linux" aria-labelledby="tab-cli-linux" hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c1l"># GitHub Releases の .deb / .rpm を導入</span>
-<span class="cmd">go install mdsig.dev/cmd/mdsig@latest</span></code></pre><button type="button"
-                                    class="tcopy icon-copy" data-i18n-attr="aria-label:kg.copy;title:kg.copy"
-                                    aria-label="コピー" title="コピー"><i data-lucide="copy" aria-hidden="true"></i><i
-                                        data-lucide="check" aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-common">
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c2"># GitHub で使用中の SSH 鍵で署名</span>
-<span class="cmd">mdsig sign contract.md -m git-hosting -s github.com/alice -r author</span></code></pre><button
-                                    type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c5"># 承認者を指定し、画像を固定して連署を要求</span>
-<span class="cmd">mdsig sign quote.md -m git-hosting -s github.com/alice --require "dns:example.com approver" --auto-resources</span></code></pre>
-                                <button type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c3"># チェーン全体を検証（終了コード 0〜5）</span>
-<span class="cmd">mdsig verify contract.md</span>
-<span class="cmd">mdsig verify --json contract.md</span></code></pre><button type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.c4"># 引数なしで対話メニューを起動</span>
-<span class="cmd">mdsig</span></code></pre><button type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="term" data-term>
-                    <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
-                            class="term-title" data-i18n="start.lib">ライブラリ（@md-signature/core）</span>
-                        <div class="term-tabs" role="tablist" aria-label="lib"><button type="button" role="tab"
-                                id="tab-lib-node" aria-controls="lib-node" aria-selected="true">Node.js</button><button
-                                type="button" role="tab" id="tab-lib-bun" aria-controls="lib-bun" aria-selected="false"
-                                tabindex="-1">Bun</button><button type="button" role="tab" id="tab-lib-deno"
-                                aria-controls="lib-deno" aria-selected="false" tabindex="-1">Deno</button><button
-                                type="button" role="tab" id="tab-lib-web" aria-controls="lib-web" aria-selected="false"
-                                tabindex="-1">Browser</button><button type="button" role="tab" id="tab-lib-workers"
-                                aria-controls="lib-workers" aria-selected="false" tabindex="-1">Workers</button></div>
-                    </div>
-                    <div class="term-body">
-                        <div class="term-pane" role="tabpanel" id="lib-node" aria-labelledby="tab-lib-node">
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
-<span class="cmd">npm install @md-signature/core</span></code></pre><button
-                                    type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock code">
-                                <pre><code>import { readFile } from "node:fs/promises";
-import { verifyDocument } from "@md-signature/core";
-
-const markdown = await readFile("contract.md", "utf8");
-const result = await verifyDocument(markdown, {
-  // local resources listed in `resources` are read relative to the file
-  loadResource: (ref) =&gt; readFile(ref).catch(() =&gt; null),
-});
-
-console.log(result.ok, result.agreement.status);
-for (const s of result.signatures) console.log(s.index, s.fields.signer, s.status, s.code ?? "");</code></pre><button
-                                    type="button" class="tcopy icon-copy" data-copy-all
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="lib-bun" aria-labelledby="tab-lib-bun" hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmd">bun add @md-signature/core</span></code></pre><button
-                                    type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@md-signature/core";
-
-const markdown = await Bun.file("contract.md").text();
-const { ok, signatures } = await verifyDocument(markdown);
-
-console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</code></pre><button type="button"
-                                    class="tcopy icon-copy" data-copy-all
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="lib-deno" aria-labelledby="tab-lib-deno" hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
-                            </div>
-                            <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "npm:@md-signature/core@0.0.1";
-
-const markdown = await Deno.readTextFile("contract.md");
-const { ok, signatures } = await verifyDocument(markdown);
-
-console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</code></pre><button type="button"
-                                    class="tcopy icon-copy" data-copy-all
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="lib-web" aria-labelledby="tab-lib-web" hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.webNote"># インストール不要（ESM CDN）</span></code></pre>
-                            </div>
-                            <div class="tblock code">
-                                <pre><code>&lt;script type="module"&gt;
-  import { verifyDocument } from "https://esm.sh/@md-signature/core@0.0.1";
-
-  const markdown = await (await fetch("contract.md")).text();
-  const { ok, signatures } = await verifyDocument(markdown);
-  document.body.dataset.signed = String(ok);
-&lt;/script&gt;</code></pre><button type="button" class="tcopy icon-copy" data-copy-all
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="term-pane" role="tabpanel" id="lib-workers" aria-labelledby="tab-lib-workers"
-                            hidden>
-                            <div class="tblock">
-                                <pre><code><span class="cmt" data-i18n="start.npmNote"># npm への公開は準備中</span>
-<span class="cmd">npm install @md-signature/core</span></code></pre><button
-                                    type="button" class="tcopy icon-copy"
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                            <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@md-signature/core";
-
-export default {
-  async fetch(request) {
-    const markdown = await request.text();
-    const result = await verifyDocument(markdown);
-    return Response.json(result, { status: result.ok ? 200 : 422 });
-  },
-};</code></pre><button type="button" class="tcopy icon-copy" data-copy-all
-                                    data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
-                                        data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
-                                        aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ul class="explore-grid">
+                <li>
+                    <a href="./playground/">
+                        <i data-lucide="flask-conical" aria-hidden="true"></i>
+                        <h3 data-i18n="top.ex.demo.t">デモ</h3>
+                        <p data-i18n="top.ex.demo.d">署名済みの例文を改変して、検証結果の変化を確認します。鍵の生成や連署の追加もブラウザ内で試せます。</p>
+                        <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="./editor/">
+                        <i data-lucide="square-pen" aria-hidden="true"></i>
+                        <h3 data-i18n="top.ex.editor.t">エディタ</h3>
+                        <p data-i18n="top.ex.editor.d">手元の Markdown ファイルを開き、署名と検証を行います。プレビューとフォルダ単位の操作に対応します。</p>
+                        <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="./docs/">
+                        <i data-lucide="book-open" aria-hidden="true"></i>
+                        <h3 data-i18n="top.ex.docs.t">ドキュメント</h3>
+                        <p data-i18n="top.ex.docs.d">署名ブロックの形式、公開鍵の解決、検証手順、連署ワークフロー、長期保存を主題ごとに解説します。</p>
+                        <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="./start/">
+                        <i data-lucide="terminal" aria-hidden="true"></i>
+                        <h3 data-i18n="top.ex.start.t">導入</h3>
+                        <p data-i18n="top.ex.start.d">CLI のインストール、TypeScript と Go のライブラリ、検証サーバー、CI での利用方法。</p>
+                        <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
+                    </a>
+                </li>
+            </ul>
+            <ul class="explore-topics">
+                <li><a href="./docs/workflow/"><span data-i18n="docs.nav.workflow">連署ワークフロー</span><code>require · step · any · order</code></a></li>
+                <li><a href="./docs/archive/"><span data-i18n="docs.nav.archive">長期保存</span><code>tsa · pubkey</code></a></li>
+                <li><a href="./docs/fields/"><span data-i18n="docs.nav.fields">拡張フィールド</span><code>scope · resources · expires</code></a></li>
+                <li><a href="./docs/verify/"><span data-i18n="docs.nav.verify">検証手順と結果</span><code>status · code · exit</code></a></li>
+            </ul>
         </section>
     </main>
 
     <footer class="site-footer">
         <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
                 class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
-        <p data-i18n-html="footer.text">仕様: CC0 1.0 ・ コード: MIT</p>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="./docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="./start/" data-i18n="nav.start">導入</a>
+            <a href="./playground/" data-i18n="nav.try">デモ</a>
+            <a href="./editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
         <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
     </footer>
 </body>

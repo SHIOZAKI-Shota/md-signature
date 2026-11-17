@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ja" data-title-key="meta.title.fields">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script src="../../color-scheme.js"></script>
+    <title>拡張フィールド | md-signature</title>
+    <meta name="description"
+        content="基本のフィールドに加えて、形式 0.0.2 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
+    <link rel="canonical" href="https://mdsig.dev/docs/fields/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="拡張フィールド | md-signature">
+    <meta property="og:description" content="基本のフィールドに加えて、形式 0.0.2 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
+    <meta property="og:url" content="https://mdsig.dev/docs/fields/">
+    <meta property="og:image" content="https://mdsig.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../../guide.css">
+    <link rel="stylesheet" href="../../docs.css">
+    <script src="../../vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="../../site.js"></script>
+</head>
+
+<body>
+    <a class="skip" href="#content" data-i18n="nav.skipMain">本文へ移動</a>
+
+    <header class="site-header">
+        <a class="brand" href="../../" aria-label="md-signature">
+            <img class="brand-mark" src="../../logo.svg" alt="" width="38" height="26">
+            <span class="brand-name">md-signature</span>
+        </a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="../../docs/" data-i18n="nav.docs" aria-current="page">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
+                    aria-hidden="true"></i>GitHub</a>
+        </nav>
+        <div class="prefs">
+            <a class="nav-cta" href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta secondary" href="../../editor/" data-i18n="nav.editor">エディタ</a>
+            <div class="lang-switch" role="group" aria-label="Language / 言語">
+                <button type="button" data-lang="ja" lang="ja">日本語</button>
+                <button type="button" data-lang="en" lang="en">EN</button>
+            </div>
+            <button type="button" class="theme-toggle" id="theme-toggle">
+                <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+                <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="docs-main" id="content" tabindex="-1">
+        <div class="docs-layout">
+            <nav class="docs-nav" aria-label="ドキュメント" data-i18n-attr="aria-label:docs.nav.label">
+                <p class="docs-nav-title" data-i18n="docs.nav.label">ドキュメント</p>
+                <ol>
+                    <li><a href="../../docs/" data-i18n="docs.nav.overview">概要</a></li>
+                    <li><a href="../../docs/format/" data-i18n="docs.nav.format">形式と署名の計算</a></li>
+                    <li><a href="../../docs/keys/" data-i18n="docs.nav.keys">公開鍵の解決</a></li>
+                    <li><a href="../../docs/verify/" data-i18n="docs.nav.verify">検証手順と結果</a></li>
+                    <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
+                    <li><a href="../../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
+                    <li><a href="../../docs/fields/" data-i18n="docs.nav.fields" aria-current="page">拡張フィールド</a></li>
+                </ol>
+                <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
+                <ul>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md" data-i18n-attr="href:link.spec">SPEC</a></li>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md" data-i18n-attr="href:link.cli">CLI_SPEC</a></li>
+                </ul>
+            </nav>
+            <article class="docs-body">
+                <header class="docs-head">
+                    <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
+                    <h1 id="page-title" data-i18n="docs.nav.fields">拡張フィールド</h1>
+                    <p class="lede" data-i18n-html="docs.fields.lede">基本のフィールドに加えて、形式 0.0.2 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。</p>
+                    <nav class="toc" aria-labelledby="toc-title">
+                        <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
+                        <ol>
+                            <li><a href="#scope" data-i18n="fl.scope.title">部分署名（scope）</a></li>
+                            <li><a href="#resources" data-i18n="fl.res.title">添付ファイルの固定（resources）</a></li>
+                            <li><a href="#expires" data-i18n="fl.exp.title">有効期限（expires）</a></li>
+                            <li><a href="#revocation" data-i18n="fl.rev.title">撤回（revocation_url）</a></li>
+                            <li><a href="#others" data-i18n="fl.other.title">アルゴリズムと私的拡張</a></li>
+                        </ol>
+                    </nav>
+                </header>
+        <section class="guide doc-sec" id="scope" tabindex="-1" aria-labelledby="scope-title">
+            <div class="section-head">
+                <h2 id="scope-title" data-i18n="fl.scope.title">部分署名（scope）</h2>
+                <p data-i18n-html="fl.scope.lede">マーカーで囲んだセクションのみに署名します。セクション外の注記や記入欄は、署名後も署名を破壊せずに編集できます。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="fl.scope.markT">セクションマーカー</h3>
+                    <ol class="guide-list compact">
+                        <li data-i18n-html="fl.scope.m1"><code>&lt;!-- mdsig:section id --&gt;</code> と <code>&lt;!-- /mdsig:section --&gt;</code> の行で囲む。各マーカーは単独で1行を占める。</li>
+                        <li data-i18n-html="fl.scope.m2">ID は <code>[a-z0-9-]+</code>。入れ子と同じ ID の重複は不可で、開始マーカーには終了マーカーが必要。</li>
+                        <li data-i18n-html="fl.scope.m3">フェンスで囲まれたコードブロック内のマーカーは無視する。</li>
+                    </ol>
+                    <h3 class="guide-label" data-i18n="fl.scope.verT">検証</h3>
+                    <ol class="guide-list compact">
+                        <li data-i18n-html="fl.scope.v1">ハッシュの入力は、列挙した各セクションの <code>normalize(section)</code> を列挙順に連結したもの。</li>
+                        <li data-i18n-html="fl.scope.v2">マーカーが規則に違反していれば malformed、列挙した ID が見つからなければ invalid（<code>scope-missing</code>）。</li>
+                        <li data-i18n-html="fl.scope.v3">検証者は、有効と報告するすべての箇所で部分署名であることを表示する（例：valid — partial: terms, fees）。</li>
+                    </ol>
+                    <p class="guide-note" data-i18n-html="fl.scope.note"><code>scope</code> のないブロックは、セクションを含むスライス全体を対象とします。セクション外の編集後もチェーンを有効に保つには、後続の署名者全員が <code>scope</code> を使用する必要があります。<code>scope</code> を持つブロックは <code>require</code> を満たしません。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.scope.exCap">terms と fees のみに署名した文書</figcaption>
+                        <pre class="guide-code"><code># Statement of Work
+
+&lt;!-- mdsig:section terms --&gt;
+## Terms
+Delivery by 2026-12-31.
+&lt;!-- /mdsig:section --&gt;
+
+## Notes
+<span class="k">(editable after signing)</span>
+
+&lt;!-- mdsig:section fees --&gt;
+## Fees
+JPY 1,200,000
+&lt;!-- /mdsig:section --&gt;
+
+<span class="c">&lt;!-- md-signature</span>
+…
+scope: section:terms,section:fees
+…
+<span class="c">--&gt;</span></code></pre>
+                    </figure>
+                    <pre class="guide-code formula"><code>hash = H(normalize(terms) || normalize(fees))</code></pre>
+                    <pre class="guide-code"><code>mdsig sign sow.md -m tofu -s alice@laptop -k ~/.mdsig/alice --scope terms,fees</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="resources" tabindex="-1" aria-labelledby="resources-title">
+            <div class="section-head">
+                <h2 id="resources-title" data-i18n="fl.res.title">添付ファイルの固定（resources）</h2>
+                <p data-i18n-html="fl.res.lede">文書が参照するスクリーンショット、図、データファイル、URL を SHA-256 で固定します。本文だけでなく、参照先の差し替えも検出できます。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="fl.res.refT">参照の書式</h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="fl.res.r1">各行は <code>sha256:&lt;16進数&gt; &lt;ref&gt;</code>。ハッシュはファイルまたは HTTP 応答本文の正確なバイト列に対して計算する。</li>
+                        <li data-i18n-html="fl.res.r2"><code>ref</code> は <code>https://</code> の URL、または文書のディレクトリを基準とする相対パス。絶対パス、ドライブレター、<code>\</code>、<code>..</code> は使用できない。</li>
+                    </ul>
+                    <h3 class="guide-label" data-i18n="fl.res.verT">検証</h3>
+                    <table class="guide-table outcomes">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="fl.res.th.case">状況</th>
+                                <th scope="col" data-i18n="fl.res.th.result">結果</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td data-i18n-html="fl.res.c1">ローカルのファイルが存在しない</td>
+                                <td><code class="st bad">invalid · resource-missing</code></td>
+                            </tr>
+                            <tr>
+                                <td data-i18n-html="fl.res.c2">ハッシュが一致しない（ローカル、URL とも）</td>
+                                <td><code class="st bad">invalid · resource-mismatch</code></td>
+                            </tr>
+                            <tr>
+                                <td data-i18n-html="fl.res.c3">URL を取得しない（既定）</td>
+                                <td data-i18n-html="fl.res.c3r">未検査と報告する</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n-html="fl.res.c4">URL を取得できない</td>
+                                <td><code class="st warn">unresolved</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="guide-note" data-i18n-html="fl.res.note">URL を取得すると、文書が検証されていることが配信元に伝わります。このため URL は利用者が要求した場合のみ取得し、<code>https://</code> に限り、応答は 50 MB まで、プライベートアドレスへの接続は拒否します。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.res.exCap">resources の値</figcaption>
+                        <pre class="guide-code"><code>resources: |
+  sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ./diagram.png
+  sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4 https://example.com/chart.png</code></pre>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.res.cliCap">CLI で固定する、URL も検証する</figcaption>
+                        <pre class="guide-code"><code>mdsig sign report.md -m git-hosting -s github.com/alice \
+  --resource ./data.csv --auto-resources
+mdsig verify --fetch-resources report.md</code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="fl.res.cliNote"><code>--auto-resources</code> は、コードフェンスの外で <code>![..](..)</code> や <code>&lt;img src&gt;</code> が参照するローカル画像をすべて固定します。リモートの内容は CDN の再エンコードなどで変化しうるため、長期の証拠にはローカルのコピーを固定してください。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="expires" tabindex="-1" aria-labelledby="expires-title">
+            <div class="section-head">
+                <h2 id="expires-title" data-i18n="fl.exp.title">有効期限（expires）</h2>
+                <p data-i18n-html="fl.exp.lede">署名の有効期限です。見積書の有効期間や、一定期間だけ有効な承認に使用します。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="fl.exp.r1">形式は <code>ts</code> と同じ <code>YYYY-MM-DDTHH:MM:SSZ</code>。実在しない日時（2月30日、24時など）は malformed。</li>
+                        <li data-i18n-html="fl.exp.r2">検証者の時計で期限を過ぎていれば invalid（<code>expired</code>）。</li>
+                        <li data-i18n-html="fl.exp.r3">CLI の <code>--expires</code> は日時のほか、現在からの期間（<code>30d</code>、<code>12h</code>）を受け付ける。</li>
+                    </ul>
+                </div>
+                <div class="guide-col">
+                    <pre class="guide-code"><code>expires: 2027-03-31T23:59:59Z</code></pre>
+                    <pre class="guide-code"><code>mdsig sign quote.md -m git-hosting -s github.com/alice --expires 30d</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="revocation" tabindex="-1" aria-labelledby="revocation-title">
+            <div class="section-head">
+                <h2 id="revocation-title" data-i18n="fl.rev.title">撤回（revocation_url）</h2>
+                <p data-i18n-html="fl.rev.lede">署名者は、自身の撤回リストの <code>https://</code> URL を署名に含められます。リスト自体も md-signature 文書で、本文に撤回した署名ごとに <code>revoked:</code> の行を持ちます。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="fl.rev.trustT">リストを信頼する条件</h3>
+                    <ol class="guide-list">
+                        <li data-i18n-html="fl.rev.t1">リストを文書として検証し、成功する。</li>
+                        <li data-i18n-html="fl.rev.t2">リストのチェーンに、撤回対象のブロックと同じ <code>method</code> と <code>signer</code>（<code>tofu</code> はさらに同じ <code>pubkey</code>）を持つ有効なブロックがある。</li>
+                        <li data-i18n-html="fl.rev.t3">リストの検証では、リスト内の <code>revocation_url</code>、リモートのリソース、<code>require</code> を評価しない（循環の防止）。</li>
+                    </ol>
+                    <h3 class="guide-label" data-i18n="fl.rev.resT">検証の結果</h3>
+                    <table class="guide-table outcomes">
+                        <tbody>
+                            <tr>
+                                <td data-i18n-html="fl.rev.c1">ブロックの識別子が、信頼したリストに含まれる</td>
+                                <td><code class="st bad">invalid · revoked</code></td>
+                            </tr>
+                            <tr>
+                                <td data-i18n-html="fl.rev.c2">リストを取得できない、または信頼できない</td>
+                                <td><code class="st warn">unresolved</code></td>
+                            </tr>
+                            <tr>
+                                <td data-i18n-html="fl.rev.c3">利用者が取得を無効にした（<code>--no-revocation</code>）、オフライン</td>
+                                <td data-i18n-html="fl.rev.c3r">撤回は未検査と報告する。これだけでは無効にしない</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.rev.exCap">署名ブロック内のフィールド</figcaption>
+                        <pre class="guide-code"><code>revocation_url: https://example.com/.well-known/mdsig-revoked.md</code></pre>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.rev.listCap">撤回リスト（それ自体が署名済み文書）</figcaption>
+                        <pre class="guide-code"><code># Revoked signatures
+
+revoked: sha256:6f1e…c2a9
+revoked: sha256:0b7d…41fe
+
+<span class="c">&lt;!-- md-signature</span>
+method: dns
+signer: example.com
+…
+<span class="c">--&gt;</span></code></pre>
+                    </figure>
+                    <pre class="guide-code"><code>mdsig revoke contract.md --list mdsig-revoked.md -m dns -s example.com -k ~/.mdsig/example</code></pre>
+                    <p class="guide-note" data-i18n-html="fl.rev.idNote">識別子は撤回対象ブロックの署名対象ペイロードの SHA-256 です。ECDSA や OpenPGP の署名は秘密鍵なしで別のバイト列に変形できるため、<code>sig</code> から計算すると撤回を回避されます。<code>mdsig revoke</code> は識別子を計算してリストに追記し、リストに署名し直します。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="guide doc-sec" id="others" tabindex="-1" aria-labelledby="others-title">
+            <div class="section-head">
+                <h2 id="others-title" data-i18n="fl.other.title">アルゴリズムと私的拡張</h2>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label"><code>alg</code></h3>
+                    <p class="guide-text" data-i18n-html="guide.ext.alg"><code>alg</code> は <code>ed25519</code> が実装必須、<code>webauthn-es256</code> は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code> は予約済みで、未対応のアルゴリズムは unsupported と報告されます。</p>
+                </div>
+                <div class="guide-col">
+                    <h3 class="guide-label"><code>x_*</code></h3>
+                    <p class="guide-text" data-i18n-html="fl.other.x"><code>x_</code> で始まるキーは自由に使用できます。意味は規定されませんが、署名対象ペイロードに含まれます。それ以外の未定義のキーを持つブロックは malformed（<code>unknown-field</code>）となるため、将来の拡張が理解されないまま受理されることはありません。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#56-セクション署名scope"
+                    data-i18n-attr="href:fl.href1"><span data-i18n="fl.ref1">仕様書 §5.6 セクション署名</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a><a
+                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#57-外部リソースresources"
+                    data-i18n-attr="href:fl.href2"><span data-i18n="fl.ref2">§5.7 外部リソース</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a><a
+                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#59-有効期限と撤回expiresrevocation_url"
+                    data-i18n-attr="href:fl.href3"><span data-i18n="fl.ref3">§5.9 有効期限と撤回</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+                <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">
+                    <a class="prev" href="../../docs/archive/"><span data-i18n="docs.prev">前へ</span><b data-i18n="docs.nav.archive">長期保存</b></a>
+                    <span></span>
+                </nav>
+            </article>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
+                class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="../../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../../editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
+        <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
+    </footer>
+</body>
+
+</html>

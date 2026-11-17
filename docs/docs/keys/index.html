@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ja" data-title-key="meta.title.keys">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script src="../../color-scheme.js"></script>
+    <title>公開鍵の解決 | md-signature</title>
+    <meta name="description"
+        content="method は、検証者が公開鍵を取得する場所を指定します。有効な署名が示すのは「解決した鍵の保持者が、このバイト列に署名した」という事実です。その鍵が誰に結び付くかは方式によって異なります。">
+    <link rel="canonical" href="https://mdsig.dev/docs/keys/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="md-signature">
+    <meta property="og:title" content="公開鍵の解決 | md-signature">
+    <meta property="og:description" content="method は、検証者が公開鍵を取得する場所を指定します。有効な署名が示すのは「解決した鍵の保持者が、このバイト列に署名した」という事実です。その鍵が誰に結び付くかは方式によって異なります。">
+    <meta property="og:url" content="https://mdsig.dev/docs/keys/">
+    <meta property="og:image" content="https://mdsig.dev/og.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="md-signature：Markdownにも電子署名を">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../../guide.css">
+    <link rel="stylesheet" href="../../docs.css">
+    <script src="../../vendor/lucide/lucide.min.js" defer></script>
+    <script type="module" src="../../site.js"></script>
+</head>
+
+<body>
+    <a class="skip" href="#content" data-i18n="nav.skipMain">本文へ移動</a>
+
+    <header class="site-header">
+        <a class="brand" href="../../" aria-label="md-signature">
+            <img class="brand-mark" src="../../logo.svg" alt="" width="38" height="26">
+            <span class="brand-name">md-signature</span>
+        </a>
+        <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
+            <a href="../../docs/" data-i18n="nav.docs" aria-current="page">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
+                    aria-hidden="true"></i>GitHub</a>
+        </nav>
+        <div class="prefs">
+            <a class="nav-cta" href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a class="nav-cta secondary" href="../../editor/" data-i18n="nav.editor">エディタ</a>
+            <div class="lang-switch" role="group" aria-label="Language / 言語">
+                <button type="button" data-lang="ja" lang="ja">日本語</button>
+                <button type="button" data-lang="en" lang="en">EN</button>
+            </div>
+            <button type="button" class="theme-toggle" id="theme-toggle">
+                <i data-lucide="sun" class="icon-sun" aria-hidden="true"></i>
+                <i data-lucide="moon" class="icon-moon" aria-hidden="true"></i>
+                <span class="sr-only to-dark" data-i18n="theme.toDark">ダークテーマに切替</span>
+                <span class="sr-only to-light" data-i18n="theme.toLight">ライトテーマに切替</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="docs-main" id="content" tabindex="-1">
+        <div class="docs-layout">
+            <nav class="docs-nav" aria-label="ドキュメント" data-i18n-attr="aria-label:docs.nav.label">
+                <p class="docs-nav-title" data-i18n="docs.nav.label">ドキュメント</p>
+                <ol>
+                    <li><a href="../../docs/" data-i18n="docs.nav.overview">概要</a></li>
+                    <li><a href="../../docs/format/" data-i18n="docs.nav.format">形式と署名の計算</a></li>
+                    <li><a href="../../docs/keys/" data-i18n="docs.nav.keys" aria-current="page">公開鍵の解決</a></li>
+                    <li><a href="../../docs/verify/" data-i18n="docs.nav.verify">検証手順と結果</a></li>
+                    <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
+                    <li><a href="../../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
+                    <li><a href="../../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                </ol>
+                <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
+                <ul>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md" data-i18n-attr="href:link.spec">SPEC</a></li>
+                    <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md" data-i18n-attr="href:link.cli">CLI_SPEC</a></li>
+                </ul>
+            </nav>
+            <article class="docs-body">
+                <header class="docs-head">
+                    <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
+                    <h1 id="page-title" data-i18n="docs.nav.keys">公開鍵の解決</h1>
+                    <p class="lede" data-i18n-html="guide.keys.lede"><code>method</code> は、検証者が公開鍵を取得する場所を指定します。有効な署名が示すのは「解決した鍵の保持者が、このバイト列に署名した」という事実です。その鍵が誰に結び付くかは方式によって異なります。</p>
+                    <nav class="toc" aria-labelledby="toc-title">
+                        <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
+                        <ol>
+                            <li><a href="#keys" data-i18n="docs.keys.methodsT">方式と鍵の取得先</a></li>
+                            <li><a href="#publish" data-i18n="docs.keys.pubT">公開鍵の公開手順</a></li>
+                        </ol>
+                    </nav>
+                </header>
+        <section class="guide doc-sec" id="keys" tabindex="-1" aria-labelledby="keys-title">
+            <div class="section-head">
+                <h2 id="keys-title" data-i18n="docs.keys.methodsT">方式と鍵の取得先</h2>
+            </div>
+            <div class="guide-grid wide-left">
+                <div class="guide-col">
+                    <table class="guide-table methods">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="guide.keys.th.method">方式</th>
+                                <th scope="col" data-i18n="guide.keys.th.src">鍵の取得先</th>
+                                <th scope="col" data-i18n="guide.keys.th.proves">結び付く対象</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><code>dns</code></th>
+                                <td data-i18n-html="guide.keys.dns.src"><code>selector</code> があれば
+                                    <code>&lt;selector&gt;._mdsig.&lt;signer&gt;</code>、なければ
+                                    <code>_mdsig.&lt;signer&gt;</code> の TXT レコード。値は
+                                    <code>v=mdsig1; k=ed25519; p=&lt;base64&gt;</code>。レコードが複数あれば、いずれかで検証できれば有効（鍵のローテーション用）。ブラウザなどシステムのリゾルバを使用できない環境では
+                                    DNS-over-HTTPS で取得する。</td>
+                                <td data-i18n="guide.keys.dns.proves">ドメインの運用者</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>git-hosting</code></th>
+                                <td data-i18n-html="guide.keys.git.src">
+                                    <code>https://&lt;signer&gt;.keys</code>（例：<code>https://github.com/alice.keys</code>）の
+                                    <code>ssh-ed25519</code>
+                                    行。<code>key_fp</code>（<code>SHA256:…</code>）があればその鍵のみを使用する。<code>sig</code>
+                                    はペイロードに対する生の Ed25519 署名で、<code>ssh-keygen -Y sign</code> の SSHSIG 形式は使用しない。</td>
+                                <td data-i18n="guide.keys.git.proves">Git ホスティングサービスのアカウント</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>tofu</code></th>
+                                <td data-i18n-html="guide.keys.tofu.src">ブロック内の
+                                    <code>pubkey: ed25519:&lt;base64&gt;</code>。状態を保持する検証者は <code>signer</code> と
+                                    <code>pubkey</code> の対応を記録し、同じ <code>signer</code> の鍵が変化すれば警告する。</td>
+                                <td data-i18n="guide.keys.tofu.proves">鍵そのもののみ。署名後に改変されていないことは示すが、署名者が誰であるかは示さない。</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>pgp</code></th>
+                                <td data-i18n-html="guide.keys.pgp.src"><code>fpr</code>
+                                    の鍵を、ローカルの鍵束、<code>signer</code> のドメインの WKD、検証者が設定した鍵サーバ（既定は
+                                    <code>keys.openpgp.org</code>）の順に検索する。鍵サーバは署名ブロックでは指定できない。署名は gpg でも作成できるため、スマートカード上の鍵も使用できる。
+                                </td>
+                                <td data-i18n="guide.keys.pgp.proves">メールアドレス（WKD ではドメインの運用者、keys.openpgp.org では確認済みのアドレス）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="guide-note" data-i18n-html="guide.keys.rotate"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code>（WKD・鍵サーバ）
+                        は検証時点の鍵を取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると攻撃者の鍵が公開されます。どちらも文書だけでは検出できないため、長期の証拠には
+                        RFC 3161 タイムスタンプの付与が推奨されています。</p>
+                </div>
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="guide.keys.pkT">パスキー（alg: webauthn-es256）</h3>
+                    <p class="guide-text" data-i18n-html="guide.keys.pk1">認証器は任意のデータには署名しません。生成者は
+                        <code>challenge = SHA-256(payload)</code> と <code>rpId = rp_id</code> を指定して
+                        <code>navigator.credentials.get()</code> を呼び出し、応答を3つのフィールドに格納します。公開鍵は
+                        <code>tofu</code>（<code>pubkey: es256:…</code>）または
+                        <code>dns</code>（<code>k=es256</code>）から取得します。</p>
+                    <pre class="guide-code formula"><code>challenge = SHA-256(payload)
+signed    = authenticatorData || SHA-256(clientDataJSON)
+sig       = "base64:" DER(ECDSA-P256-SHA256(signed))</code></pre>
+                    <h3 class="guide-label" data-i18n="guide.keys.pkCheckT">検証者の確認事項</h3>
+                    <ol class="guide-list compact">
+                        <li data-i18n-html="guide.keys.pkc1"><code>clientDataJSON</code> の <code>type</code> が
+                            <code>webauthn.get</code> で、<code>challenge</code> が <code>SHA-256(payload)</code> の
+                            base64url と一致する。</li>
+                        <li data-i18n-html="guide.keys.pkc2"><code>origin</code> のホストが <code>rp_id</code>
+                            またはそのサブドメインで、<code>localhost</code> 以外は https である。</li>
+                        <li data-i18n-html="guide.keys.pkc3"><code>authenticatorData</code> の先頭32バイトが
+                            <code>SHA-256(rp_id)</code> と等しく、User Present フラグが立っている。</li>
+                        <li data-i18n-html="guide.keys.pkc4">上の式の <code>signed</code> に対する ECDSA P-256 / SHA-256 署名が、候補の
+                            <code>es256</code> 鍵で検証できる。</li>
+                    </ol>
+                </div>
+            </div>
+            <p class="guide-ref"><a
+                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#4-公開鍵の解決方法"
+                    data-i18n-attr="href:guide.keys.href"><span data-i18n="guide.keys.ref">仕様書 §4 公開鍵の解決方法</span><i
+                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
+        </section>
+
+
+        <section class="guide doc-sec" id="publish" tabindex="-1" aria-labelledby="publish-title">
+            <div class="section-head">
+                <h2 id="publish-title" data-i18n="docs.keys.pubT">公開鍵の公開手順</h2>
+                <p data-i18n-html="docs.keys.pubLede">検証者が鍵を取得できるよう、署名の前に方式ごとの公開先へ鍵を登録します。CLI の <code>mdsig keygen</code> は Ed25519 の鍵ペアと、DNS に登録する TXT レコードを出力します。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption><code>dns</code></figcaption>
+                        <pre class="guide-code"><code>mdsig keygen -o ~/.mdsig/example -d example.com --selector 2026
+<span class="cmt"># DNS TXT record:</span>
+<span class="cmt">#   2026._mdsig.example.com. IN TXT "v=mdsig1; k=ed25519; p=11qY…URo="</span>
+mdsig sign file.md -m dns -s example.com --selector 2026 -k ~/.mdsig/example</code></pre>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubDns">表示された TXT レコードをドメインの DNS に登録します。セレクタを変えて複数のレコードを置けば、鍵を切り替える期間も旧い署名を検証できます。</p>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption><code>git-hosting</code></figcaption>
+                        <pre class="guide-code"><code>mdsig sign file.md -m git-hosting -s github.com/alice</code></pre>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubGit">GitHub に登録済みの <code>ssh-ed25519</code> 鍵をそのまま使用します。鍵は ssh-agent または <code>~/.ssh/id_ed25519</code> から自動で検出します。</p>
+                    </figure>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption><code>pgp</code></figcaption>
+                        <pre class="guide-code"><code>gpg --quick-gen-key "Alice &lt;alice@example.com&gt;" ed25519 sign,cert
+gpg --export alice@example.com | curl -T - https://keys.openpgp.org
+mdsig sign file.md -m pgp</code></pre>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubPgp">keys.openpgp.org はメールアドレスの確認後に鍵を公開します。ドメインを運用している場合は WKD での公開も可能です。<code>-s</code> を省略すると、鍵のユーザ ID のメールアドレスを signer とします。</p>
+                    </figure>
+                    <figure class="guide-cell">
+                        <figcaption><code>tofu</code></figcaption>
+                        <pre class="guide-code"><code>mdsig keygen -o ~/.mdsig/bob
+mdsig sign file.md -m tofu -s bob@laptop -k ~/.mdsig/bob</code></pre>
+                        <p class="guide-note" data-i18n-html="docs.keys.pubTofu">公開の手順は不要です。署名者の識別は検証者に委ねられるため、鍵の指紋を別の経路で伝達してください。</p>
+                    </figure>
+                </div>
+            </div>
+            <p class="guide-note" data-i18n-html="docs.keys.snapNote"><code>dns</code> と <code>git-hosting</code> の署名では、<code>--embed-key</code> で署名に用いた鍵をブロックに格納できます。鍵を削除した後も、その鍵で署名が成立することを確認できます。詳しくは「長期保存」の「公開鍵のスナップショット」を参照してください。</p>
+        </section>
+
+                <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">
+                    <a class="prev" href="../../docs/format/"><span data-i18n="docs.prev">前へ</span><b data-i18n="docs.nav.format">形式と署名の計算</b></a>
+                    <a class="next" href="../../docs/verify/"><span data-i18n="docs.next">次へ</span><b data-i18n="docs.nav.verify">検証手順と結果</b></a>
+                </nav>
+            </article>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="logo small" aria-hidden="true"><span class="logo-c">&lt;!--</span><span
+                class="logo-h">#</span><span class="logo-check">✓</span><span class="logo-c">--&gt;</span></span>
+        <p data-i18n-html="footer.text">仕様：CC0 1.0 ・ コード：MIT</p>
+        <nav class="footer-nav" aria-label="サイト内リンク" data-i18n-attr="aria-label:footer.nav">
+            <a href="../../docs/" data-i18n="nav.docs">ドキュメント</a>
+            <a href="../../start/" data-i18n="nav.start">導入</a>
+            <a href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../../editor/" data-i18n="nav.editor">エディタ</a>
+        </nav>
+        <p><a href="https://github.com/SHIOZAKI-Shota/md-signature">github.com/SHIOZAKI-Shota/md-signature</a></p>
+    </footer>
+</body>
+
+</html>
