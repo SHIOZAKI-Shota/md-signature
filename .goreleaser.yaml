@@ -120,6 +120,9 @@ winget:
       - markdown
       - openpgp
       - signature
+    # the ja-JP locale manifest is added by .github/workflows/release.yml (GoReleaser's additional_locales writes Moniker, which the locale schema does not define)
+    # winget-pkgs PR title format; the first submission (0.0.3) was retitled "New package: … version 0.0.3" by hand
+    commit_msg_template: "Update: {{ .PackageIdentifier }} to {{ .Version }}"
     repository:
       owner: SHIOZAKI-Shota
       name: winget-pkgs
