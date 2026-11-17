@@ -513,6 +513,8 @@ td.no { color: var(--muted); }
 html { scroll-snap-type: y mandatory; }
 /* Slides may exceed the screen here; mandatory snapping would skip their overflow. */
 @media (max-width: 980px), (max-height: 680px) { html { scroll-snap-type: y proximity; } }
+/* Touch scrolling with snap points stutters on phones, so they scroll freely. */
+@media (max-width: 760px), (hover: none) and (pointer: coarse) { html { scroll-snap-type: none; } }
 
 html { scroll-padding-top: var(--header-h, 60px); }
 .intro:focus { outline: none; }
