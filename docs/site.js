@@ -3,6 +3,7 @@ import GUIDE from "./strings-guide.js";
 import DOCS from "./strings-docs.js";
 import { EXAMPLES } from "./examples.js";
 import { initChrome } from "./site-common.js";
+import { decorateCode } from "./code-view.js";
 
 // ------------------------------------------------------------------ moved sections
 // The top page used to hold the playground and the guide; old links land on their new pages.
@@ -22,12 +23,35 @@ if (document.documentElement.dataset.page === "top") {
 }
 
 initChrome([GUIDE, DOCS]);
+decorateCode();
+
+// ------------------------------------------------------------------ install command
+// winget and the .deb/.rpm packages are not available yet, so Windows and Linux use go install.
+const installKind = document.getElementById("install-kind");
+if (installKind) {
+  const COMMANDS = {
+    "cli-win": "go install mdsig.dev/cmd/mdsig@latest",
+    "cli-mac": "brew install SHIOZAKI-Shota/tap/mdsig",
+    "lib-js": "npm install @mdsig/core",
+    "lib-go": "go get mdsig.dev/mdsig",
+  };
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent;
+  installKind.value = /mac|iphone|ipad/i.test(platform) ? "cli-mac" : /win|linux|android|cros/i.test(platform) ? "cli-win" : "cli-mac";
+  const show = () => (document.getElementById("install-cmd").textContent = COMMANDS[installKind.value]);
+  installKind.addEventListener("change", show);
+  show();
+}
 
 // ------------------------------------------------------------------ sticky header
 const header = document.querySelector(".site-header");
 if (header) {
   const root = document.documentElement;
   new ResizeObserver(() => root.style.setProperty("--header-h", header.offsetHeight + "px")).observe(header);
+}
+const footer = document.querySelector(".site-footer");
+if (footer) {
+  const root = document.documentElement;
+  new ResizeObserver(() => root.style.setProperty("--footer-h", footer.offsetHeight + "px")).observe(footer);
 }
 
 // ------------------------------------------------------------------ slide dots

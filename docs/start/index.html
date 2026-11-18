@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../color-scheme.js?v=20261118"></script>
+    <script src="../color-scheme.js?v=20261118b"></script>
     <title>導入 | md-signature</title>
     <meta name="description"
         content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../style.css?v=20261118">
-    <link rel="stylesheet" href="../guide.css?v=20261118">
-    <link rel="stylesheet" href="../docs.css?v=20261118">
+    <link rel="stylesheet" href="../style.css?v=20261118b">
+    <link rel="stylesheet" href="../guide.css?v=20261118b">
+    <link rel="stylesheet" href="../docs.css?v=20261118b">
     <script src="../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../site.js?v=20261118"></script>
+    <script type="module" src="../site.js?v=20261118b"></script>
 </head>
 
 <body>
@@ -45,12 +45,11 @@
         <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
             <a href="../docs/" data-i18n="nav.docs">ドキュメント</a>
             <a href="../start/" data-i18n="nav.start" aria-current="page">導入</a>
-            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
-                    aria-hidden="true"></i>GitHub</a>
+            <a href="../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../editor/" data-i18n="nav.editor">エディタ</a>
         </nav>
         <div class="prefs">
-            <a class="nav-cta" href="../playground/" data-i18n="nav.try">デモ</a>
-            <a class="nav-cta secondary" href="../editor/" data-i18n="nav.editor">エディタ</a>
+            <a class="gh-link" href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github" aria-hidden="true"></i><span>GitHub</span></a>
             <div class="lang-switch" role="group" aria-label="Language / 言語">
                 <button type="button" data-lang="ja" lang="ja">日本語</button>
                 <button type="button" data-lang="en" lang="en">EN</button>
@@ -237,7 +236,7 @@
                                         aria-hidden="true"></i></button>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { readFile } from "node:fs/promises";
+                                <pre data-lang="ts" data-file="verify.ts"><code>import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { verifyDocument } from "@mdsig/core";
 
@@ -266,7 +265,7 @@ for (const s of result.signatures) console.log(s.index, s.fields.signer, s.statu
                                         aria-hidden="true"></i></button>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@mdsig/core";
+                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "@mdsig/core";
 
 const markdown = await Bun.file("contract.md").text();
 const { ok, signatures } = await verifyDocument(markdown);
@@ -283,7 +282,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                 <pre><code><span class="cmt" data-i18n="start.denoNote"># npm への公開は準備中（公開後はインストール不要、npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "npm:@mdsig/core@0.0.1";
+                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "npm:@mdsig/core@0.0.1";
 
 const markdown = await Deno.readTextFile("contract.md");
 const { ok, signatures } = await verifyDocument(markdown);
@@ -300,7 +299,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                 <pre><code><span class="cmt" data-i18n="start.webNote"># npm への公開は準備中（公開後はインストール不要、ESM CDN）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre><code>&lt;script type="module"&gt;
+                                <pre data-lang="html" data-file="index.html"><code>&lt;script type="module"&gt;
   import { verifyDocument } from "https://esm.sh/@mdsig/core@0.0.1";
 
   const markdown = await (await fetch("contract.md")).text();
@@ -323,7 +322,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                         aria-hidden="true"></i></button>
                             </div>
                             <div class="tblock code">
-                                <pre><code>import { verifyDocument } from "@mdsig/core";
+                                <pre data-lang="ts" data-file="worker.ts"><code>import { verifyDocument } from "@mdsig/core";
 
 export default {
   async fetch(request) {
@@ -342,7 +341,7 @@ export default {
                 <div class="guide-col bare">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.ts.signCap">鍵を生成して署名する</figcaption>
-                        <pre class="guide-code"><code>import { signDocument, generateEd25519 } from "@mdsig/core";
+                        <pre class="guide-code" data-lang="ts" data-file="sign.ts"><code>import { signDocument, generateEd25519 } from "@mdsig/core";
 
 const { signer } = await generateEd25519();
 const { text } = await signDocument(markdown, {
@@ -375,7 +374,7 @@ const { text } = await signDocument(markdown, {
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.go.verifyCap">文書を検証する</figcaption>
-                        <pre class="guide-code"><code>import "mdsig.dev/mdsig"
+                        <pre class="guide-code" data-lang="go" data-file="main.go"><code>import "mdsig.dev/mdsig"
 
 res := mdsig.VerifyDocument(ctx, text, nil)
 fmt.Println(res.OK, res.Agreement.Status)
@@ -383,12 +382,12 @@ for _, s := range res.Signatures {
 	fmt.Println(s.Index, s.Fields["signer"], s.Status, s.Code)
 }</code></pre>
                     </figure>
-                    <pre class="guide-code"><code>go get mdsig.dev/mdsig</code></pre>
+                    <pre class="guide-code console"><code><span class="cmd">go get mdsig.dev/mdsig</span></code></pre>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.go.tsCap">タイムスタンプ専用ブロックを追記する</figcaption>
-                        <pre class="guide-code"><code>out, err := mdsig.TimestampDocument(ctx, text, mdsig.TimestampOptions{
+                        <pre class="guide-code" data-lang="go" data-file="timestamp.go"><code>out, err := mdsig.TimestampDocument(ctx, text, mdsig.TimestampOptions{
 	TSAURL: "http://ts.ssl.com",
 	Hash:   "sha512",
 })</code></pre>
@@ -409,11 +408,10 @@ for _, s := range res.Signatures {
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.srv.runCap">起動して文書を送信する</figcaption>
-                        <pre class="guide-code"><code>mdsig serve --listen 127.0.0.1:8787 --allow-origin https://example.org
-
-jq -Rs '{document: .}' contract.md |
-  curl -s http://127.0.0.1:8787/v1/verify \
-    -H 'content-type: application/json' -d @-</code></pre>
+                        <pre class="guide-code console"><code><span class="cmd">mdsig serve --listen 127.0.0.1:8787 --allow-origin https://example.org</span>
+<span class="cmd">jq -Rs '{document: .}' contract.md |</span>
+<span class="cont">  curl -s http://127.0.0.1:8787/v1/verify \</span>
+<span class="cont">    -H 'content-type: application/json' -d @-</span></code></pre>
                     </figure>
                     <table class="guide-table endpoints">
                         <thead>
@@ -441,17 +439,15 @@ jq -Rs '{document: .}' contract.md |
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.srv.embedCap">自前のサーバに組み込む</figcaption>
-                        <pre class="guide-code"><code><span class="cmt">// Go</span>
-http.Handle("/", server.NewHandler(server.Options{
+                        <pre class="guide-code" data-lang="go" data-file="server.go"><code>http.Handle("/", server.NewHandler(server.Options{
 	AllowOrigins: []string{"https://example.org"},
-}))
-
-<span class="cmt">// TypeScript (Deno, Bun, Workers, Node.js)</span>
+}))</code></pre>
+                        <pre class="guide-code" data-lang="ts" data-file="server.ts"><code>// Deno, Bun, Workers, Node.js
 Deno.serve(createVerifyHandler({ allowOrigins: ["https://example.org"] }));</code></pre>
                     </figure>
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.srv.clientCap">手元の判定とサーバの判定を突き合わせる</figcaption>
-                        <pre class="guide-code"><code>import { verifyDocument, remoteVerify, compareResults } from "@mdsig/core";
+                        <pre class="guide-code" data-lang="ts" data-file="compare.ts"><code>import { verifyDocument, remoteVerify, compareResults } from "@mdsig/core";
 
 const local = await verifyDocument(markdown);
 const remote = await remoteVerify("https://verify.example.org", markdown);
@@ -474,7 +470,7 @@ const diff = compareResults(local, remote);</code></pre>
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.auto.ciCap">GitHub Actions</figcaption>
-                        <pre class="guide-code"><code>jobs:
+                        <pre class="guide-code" data-lang="yaml" data-file=".github/workflows/verify.yml"><code>jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -489,9 +485,9 @@ const diff = compareResults(local, remote);</code></pre>
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="st.auto.agentCap">エージェント向けの指示書</figcaption>
-                        <pre class="guide-code"><code>mdsig sign CLAUDE.md -m git-hosting -s github.com/alice
-mdsig sign AGENTS.md -m git-hosting -s github.com/alice
-mdsig verify CLAUDE.md AGENTS.md || exit 1</code></pre>
+                        <pre class="guide-code console"><code><span class="cmd">mdsig sign CLAUDE.md -m git-hosting -s github.com/alice</span>
+<span class="cmd">mdsig sign AGENTS.md -m git-hosting -s github.com/alice</span>
+<span class="cmd">mdsig verify CLAUDE.md AGENTS.md || exit 1</span></code></pre>
                     </figure>
                     <p class="guide-note" data-i18n-html="st.auto.agentNote"><code>CLAUDE.md</code> や <code>AGENTS.md</code> に署名し、エージェントの実行環境（Claude Code の <code>SessionStart</code> フックなど）が読み込み前に検証します。検証は実行環境の側で行ってください。防止できるのは PR や再配布の過程での改変で、ツール出力や Web ページ経由の注入は対象外です。</p>
                 </div>

@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../../color-scheme.js?v=20261118"></script>
+    <script src="../../color-scheme.js?v=20261118b"></script>
     <title>長期保存 | md-signature</title>
     <meta name="description"
         content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../../style.css?v=20261118">
-    <link rel="stylesheet" href="../../guide.css?v=20261118">
-    <link rel="stylesheet" href="../../docs.css?v=20261118">
+    <link rel="stylesheet" href="../../style.css?v=20261118b">
+    <link rel="stylesheet" href="../../guide.css?v=20261118b">
+    <link rel="stylesheet" href="../../docs.css?v=20261118b">
     <script src="../../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../../site.js?v=20261118"></script>
+    <script type="module" src="../../site.js?v=20261118b"></script>
 </head>
 
 <body>
@@ -45,12 +45,11 @@
         <nav class="site-nav" aria-label="メイン" data-i18n-attr="aria-label:nav.label">
             <a href="../../docs/" data-i18n="nav.docs" aria-current="page">ドキュメント</a>
             <a href="../../start/" data-i18n="nav.start">導入</a>
-            <a href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github"
-                    aria-hidden="true"></i>GitHub</a>
+            <a href="../../playground/" data-i18n="nav.try">デモ</a>
+            <a href="../../editor/" data-i18n="nav.editor">エディタ</a>
         </nav>
         <div class="prefs">
-            <a class="nav-cta" href="../../playground/" data-i18n="nav.try">デモ</a>
-            <a class="nav-cta secondary" href="../../editor/" data-i18n="nav.editor">エディタ</a>
+            <a class="gh-link" href="https://github.com/SHIOZAKI-Shota/md-signature"><i data-lucide="github" aria-hidden="true"></i><span>GitHub</span></a>
             <div class="lang-switch" role="group" aria-label="Language / 言語">
                 <button type="button" data-lang="ja" lang="ja">日本語</button>
                 <button type="button" data-lang="en" lang="en">EN</button>

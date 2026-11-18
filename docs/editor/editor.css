@@ -35,6 +35,9 @@ body { overflow: hidden; }
 @media (max-width: 980px) {
   .ed-main { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   .ed-main .editor-pane { min-height: 0; }
+  /* The editor sits at the bottom on phones, next to the on-screen keyboard and the thumb. */
+  .ed-main .status-pane { order: -1; border-bottom: 1px solid var(--line-strong); }
+  .ed-main .editor-pane { border-bottom: 0 !important; }
 }
 
 /* ------------------------------------------------------------------ splitter */
@@ -74,3 +77,11 @@ body { overflow: hidden; }
   .md-sep { margin: 0 3px; }
   .editor-pane .pane-head h3 > [data-i18n="pg.document"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+
+/* ------------------------------------------------------------------ maximized editor */
+.md-max .icon-min, .md-max[aria-pressed="true"] .icon-max { display: none; }
+.md-max[aria-pressed="true"] .icon-min { display: inline; }
+.ed-app.is-max { grid-template-rows: minmax(0, 1fr); }
+.ed-app.is-max .ed-bar, .ed-app.is-max .status-pane, .ed-app.is-max .ed-split { display: none; }
+.ed-app.is-max .ed-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.ed-app.is-max .editor-pane { border-right: 0 !important; }

@@ -83,7 +83,7 @@ async function mount() {
     "&": { color: "var(--ink)", backgroundColor: "var(--code-bg)", fontSize: "12.8px" },
     "&.cm-focused": { outline: "none" },
     "&.cm-focused .cm-activeLineGutter": { color: "var(--ink)" },
-    ".cm-scroller": { fontFamily: "var(--mono)", lineHeight: "1.75", overscrollBehavior: "contain" },
+    ".cm-scroller": { fontFamily: "var(--mono)", lineHeight: "1.75" },
     ".cm-content": { padding: "18px 0", caretColor: "var(--ink)" },
     ".cm-line": { padding: "0 20px 0 12px" },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--ink)" },

@@ -3,6 +3,21 @@ import STATIC from "./strings-static.js";
 
 registerStrings(STATIC);
 
+// External links open in a new tab; delegation also covers links that pages add later.
+document.addEventListener("click", (e) => {
+  const a = e.target.closest?.("a[href]");
+  if (!a || a.target) return;
+  let url;
+  try {
+    url = new URL(a.href, location.href);
+  } catch {
+    return;
+  }
+  if (!/^https?:$/.test(url.protocol) || url.origin === location.origin) return;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+});
+
 export function initChrome(extraStrings = []) {
   for (const s of extraStrings) registerStrings(s);
   applyStatic();

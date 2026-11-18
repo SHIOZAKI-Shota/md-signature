@@ -560,6 +560,14 @@ cmApi.then((A) => {
   });
   setFont(fontSize);
 
+  const maxBtn = $("md-max");
+  maxBtn.addEventListener("click", () => {
+    const max = maxBtn.getAttribute("aria-pressed") !== "true";
+    maxBtn.setAttribute("aria-pressed", String(max));
+    document.querySelector(".ed-app").classList.toggle("is-max", max);
+    view.requestMeasure();
+  });
+
   const foldBtn = $("md-fold");
   const syncFold = () => foldBtn.setAttribute("aria-pressed", String(A.signaturesFolded()));
   foldBtn.addEventListener("click", () => {
