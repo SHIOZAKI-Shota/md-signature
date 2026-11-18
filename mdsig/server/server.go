@@ -36,6 +36,8 @@ type Options struct {
 	FetchResources bool
 	NoRevocation   bool
 	Keyserver      string
+	// SPEC 4.7: trusted key directories; nil means mdsig.DefaultKeyDirectories()
+	KeyDirectories []string
 	TSA            mdsig.TSAVerifyOptions
 	Resolvers      map[string]mdsig.Resolver
 	// HTTPClient is used for every outbound fetch; nil means mdsig.SafeHTTPClient, which refuses private addresses
@@ -179,7 +181,7 @@ func (h *handler) verify(ctx context.Context, body []byte) (any, error) {
 		ResolveOptions: mdsig.ResolveOptions{
 			// no key store and no local keyring: a request must not read or change state on this machine
 			Offline: h.o.Offline, TofuStore: &mdsig.MemoryTofuStore{}, HTTPClient: h.o.HTTPClient,
-			PGPClient: h.o.HTTPClient, Keyserver: h.o.Keyserver,
+			PGPClient: h.o.HTTPClient, Keyserver: h.o.Keyserver, KeyDirectories: h.o.KeyDirectories,
 		},
 		ResourceCheckOptions: mdsig.ResourceCheckOptions{
 			FetchResources: h.o.FetchResources && !h.o.Offline,

@@ -256,7 +256,7 @@ export default {
     "ar.ref1": "仕様書 §5.5 RFC 3161 タイムスタンプ",
     "ar.href1": SPEC_JA + "#55-rfc-3161-タイムスタンプ",
     "ar.ref2": "§4.5 鍵のスナップショット",
-    "ar.href2": SPEC_JA + "#45-鍵のスナップショットdnsgit-hosting",
+    "ar.href2": SPEC_JA + "#45-鍵のスナップショットdnsgit-hostingdirectory",
     "ar.ref3": "§4.6 タイムスタンプ専用ブロック",
     "ar.href3": SPEC_JA + "#46-tsaタイムスタンプ専用ブロック",
 
@@ -638,7 +638,7 @@ export default {
     "ar.ref1": "Spec §5.5 RFC 3161 timestamps",
     "ar.href1": SPEC_EN + "#55-rfc-3161-timestamps",
     "ar.ref2": "§4.5 Key snapshots",
-    "ar.href2": SPEC_EN + "#45-key-snapshots-dns-git-hosting",
+    "ar.href2": SPEC_EN + "#45-key-snapshots-dns-git-hosting-directory",
     "ar.ref3": "§4.6 Timestamp blocks",
     "ar.href3": SPEC_EN + "#46-tsa-timestamp-block",
 

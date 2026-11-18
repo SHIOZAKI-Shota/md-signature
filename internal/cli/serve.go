@@ -26,6 +26,7 @@ type serveOptions struct {
 	allowOrigins, tsaRoots                []string
 	offline, fetchResources, noRevocation bool
 	keyserver                             string
+	keyDirectories                        []string
 
 	// tests: receives the bound address, and a context that stops the server
 	ready func(addr string)
@@ -47,6 +48,7 @@ func newServeCmd() *cobra.Command {
 	f.BoolVar(&o.fetchResources, "fetch-resources", false, "fetch https:// resources and check their hashes")
 	f.BoolVar(&o.noRevocation, "no-revocation", false, "do not fetch revocation lists")
 	f.StringVar(&o.keyserver, "keyserver", "", "pgp only: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+")")
+	f.StringArrayVar(&o.keyDirectories, "key-directory", nil, "directory only: also trust this https:// key directory (repeatable; see mdsig directory trust)")
 	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
 	return c
 }
@@ -64,6 +66,10 @@ func runServe(o *serveOptions) error {
 	if o.keyserver != "" && !mdsig.IsValidRevocationURL(o.keyserver) {
 		return exitf(exitUsage, "%s", i18n.T("verify.bad_keyserver", o.keyserver))
 	}
+	keyDirs, err := trustedDirectories(o.keyDirectories)
+	if err != nil {
+		return err
+	}
 	for _, origin := range o.allowOrigins {
 		if !validOrigin(origin) {
 			return exitf(exitUsage, "%s", i18n.T("serve.bad_origin", origin))
@@ -76,7 +82,7 @@ func runServe(o *serveOptions) error {
 	srv := &http.Server{
 		Handler: server.NewHandler(server.Options{
 			Version: Version, AllowOrigins: o.allowOrigins,
-			Offline: o.offline, FetchResources: o.fetchResources, NoRevocation: o.noRevocation, Keyserver: o.keyserver,
+			Offline: o.offline, FetchResources: o.fetchResources, NoRevocation: o.noRevocation, Keyserver: o.keyserver, KeyDirectories: keyDirs,
 			TSA: mdsig.TSAVerifyOptions{ExtraRoots: tsaRoots},
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

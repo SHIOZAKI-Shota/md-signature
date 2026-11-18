@@ -39,8 +39,8 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 
 | フラグ | 既定 | 説明 |
 | --- | --- | --- |
-| `-m, --method <m>` | `git-hosting` | `git-hosting`、`dns`、`tofu`、または `pgp`。 |
-| `-s, --signer <id>` | — | 必須（REQUIRED）。`github.com/alice`、`example.com`、`bob@laptop` など。`pgp` では省略でき、鍵のユーザ ID のメールアドレスから決定する（3.1.2 節）。 |
+| `-m, --method <m>` | `git-hosting` | `git-hosting`、`dns`、`tofu`、`pgp`、または `directory`。 |
+| `-s, --signer <id>` | — | 必須（REQUIRED）。`github.com/alice`、`example.com`、`bob@laptop`、`alice@example.com` など。`directory` ではメールアドレスを指定し、小文字に変換して書き込む。`pgp` では省略でき、鍵のユーザ ID のメールアドレスから決定する（3.1.2 節）。 |
 | `-k, --key <path>` | 自動 | OpenSSH Ed25519 秘密鍵ファイル。3.1.1 節を参照。 |
 | `--selector <sel>` | — | `dns` のみ。 |
 | `-u, --local-user <id>` | gpg の既定鍵 | `pgp` のみ。gpg に渡す鍵の指定（フィンガープリントまたはユーザ ID）。 |
@@ -50,7 +50,8 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--tsa [url]` | オフ | 時刻認証局（TSA）に RFC 3161 タイムスタンプを要求する。値を省略した場合は `http://ts.ssl.com` を使用する。 |
 | `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。繰り返し指定できる。`--tsa` と併せて指定する。 |
 | `--stdout` | オフ | ファイルを変更せず、署名済み文書を stdout に出力する。 |
-| `--embed-key` | オフ | `dns` と `git-hosting` のみ。署名に用いた公開鍵を `pubkey` としてブロックに含める（SPEC 4.5 節）。鍵が削除された後も、署名が成立することを確認できる。他の方式で指定した場合は終了コード 2。 |
+| `--embed-key` | オフ | `dns`、`git-hosting`、`directory` のみ。署名に用いた公開鍵を `pubkey` としてブロックに含める（SPEC 4.5 節）。鍵が削除された後も、署名が成立することを確認できる。`directory` では既定で含める。他の方式で指定した場合は終了コード 2。 |
+| `--no-embed-key` | オフ | `directory` のみ。`pubkey` を含めない。他の方式で指定した場合は終了コード 2。 |
 | `--force` | オフ | ファイルに署名ブロックがあり、その後に未署名の内容が続く場合でも署名する。この場合、ファイル全体が新しい文書として署名される。 |
 | `--scope <ids>` | — | 指定したセクションのみに署名する。カンマ区切りで指定する：`--scope terms,fees`（SPEC 5.6 節）。 |
 | `--require <line>` | — | `require` の値の 1 行を指定する。複数回指定でき、指定した順に行を並べる。要件行 `<method>:<signer>[ <role>]` のほか、段階行 `step <n>[ any <m>]` と順序行 `order pending\|guide\|strict` を使用できる（SPEC 5.8 節）。例：`--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`。値全体を SPEC 5.8 節の規則で検査する。 |
@@ -100,11 +101,12 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | `--accept-new-key` | `tofu` の `signer` に記録済みの鍵と異なる鍵を受け入れ、記録を更新する。指定しない場合、鍵が変更されたブロックは invalid（code `key-changed`）となる。 |
 | `--no-keyring` | `pgp` の鍵の取得で、ローカルの gpg 鍵束を使用しない（WKD と鍵サーバのみ）。 |
 | `--keyserver <url>` | `pgp` の鍵を取得する鍵サーバの `https://` URL。既定：`https://keys.openpgp.org`。鍵サーバは検証者が選択するものであり、ブロックからは取得しない（SPEC 4.3 節）。メールアドレスを確認する鍵サーバを指定すること。 |
+| `--key-directory <url>` | `directory` の鍵の取得で、この実行に限り信頼する鍵ディレクトリの `https://` URL。繰り返し指定できる。既定の一覧と `mdsig directory trust`（3.8 節）で追加したディレクトリの後に問い合わせる。`signer` のドメインが `_mdsig` の `dir` でディレクトリを指定している場合は、そのディレクトリのみを使用する（SPEC 4.7 節）。`https://` でない URL は終了コード 2。 |
 | `--tsa-root <file>` | タイムスタンプトークン（`tsa_token` と `tsa` ブロック）の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。PEM は複数の証明書を含んでよい。繰り返し指定できる。読み込めないファイルは使用方法の誤り（終了コード 2）となる。 |
 
 `dns` の名前解決はシステムのリゾルバを使用すべきである（SHOULD）。`git-hosting` は
 `https://<signer>.keys` を取得する。`pgp` は、`gpg` が利用可能であれば `gpg --export <fpr>` で
-ローカルの鍵束から鍵を取得し、続いて WKD、鍵サーバの順に試みる（SPEC 4.3 節）。TOFU のバインディングは
+ローカルの鍵束から鍵を取得し、続いて WKD、鍵サーバの順に試みる（SPEC 4.3 節）。`directory` は、`signer` のドメインの `_mdsig` の `dir`、なければ信頼する鍵ディレクトリの一覧（既定の `https://keys.mdsig.dev`、`<user config dir>/mdsig/key_directories.json`、`--key-directory` の順）から鍵を取得する（SPEC 4.7 節）。TOFU のバインディングは
 `<user config dir>/mdsig/known_signers.json` に保存する。バインディングは、そのブロックの検証が
 成功した後にのみ保存し、撤回リスト内のブロックからは保存しない。
 ローカルのリソースは、検証対象ファイルのディレクトリを基準として常に検査する。シンボリックリンクを
@@ -219,6 +221,7 @@ SSH fingerprint (key_fp):
 | `--fetch-resources` | オフ | `https://` のリソースを取得し、そのハッシュを検査する。 |
 | `--no-revocation` | オフ | 撤回リストを取得しない。 |
 | `--keyserver <url>` | `https://keys.openpgp.org` | `pgp` の鍵を取得する鍵サーバ。 |
+| `--key-directory <url>` | — | `directory` の鍵の取得で信頼する鍵ディレクトリ（3.2 節と同じ）。 |
 | `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
 
 エンドポイントは次のとおり。要求と応答の本文は JSON（UTF-8）である。
@@ -254,6 +257,22 @@ SSH fingerprint (key_fp):
 | `--stdout` | オフ | ファイルを変更せず、結果を stdout に出力する。 |
 
 TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない。
+
+### 3.8 `mdsig directory`
+
+鍵ディレクトリ（SPEC 4.7 節）を扱う。
+
+| サブコマンド | 説明 |
+| --- | --- |
+| `trust add <url>` | 鍵ディレクトリを信頼する一覧に追加する。一覧は `<user config dir>/mdsig/key_directories.json` に保存し、`verify` と `serve` が既定の一覧の後に使用する。`https://` でない URL は終了コード 2。 |
+| `trust remove <url>` | 一覧から削除する。一覧にない URL は終了コード 2。既定の一覧は削除できない。 |
+| `trust list` | 既定の一覧と、追加した一覧を出力する。 |
+| `register --email <addr>` | Ed25519 鍵をメールアドレスに結び付けて公開するよう、鍵ディレクトリに依頼する。鍵は 3.1.1 節の手順で検出し（`-k` で指定可）、ディレクトリが発行したチャレンジに署名して所持を示す。鍵が公開されるのは、ディレクトリから届く確認メールのリンクを開いた後である。 |
+| `remove --email <addr>` | そのアドレスの鍵（`--key <base64>` を指定した場合はその鍵のみ）の削除を依頼する。削除は確認メールで完了する。 |
+
+`register` と `remove` の送信先は、`--directory <url>` を指定した場合はその URL、指定しない場合は、アドレスのドメインが `_mdsig` の `dir` で指定するディレクトリ、それもなければ `https://keys.mdsig.dev` とする。依頼が受け付けられない場合は終了コード 3。
+
+`mdsig sign -m directory` は、署名の後に、検証者の既定の手順で署名に用いた鍵が見つかるかを確認し、見つからない場合は stderr に警告を出力する。署名は取り消さない。
 
 ## 4. 終了コード
 

@@ -31,9 +31,15 @@ const resolvers: Record<string, Resolver> = {
   },
 };
 
+const DOH = "https://cloudflare-dns.com/dns-query?";
 const fetch = (async (url: string) => {
+  if (url.startsWith(DOH)) {
+    const records: string[] | undefined = keys.txt?.[new URLSearchParams(url.slice(DOH.length)).get("name")!];
+    return Response.json(records ? { Status: 0, Answer: records.map((r) => ({ type: 16, data: JSON.stringify(r) })) } : { Status: 3 });
+  }
   const file = keys.fetch?.[url];
   if (!file) throw new TypeError(`network disabled in tests: ${url}`);
+  if (file === "404") return new Response("", { status: 404 });
   return new Response(read(file));
 }) as typeof globalThis.fetch;
 

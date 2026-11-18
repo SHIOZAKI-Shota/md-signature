@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { readPgpSecretKey, unlockPgpSecretKey, armor, hkpUrl, wkdUrls, type PgpSigner } from "../src/index.ts";
 import { HASH } from "../src/pgp-sig.ts";
 import { ed25519Key, p256Key, buildCert, signerOf, gpgSigner } from "./pgp-build.ts";
-import { signDocument, signerFromSeed, timestampDocument, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, type Signer } from "../src/index.ts";
+import { signDocument, signerFromSeed, timestampDocument, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator, directoryKeyUrl, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, type Signer } from "../src/index.ts";
 
 const out = new URL("../../../examples/", import.meta.url);
 mkdirSync(out, { recursive: true });
@@ -337,22 +337,80 @@ Object.assign(pgpKeys, {
   "kate@example.org": { fpr: kateSigner.fpr, version: 6, cert: "pgp/kate.pub.asc", note: "version 6 key without a direct key signature" },
 });
 
+// --- key directories (SPEC 4.7)
+mkdirSync(new URL("directory/", out), { recursive: true });
+const KEYS_MDSIG = "https://keys.mdsig.dev";
+const dirFetch: Record<string, string> = {};
+const dirTxt: Record<string, string[]> = {};
+const dirKeys: Record<string, unknown> = {};
+async function publish(directory: string, email: string, entries: { type: string; key: Uint8Array }[], file: string) {
+  const json = { email, verified: "email", keys: entries.map((e) => ({ type: e.type, key: toBase64(e.key), added: "2026-11-01T00:00:00Z" })) };
+  w(`directory/${file}.json`, JSON.stringify(json, null, 2) + NL);
+  dirFetch[await directoryKeyUrl(directory, email)] = `directory/${file}.json`;
+}
+const absent = async (directory: string, email: string) => (dirFetch[await directoryKeyUrl(directory, email)] = "404");
+const dirDoc = (signer: Signer | Awaited<ReturnType<typeof createSoftwareAuthenticator>>, signerId: string, extra: Partial<Parameters<typeof signDocument>[1]> = {}) =>
+  signDocument(body, { signer, method: "directory", signerId, role: "author", ts: "2026-11-16T09:00:00Z", ...extra });
+
+const dirAlice = await signerFromSeed(await labelSeed("directory alice"));
+await publish(KEYS_MDSIG, "alice@mail.example", [{ type: "ed25519", key: dirAlice.publicKey }], "alice");
+const dirValid = await dirDoc(dirAlice, "alice@mail.example", { embedKey: false });
+w("directory-valid.md", dirValid.text);
+w("directory-snapshot.md", (await dirDoc(dirAlice, "alice@mail.example")).text);
+w("malformed-directory-signer.md", dirValid.text.replace("signer: alice@mail.example", "signer: Alice@mail.example"));
+
+const dirPasskey = await createSoftwareAuthenticator("mdsig.dev");
+await publish(KEYS_MDSIG, "carol@mail.example", [{ type: "es256", key: dirPasskey.publicKey }], "carol");
+w("directory-passkey.md", (await dirDoc(dirPasskey, "carol@mail.example", { role: "approver" })).text);
+
+// the directory lists alice's key for dave, so dave's own embedded key is not vouched for
+const dirDave = await signerFromSeed(await labelSeed("directory dave"));
+await publish(KEYS_MDSIG, "dave@mail.example", [{ type: "ed25519", key: dirAlice.publicKey }], "dave");
+w("directory-key-not-published.md", (await dirDoc(dirDave, "dave@mail.example")).text);
+
+await absent(KEYS_MDSIG, "erin@mail.example");
+w("directory-not-found.md", (await dirDoc(dirDave, "erin@mail.example", { embedKey: false })).text);
+
+// corp.example names its own directory, so keys.mdsig.dev is never asked
+const dirFrank = await signerFromSeed(await labelSeed("directory frank"));
+dirTxt["_mdsig.corp.example"] = ["v=mdsig1; dir=https://keys.corp.example"];
+await publish("https://keys.corp.example", "frank@corp.example", [{ type: "ed25519", key: dirFrank.publicKey }], "frank");
+w("directory-domain-delegated.md", (await dirDoc(dirFrank, "frank@corp.example", { embedKey: false })).text);
+
+dirTxt["_mdsig.multi.example"] = ["v=mdsig1; dir=https://keys.one.example", "v=mdsig1; dir=https://keys.two.example"];
+w("directory-conflicting-dir.md", (await dirDoc(dirFrank, "grace@multi.example", { embedKey: false })).text);
+
+// SPEC 4.1: a key record with unknown tags (here dir= and x=) still works for dns
+w("dns-unknown-tag.md", (await signDocument(body, { signer: ex, method: "dns", signerId: "tagged.example", selector: "2026", role: "approver", ts: "2026-11-16T09:00:00Z" })).text);
+
+Object.assign(dirKeys, {
+  "alice@mail.example": { seed_hex: toHexStr(await labelSeed("directory alice")), directory: KEYS_MDSIG },
+  "carol@mail.example": { note: "software passkey, rp_id mdsig.dev", directory: KEYS_MDSIG },
+  "dave@mail.example": { seed_hex: toHexStr(await labelSeed("directory dave")), directory: KEYS_MDSIG, note: "the directory lists alice's key" },
+  "erin@mail.example": { directory: KEYS_MDSIG, note: "no key (HTTP 404)" },
+  "frank@corp.example": { seed_hex: toHexStr(await labelSeed("directory frank")), directory: "https://keys.corp.example", note: "named by _mdsig.corp.example" },
+  "grace@multi.example": { note: "_mdsig.multi.example names two directories" },
+});
+
 const keys = {
   _comment:
     "PUBLIC TEST KEYS from RFC 8032 Section 7.1. Never use them for real signatures. Verifiers under test must resolve these signers to these keys instead of using the network, " +
-    "use `now` as the current time, serve the URLs in `fetch` from the listed files, and resolve relative resources against this directory.",
+    "use `now` as the current time, serve the URLs in `fetch` from the listed files (\"404\" means an HTTP 404 response), answer TXT lookups from `txt` (absent names do not exist), and resolve relative resources against this directory.",
   "git-hosting": {
     "github.com/alice": { seed_hex: toHexStr(ALICE), keys_file: formatSshPublicKey(alice.publicKey, "alice@example"), key_fp: await sshFingerprint(alice.publicKey) },
   },
   dns: {
     "2026._mdsig.example.com": { seed_hex: toHexStr(EXAMPLE_COM), txt: `v=mdsig1; k=ed25519; p=${toBase64(ex.publicKey)}` },
+    "2026._mdsig.tagged.example": { seed_hex: toHexStr(EXAMPLE_COM), txt: `v=mdsig1; k=ed25519; x=future; p=${toBase64(ex.publicKey)}; dir=https://keys.example.org` },
   },
+  directory: dirKeys,
+  txt: dirTxt,
   tofu: {
     "bob@laptop": { seed_hex: toHexStr(BOB), pubkey: `ed25519:${toBase64(bob.publicKey)}` },
   },
   pgp: pgpKeys,
   now: NOW,
-  fetch: { [REV_URL]: "revocation/example.com.md", ...pgpFetch },
+  fetch: { [REV_URL]: "revocation/example.com.md", ...pgpFetch, ...dirFetch },
 };
 w("keys.json", JSON.stringify(keys, null, 2) + NL);
 
@@ -401,6 +459,15 @@ const expected = {
   "malformed-git-hosting-ip.md": { ok: false, signatures: ["malformed:malformed"] },
   "valid-webauthn.md": { ok: true, signatures: ["valid"] },
   "tampered-webauthn.md": { ok: false, signatures: ["invalid:bad-signature"] },
+  "directory-valid.md": { ok: true, signatures: ["valid"] },
+  "directory-snapshot.md": { ok: true, signatures: ["valid"] },
+  "directory-passkey.md": { ok: true, signatures: ["valid"] },
+  "directory-key-not-published.md": { ok: false, signatures: ["unresolved:key-not-published"] },
+  "directory-not-found.md": { ok: false, signatures: ["unresolved:not-found"] },
+  "directory-domain-delegated.md": { ok: true, signatures: ["valid"] },
+  "directory-conflicting-dir.md": { ok: false, signatures: ["unresolved:not-found"] },
+  "malformed-directory-signer.md": { ok: false, signatures: ["malformed:malformed"] },
+  "dns-unknown-tag.md": { ok: true, signatures: ["valid"] },
   ...pgpExpected,
 };
 w("expected.json", JSON.stringify(expected, null, 2) + NL);

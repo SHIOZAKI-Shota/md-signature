@@ -2,6 +2,8 @@ import { fromBase64 } from "./encoding.js";
 import { rawEd25519PublicKey, sshFingerprint, parseSshPublicKeys } from "./crypto.js";
 import { es256Spki } from "./webauthn.js";
 import { describeAttempts, lookupPgpKey } from "./pgp-verify.js";
+import { fetchResource } from "./resources.js";
+import { DEFAULT_KEY_DIRECTORIES, directoriesFromRecords, directoryKeyUrl, isKeyDirectoryUrl, parseDirectoryResponse } from "./directory.js";
 export function keyTypeFor(alg) {
     return { ed25519: "ed25519", "webauthn-es256": "es256", openpgp: "openpgp" }[alg];
 }
@@ -191,9 +193,69 @@ export const resolvePgp = async (fields, opts) => {
         warnings.push("pgp: the certificate is the current one from " + (r.source === "wkd" ? "WKD" : "the keyserver") + ", not the one at signing time");
     return { keys: [{ alg: "openpgp", key: r.cert, source: `${r.source}${r.url ? " " + r.url : ""}` }], warnings };
 };
+const MAX_DIRECTORY_BYTES = 64 * 1024;
+// SPEC 4.7: the domain's dir= if exactly one, otherwise the verifier's trusted list
+export const resolveDirectory = async (fields, opts) => {
+    if (opts.offline)
+        throw new ResolutionError("offline mode", "offline");
+    const email = fields.signer;
+    const domain = email.slice(email.lastIndexOf("@") + 1);
+    const named = directoriesFromRecords(await dohTxt(`_mdsig.${domain}`, opts));
+    if (named.length > 1)
+        throw new ResolutionError(`_mdsig.${domain} names ${named.length} different key directories`, "not-found");
+    let list;
+    if (named.length === 1) {
+        list = named;
+    }
+    else {
+        list = [...new Set([...(opts.keyDirectories ?? DEFAULT_KEY_DIRECTORIES), ...(opts.extraKeyDirectories ?? [])].map((d) => d.replace(/\/+$/, "")))];
+        const bad = list.find((d) => !isKeyDirectoryUrl(d));
+        if (bad)
+            throw new ResolutionError(`key directory must be an https:// URL, got "${bad}"`, "unsupported");
+    }
+    const via = named.length === 1 ? `named by _mdsig.${domain}` : "trusted list";
+    const f = opts.fetch ?? globalThis.fetch;
+    const kt = keyType(fields);
+    const failed = [];
+    for (const dir of list) {
+        let bytes;
+        try {
+            bytes = await fetchResource(await directoryKeyUrl(dir, email), f, MAX_DIRECTORY_BYTES);
+        }
+        catch (e) {
+            if (e.message !== "HTTP 404")
+                failed.push(`${dir}: ${e.message}`);
+            continue;
+        }
+        let res;
+        try {
+            res = parseDirectoryResponse(bytes, email);
+        }
+        catch (e) {
+            failed.push(`${dir}: ${e.message}`);
+            continue;
+        }
+        const keys = [];
+        for (const k of res?.keys ?? []) {
+            if (k.type !== kt)
+                continue;
+            try {
+                keys.push({ alg: kt, key: decodePublicKey(kt, k.key), source: `key directory ${dir} (${via})` });
+            }
+            catch {
+            }
+        }
+        if (keys.length)
+            return { keys, warnings: ["key resolved from the current key directory; it may differ from the key at signing time"] };
+    }
+    if (failed.length)
+        throw new ResolutionError(`key directory lookup failed (${failed.join("; ")})`, "network");
+    throw new ResolutionError(`no ${kt} key for ${email} in ${list.join(", ")}`, "not-found");
+};
 export const DEFAULT_RESOLVERS = {
     dns: resolveDns,
     "git-hosting": resolveGitHosting,
     tofu: resolveTofu,
     pgp: resolvePgp,
+    directory: resolveDirectory,
 };

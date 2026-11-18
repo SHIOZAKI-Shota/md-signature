@@ -34,10 +34,12 @@ type SignOptions struct {
 	TSAURL        string
 	TSA           TSAVerifyOptions
 	// dns and git-hosting: also write the public key (SPEC 4.5), so the signature stays checkable after the key is gone
-	EmbedKey   bool
-	HTTPClient *http.Client
-	Force      bool
-	Now        func() time.Time
+	EmbedKey bool
+	// directory blocks carry the key snapshot unless this is set (SPEC 4.7)
+	OmitKeySnapshot bool
+	HTTPClient      *http.Client
+	Force           bool
+	Now             func() time.Time
 }
 
 type SignResult struct {
@@ -141,10 +143,16 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 			}
 		}
 	}
-	if o.EmbedKey && o.Method != "dns" && o.Method != "git-hosting" {
-		return nil, &ValueError{Msg: "EmbedKey works with dns and git-hosting, not " + o.Method}
+	if o.Method == "directory" {
+		fields["signer"] = strings.ToLower(o.SignerID)
+		if !emailRe.MatchString(fields["signer"]) {
+			return nil, &ValueError{Msg: fmt.Sprintf("directory signer must be an email address, got %q", o.SignerID)}
+		}
 	}
-	if o.Method == "tofu" || o.EmbedKey {
+	if o.EmbedKey && o.Method != "dns" && o.Method != "git-hosting" && o.Method != "directory" {
+		return nil, &ValueError{Msg: "EmbedKey works with dns, git-hosting, and directory, not " + o.Method}
+	}
+	if o.Method == "tofu" || o.EmbedKey || (o.Method == "directory" && !o.OmitKeySnapshot) {
 		kt := "ed25519"
 		if isWebAuthn {
 			kt = "es256"

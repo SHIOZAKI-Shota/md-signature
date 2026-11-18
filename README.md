@@ -31,7 +31,7 @@ sig: base64:q1Xv...
 - The signature stays in the same file. There is no detached `.sig` file to lose.
 - Several people can co-sign. Each new signature covers the document and every earlier signature, forming an append-only hash chain.
 - You can verify against keys you already have: SSH keys on GitHub/GitLab (`https://github.com/<user>.keys`), a DNS TXT record on your domain, OpenPGP, or an embedded key.
-- RFC 3161 timestamp tokens can be added if you need a trusted time. For long-term keeping, `mdsig timestamp` appends timestamp blocks without a signer and renews them by stacking. `dns` and `git-hosting` can embed the public key (`--embed-key`), so a signature can still be checked after the key is removed.
+- RFC 3161 timestamp tokens can be added if you need a trusted time. For long-term keeping, `mdsig timestamp` appends timestamp blocks without a signer and renews them by stacking. `dns`, `git-hosting`, and `directory` can embed the public key (`--embed-key`; `directory` does by default), so a signature can still be checked after the key is removed.
 - A signer can declare which co-signatures are still required (`require`). `mdsig verify` reports the document as *pending* until they are all there. Steps (`step`) and thresholds (`any`) express flows such as "the manager approves, then two of three reviewers sign".
 - Screenshots, data files, and even remote images can be bound by SHA-256 (`resources`), so swapping a linked file is detected.
 - You can sign only marked sections (`scope`) and leave notes or fill-in fields editable. Verifiers always show that such a signature is partial.
@@ -124,10 +124,11 @@ For the list of options, TSA root certificates, and notes on running a server, s
 | `dns` | `example.com` | TXT record at `[<selector>.]_mdsig.example.com` |
 | `pgp` | `alice@example.com` + `fpr` | Local keyring (CLI), then WKD, then a keyserver (keys.openpgp.org by default) |
 | `tofu` | anything | Embedded `pubkey` field. Proves integrity, not identity. |
+| `directory` | `alice@example.com` | A key directory that confirmed the email address: the one the domain names with `dir=` in `_mdsig`, otherwise the verifier's trusted list (keys.mdsig.dev by default; see [the criteria](KEY_DIRECTORIES.md)) |
 
 OpenPGP signatures (`alg: openpgp`) store a detached signature in `sig`, the same format `gpg --detach-sign` writes. The CLI signs through gpg, so keys held by gpg-agent or on a smartcard work as they are. You can also sign with a key file, in the CLI or in the browser. Supported keys are Ed25519 (v4 and v6), RSA (2048 bits or more), and ECDSA P-256. Passphrase-protected key files are supported in gpg's default protection (iterated+salted S2K with AES). Argon2 and AEAD protection work in the CLI, not in the browser.
 
-Passkey signatures (`alg: webauthn-es256`) use `tofu` or `dns` for the public key.
+Passkey signatures (`alg: webauthn-es256`) use `tofu`, `dns`, or `directory` for the public key.
 Passkeys are bound to the domain of the signing page (currently
 `mdsig.dev`). If the playground moves to another domain, passkeys
 registered on the old one cannot sign there, though existing signatures stay

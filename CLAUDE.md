@@ -122,6 +122,15 @@ The user asked to move hand-written crypto to libraries where a library can do t
 - **0.0.1 blocks keep the old rule:** no step/order lines (malformed if present), duplicates allowed, one block may satisfy several lines (`RequireSpec.legacy`).
 - **Shapes:** `Agreement.violations`, requirements carry `step`/`any`, missing ones `need`/`blockedBy`/`early` (JSON `blocked_by`). CLI `--require` takes one line per flag and validates the joined value. Vectors: `require-serial-*`, `require-any-*`, `malformed-require-steps.md`, `legacy-v001.md`, `mixed-versions.md`, `malformed-require-step-v001.md`.
 
+## Key directories and `method: directory` (2026-11-18, release v0.0.4)
+
+- **What**: a signer without a domain signs as a lower-case email address; the key comes from a key directory that confirmed the address (SPEC 4.7, KEY_DIRECTORIES.md). keys.mdsig.dev is one directory, not an authority.
+- **Which directory**: never from the block (a signer-chosen directory lets anyone claim any address, the same reason the `keyserver` field was removed). First the `dir=` tag of the `v=mdsig1` TXT record at `_mdsig.<email domain>` (several different values: unresolved/not-found); otherwise the verifier's trusted list (default `https://keys.mdsig.dev`; TS `keyDirectories`/`extraKeyDirectories`, Go `ResolveOptions.KeyDirectories`, CLI `mdsig directory trust add|list|remove` stored in `<config>/mdsig/key_directories.json`, plus `--key-directory`).
+- **Lookup**: `GET <dir>/v1/keys/<sha256(email) hex>`, JSON `{email, verified, keys:[{type,key,added}]}`; a response for another `email` counts as no key; 404 = not-found, failures = network. Directories must send `Access-Control-Allow-Origin: *`. The DNS tag rules now say unknown tags are ignored (existing parsers already did).
+- **Snapshot**: `directory` is a key-snapshot method; generators embed `pubkey` by default (TS `embedKey` defaults to true for directory, Go `OmitKeySnapshot`, CLI `--no-embed-key`).
+- **Registration** (keys.mdsig.dev API, not the format): `POST /v1/challenges`, `POST /v1/registrations` with a proof over `md-signature/keydir/v1\n<challenge>\n<email>\n<type>:<key>` (Ed25519 signature, or a WebAuthn assertion whose challenge is SHA-256 of it), confirmation by email, `POST /v1/removals`. TS `directory.ts` (`createRegistration`, `verifyRegistration`, `registerWithDirectory`), Go `RegisterKey`, `RequestKeyRemoval`, CLI `mdsig directory register|remove`. The server lives in a separate repository (md-signature/keys, Cloudflare Workers).
+- Format version stays 0.0.2: older verifiers report an unknown method as `unsupported-method`.
+
 ## Open items / next steps
 
 - npm wrapper package `mdsig` (JS CLI with `@clack/prompts`), or npm distribution of the Go binary.

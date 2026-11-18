@@ -36,8 +36,8 @@ signature is appended as a co-signature (SPEC Section 7).
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `-m, --method <m>` | `git-hosting` | `git-hosting`, `dns`, `tofu`, or `pgp`. |
-| `-s, --signer <id>` | — | REQUIRED. `github.com/alice`, `example.com`, `bob@laptop`, ... With `pgp` it can be omitted; it is then taken from the email address in the key's user ID (3.1.2). |
+| `-m, --method <m>` | `git-hosting` | `git-hosting`, `dns`, `tofu`, `pgp`, or `directory`. |
+| `-s, --signer <id>` | — | REQUIRED. `github.com/alice`, `example.com`, `bob@laptop`, `alice@example.com`, ... With `directory` it is an email address, written in lowercase. With `pgp` it can be omitted; it is then taken from the email address in the key's user ID (3.1.2). |
 | `-k, --key <path>` | auto | OpenSSH Ed25519 private key file. See 3.1.1. |
 | `--selector <sel>` | — | `dns` only. |
 | `-u, --local-user <id>` | gpg default key | `pgp` only. The key to pass to gpg (a fingerprint or user ID). |
@@ -47,7 +47,8 @@ signature is appended as a co-signature (SPEC Section 7).
 | `--tsa [url]` | off | Request an RFC 3161 timestamp from a time-stamping authority (TSA). Without a value, uses `http://ts.ssl.com`. |
 | `--tsa-root <file>` | — | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking a timestamp token. Repeatable. Used together with `--tsa`. |
 | `--stdout` | off | Write the signed document to stdout instead of changing the file. |
-| `--embed-key` | off | `dns` and `git-hosting` only. Include the public key used for signing in the block as `pubkey` (SPEC 4.5), so that the signature can still be checked after the key is removed. Exit code 2 with any other method. |
+| `--embed-key` | off | `dns`, `git-hosting`, and `directory` only. Include the public key used for signing in the block as `pubkey` (SPEC 4.5), so that the signature can still be checked after the key is removed. `directory` includes it by default. Exit code 2 with any other method. |
+| `--no-embed-key` | off | `directory` only. Do not include `pubkey`. Exit code 2 with any other method. |
 | `--force` | off | Sign even if the file has a signature block followed by unsigned content. The whole file is then signed as a new document. |
 | `--scope <ids>` | — | Sign only these sections, comma-separated: `--scope terms,fees` (SPEC 5.6). |
 | `--require <line>` | — | One line of the `require` value. Repeatable; lines keep the order given. Besides requirement lines `<method>:<signer>[ <role>]`, step lines `step <n>[ any <m>]` and order lines `order pending\|guide\|strict` are accepted (SPEC 5.8). Example: `--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`. The whole value is checked against the rules of SPEC 5.8. |
@@ -97,12 +98,17 @@ Verifies every signature in each file's chain (SPEC Section 5.4).
 | `--accept-new-key` | Accept a `tofu` key that differs from the one stored for its `signer`, and replace the stored binding. Without it, a block whose key changed is invalid (code `key-changed`). |
 | `--no-keyring` | Do not use the local gpg keyring for `pgp` key lookups (WKD and keyserver only). |
 | `--keyserver <url>` | `https://` URL of the keyserver for `pgp` key lookups. Default: `https://keys.openpgp.org`. The verifier chooses the keyserver; it is never taken from the block (SPEC 4.3). Name one that confirms email addresses. |
+| `--key-directory <url>` | `https://` URL of a key directory to trust for `directory` key lookups in this run only. Repeatable. It is queried after the default list and the directories added with `mdsig directory trust` (3.8). If the domain of `signer` names a directory with `dir` in `_mdsig`, only that directory is used (SPEC 4.7). A URL that is not `https://` gives exit code 2. |
 | `--tsa-root <file>` | Root certificate (PEM or DER file) to trust, in addition to the system trust store, when checking a timestamp token (a `tsa_token` or a `tsa` block). A PEM file may hold several certificates. Repeatable. A file that cannot be read is a usage error (exit code 2). |
 
 `dns` lookups SHOULD use the system resolver. `git-hosting` fetches
 `https://<signer>.keys`. `pgp` takes the key from the local keyring with
 `gpg --export <fpr>` if `gpg` is available, then tries WKD, then the keyserver
-(SPEC 4.3). TOFU bindings are stored in
+(SPEC 4.3). `directory` takes keys from the directory named by `dir` in the
+`_mdsig` record of the signer's domain, or else from the list of trusted key
+directories (the default `https://keys.mdsig.dev`, then
+`<user config dir>/mdsig/key_directories.json`, then `--key-directory`)
+(SPEC 4.7). TOFU bindings are stored in
 `<user config dir>/mdsig/known_signers.json`. A binding is stored only after
 the block has verified, and never from a block inside a revocation list.
 Local resources are always checked, relative to the directory of the file
@@ -222,6 +228,7 @@ Offers document verification over HTTP. It is meant for verifiers that cannot ch
 | `--fetch-resources` | off | Fetch `https://` resources and check their hashes. |
 | `--no-revocation` | off | Do not fetch revocation lists. |
 | `--keyserver <url>` | `https://keys.openpgp.org` | Keyserver for `pgp` key lookups. |
+| `--key-directory <url>` | — | Key directory to trust for `directory` key lookups (as in section 3.2). |
 | `--tsa-root <file>` | — | Root certificate to trust, in addition to the system trust store, when checking a timestamp token (as in section 3.2). |
 
 The endpoints are listed below. Request and response bodies are JSON (UTF-8).
@@ -257,6 +264,22 @@ Appends a `tsa` block (SPEC 4.6) to the end of the file. The block covers the wh
 | `--stdout` | off | Write the result to stdout instead of changing the file. |
 
 The TSA's response is checked as for `--tsa` in section 3.1. If the request or the check fails, the exit code is 3 and the file is not changed.
+
+### 3.8 `mdsig directory`
+
+Works with key directories (SPEC 4.7).
+
+| Subcommand | Description |
+| --- | --- |
+| `trust add <url>` | Add a key directory to the trusted list. The list is stored in `<user config dir>/mdsig/key_directories.json`; `verify` and `serve` use it after the default list. A URL that is not `https://` gives exit code 2. |
+| `trust remove <url>` | Remove it from the list. A URL that is not in the list gives exit code 2. The default list cannot be removed. |
+| `trust list` | Print the default list and the added directories. |
+| `register --email <addr>` | Ask a key directory to publish an Ed25519 key for the email address. The key is found as in 3.1.1 (`-k` to name it), and possession is shown by signing a challenge the directory issued. The key is published only after the link in the directory's confirmation email is opened. |
+| `remove --email <addr>` | Ask for the address's keys to be removed (only the key given with `--key <base64>`, if any). The removal is completed by a confirmation email. |
+
+`register` and `remove` go to `--directory <url>` when it is given, otherwise to the directory the address's domain names with `dir` in `_mdsig`, otherwise to `https://keys.mdsig.dev`. If the request is not accepted, the exit code is 3.
+
+After signing, `mdsig sign -m directory` checks whether verifiers following the default rules would find the key it signed with, and prints a warning to stderr if they would not. The signature is kept.
 
 ## 4. Exit codes
 

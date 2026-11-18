@@ -14,7 +14,7 @@ const WEBAUTHN_KEYS = ["rp_id", "webauthn_authenticator_data", "webauthn_client_
 // SPEC 4.6: a tsa block carries no signer key, so only these fields mean something in it
 const TSA_BLOCK_KEYS = new Set(["v", "method", "signer", "ts", "alg", "hash", "sig", "reason"]);
 // SPEC 4.5: methods whose block may carry a snapshot of the public key
-const KEY_SNAPSHOT_METHODS = new Set(["dns", "git-hosting"]);
+const KEY_SNAPSHOT_METHODS = new Set(["dns", "git-hosting", "directory"]);
 function validateSemantics(f) {
     // SPEC 4.6: method tsa and alg rfc3161 only go together
     const isTsa = f.method === "tsa";
@@ -68,6 +68,8 @@ function validateSemantics(f) {
     }
     if (f.method === "git-hosting" && !GIT_HOSTING_SIGNER_RE.test(f.signer))
         return "git-hosting signer must be <host>/<username> with a domain name as host";
+    if (f.method === "directory" && !EMAIL_RE.test(f.signer))
+        return "directory signer must be a lower-case email address";
     const isWebAuthn = (f.alg ?? "ed25519") === "webauthn-es256";
     for (const k of WEBAUTHN_KEYS) {
         if (isWebAuthn && f[k] === undefined)

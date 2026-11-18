@@ -76,6 +76,8 @@ type ResolveOptions struct {
 	PGPClient *http.Client
 	// SPEC 4.3: chosen by the verifier, never taken from the block; empty means DefaultKeyserver
 	Keyserver string
+	// SPEC 4.7: the verifier's trusted key directories; nil means DefaultKeyDirectories()
+	KeyDirectories []string
 }
 
 type Resolver interface {
@@ -96,6 +98,7 @@ func DefaultResolvers() map[string]Resolver {
 		"git-hosting": ResolverFunc(resolveGitHosting),
 		"tofu":        ResolverFunc(resolveTofu),
 		"pgp":         ResolverFunc(resolvePGP),
+		"directory":   ResolverFunc(resolveDirectory),
 	}
 }
 

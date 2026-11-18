@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,8 +34,9 @@ type keysJSON struct {
 	DNS map[string]struct {
 		TXT string `json:"txt"`
 	} `json:"dns"`
-	Now   string            `json:"now"`
-	Fetch map[string]string `json:"fetch"`
+	TXT   map[string][]string `json:"txt"`
+	Now   string              `json:"now"`
+	Fetch map[string]string   `json:"fetch"`
 }
 
 func loadKeysJSON(t *testing.T) keysJSON {
@@ -104,6 +106,9 @@ func examplesFetchClient(t *testing.T, calls *int) *http.Client {
 		if !ok {
 			return nil, fmt.Errorf("network disabled in tests: %s", r.URL)
 		}
+		if file == "404" {
+			return respond(r, 404, nil), nil
+		}
 		return respond(r, 200, []byte(readExample(t, file))), nil
 	})}
 }
@@ -115,8 +120,17 @@ func examplesVerifyOptions(t *testing.T) *VerifyOptions {
 		t.Fatal(err)
 	}
 	return &VerifyOptions{
-		ResolveOptions: ResolveOptions{PGPClient: examplesFetchClient(t, nil)},
-		Resolvers:      keysJSONResolvers(t),
+		ResolveOptions: ResolveOptions{
+			PGPClient:  examplesFetchClient(t, nil),
+			HTTPClient: examplesFetchClient(t, nil),
+			LookupTXT: func(_ context.Context, name string) ([]string, error) {
+				if recs, ok := keys.TXT[name]; ok {
+					return recs, nil
+				}
+				return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+			},
+		},
+		Resolvers: keysJSONResolvers(t),
 		ResourceCheckOptions: ResourceCheckOptions{
 			LoadResource: DirResourceLoader(examplesDir),
 			FetchClient:  examplesFetchClient(t, nil),

@@ -88,7 +88,7 @@ func IsValidRevocationURL(u string) bool {
 var tsaBlockKeys = map[string]bool{"v": true, "method": true, "signer": true, "ts": true, "alg": true, "hash": true, "sig": true, "reason": true}
 
 // SPEC 4.5: methods whose block may carry a snapshot of the public key
-var keySnapshotMethods = map[string]bool{"dns": true, "git-hosting": true}
+var keySnapshotMethods = map[string]bool{"dns": true, "git-hosting": true, "directory": true}
 
 var tsaSignerRe = regexp.MustCompile(`^https?://\S+$`)
 
@@ -170,6 +170,9 @@ func validateSemantics(f map[string]string) string {
 	}
 	if f["method"] == "git-hosting" && !isValidGitHostingSigner(f["signer"]) {
 		return "git-hosting signer must be <host>/<username> with a domain name as host"
+	}
+	if f["method"] == "directory" && !emailRe.MatchString(f["signer"]) {
+		return "directory signer must be a lower-case email address"
 	}
 	isWebAuthn := algOf(f) == "webauthn-es256"
 	for _, k := range webAuthnKeys {

@@ -3,6 +3,7 @@ export * from "./canonical.ts";
 export * from "./crypto.ts";
 export * from "./parser.ts";
 export * from "./resolvers.ts";
+export * from "./directory.ts";
 export * from "./tsa.ts";
 export * from "./scope.ts";
 export * from "./resources.ts";

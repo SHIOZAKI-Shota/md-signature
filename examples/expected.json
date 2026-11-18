@@ -302,6 +302,60 @@
       "invalid:bad-signature"
     ]
   },
+  "directory-valid.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
+  "directory-snapshot.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
+  "directory-passkey.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
+  "directory-key-not-published.md": {
+    "ok": false,
+    "signatures": [
+      "unresolved:key-not-published"
+    ]
+  },
+  "directory-not-found.md": {
+    "ok": false,
+    "signatures": [
+      "unresolved:not-found"
+    ]
+  },
+  "directory-domain-delegated.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
+  "directory-conflicting-dir.md": {
+    "ok": false,
+    "signatures": [
+      "unresolved:not-found"
+    ]
+  },
+  "malformed-directory-signer.md": {
+    "ok": false,
+    "signatures": [
+      "malformed:malformed"
+    ]
+  },
+  "dns-unknown-tag.md": {
+    "ok": true,
+    "signatures": [
+      "valid"
+    ]
+  },
   "valid-pgp-ed25519.md": {
     "ok": true,
     "signatures": [

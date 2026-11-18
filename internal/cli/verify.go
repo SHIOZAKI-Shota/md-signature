@@ -27,6 +27,7 @@ type verifyOptions struct {
 	fetchClient                  *http.Client
 	now                          time.Time
 	keyserver                    string
+	keyDirectories               []string
 	tsaRoots                     []string
 	acceptNewKey                 bool
 }
@@ -50,6 +51,7 @@ func newVerifyCmd() *cobra.Command {
 	c.Flags().BoolVar(&o.acceptNewKey, "accept-new-key", false, "tofu only: accept a key that differs from the stored one and replace the stored binding")
 	c.Flags().StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
 	c.Flags().StringVar(&o.keyserver, "keyserver", "", "pgp only: https:// keyserver to look keys up on (default "+mdsig.DefaultKeyserver+"); use one that confirms email addresses")
+	c.Flags().StringArrayVar(&o.keyDirectories, "key-directory", nil, "directory only: also trust this https:// key directory for this run (repeatable; see mdsig directory trust)")
 	return c
 }
 
@@ -156,6 +158,10 @@ func runVerify(o *verifyOptions, files []string) error {
 	if o.keyserver != "" && !mdsig.IsValidRevocationURL(o.keyserver) {
 		return exitf(exitUsage, "%s", i18n.T("verify.bad_keyserver", o.keyserver))
 	}
+	keyDirs, err := trustedDirectories(o.keyDirectories)
+	if err != nil {
+		return err
+	}
 	store := openTofuStore()
 	var keyring func(ctx context.Context, fpr string) ([]byte, error)
 	if !o.noKeyring {
@@ -180,7 +186,7 @@ func runVerify(o *verifyOptions, files []string) error {
 		vo := &mdsig.VerifyOptions{
 			ResolveOptions: mdsig.ResolveOptions{
 				Offline: o.offline, TofuStore: store, AcceptNewTofuKey: o.acceptNewKey, HTTPClient: resolveClient,
-				PGPKeyring: keyring, PGPClient: fetchClient, Keyserver: o.keyserver,
+				PGPKeyring: keyring, PGPClient: fetchClient, Keyserver: o.keyserver, KeyDirectories: keyDirs,
 			},
 			ResourceCheckOptions: mdsig.ResourceCheckOptions{
 				LoadResource:   mdsig.DirResourceLoader(filepath.Dir(file)),
