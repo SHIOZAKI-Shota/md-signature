@@ -1,5 +1,5 @@
 {
-  "_comment": "PUBLIC TEST KEYS from RFC 8032 Section 7.1. Never use them for real signatures. Verifiers under test must resolve these signers to these keys instead of using the network, use `now` as the current time, serve the URLs in `fetch` from the listed files, and resolve relative resources against this directory.",
+  "_comment": "PUBLIC TEST KEYS from RFC 8032 Section 7.1. Never use them for real signatures. Verifiers under test must resolve these signers to these keys instead of using the network, use `now` as the current time, serve the URLs in `fetch` from the listed files (\"404\" means an HTTP 404 response), answer TXT lookups from `txt` (absent names do not exist), and resolve relative resources against this directory.",
   "git-hosting": {
     "github.com/alice": {
       "seed_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
@@ -11,7 +11,47 @@
     "2026._mdsig.example.com": {
       "seed_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
       "txt": "v=mdsig1; k=ed25519; p=PUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw="
+    },
+    "2026._mdsig.tagged.example": {
+      "seed_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+      "txt": "v=mdsig1; k=ed25519; x=future; p=PUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw=; dir=https://keys.example.org"
     }
+  },
+  "directory": {
+    "alice@mail.example": {
+      "seed_hex": "daf2b980b9d640973c658bfbb2af84b932b755f090e1cbb4a331683da4674398",
+      "directory": "https://keys.mdsig.dev"
+    },
+    "carol@mail.example": {
+      "note": "software passkey, rp_id mdsig.dev",
+      "directory": "https://keys.mdsig.dev"
+    },
+    "dave@mail.example": {
+      "seed_hex": "72891b316ef881e64798d99d71956c0a0418302246809c314df7d511e4123b82",
+      "directory": "https://keys.mdsig.dev",
+      "note": "the directory lists alice's key"
+    },
+    "erin@mail.example": {
+      "directory": "https://keys.mdsig.dev",
+      "note": "no key (HTTP 404)"
+    },
+    "frank@corp.example": {
+      "seed_hex": "c772b19b71aadee121f9ff8f2a253918666485501b65877c636557819a405ab8",
+      "directory": "https://keys.corp.example",
+      "note": "named by _mdsig.corp.example"
+    },
+    "grace@multi.example": {
+      "note": "_mdsig.multi.example names two directories"
+    }
+  },
+  "txt": {
+    "_mdsig.corp.example": [
+      "v=mdsig1; dir=https://keys.corp.example"
+    ],
+    "_mdsig.multi.example": [
+      "v=mdsig1; dir=https://keys.one.example",
+      "v=mdsig1; dir=https://keys.two.example"
+    ]
   },
   "tofu": {
     "bob@laptop": {
@@ -93,6 +133,11 @@
     "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0xB109CA5B15574608C2FF19C6B28CB4C65D5E3252": "pgp/ivan.pub.asc",
     "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x3255926F3D3CD10E334EA19BC2C8C2973DAC9306": "pgp/judy.pub.asc",
     "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x6B8CABC94BD6F8DF0B1937F719457B025C590D526D4B4F8652AC62DAE08F499B": "pgp/kate.pub.asc",
-    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x275E2B9A1BC461282279D5335E7F0C0F098A2BC1": "pgp/frank.pub.asc"
+    "https://keys.openpgp.org/pks/lookup?op=get&options=mr&search=0x275E2B9A1BC461282279D5335E7F0C0F098A2BC1": "pgp/frank.pub.asc",
+    "https://keys.mdsig.dev/v1/keys/e29f4fb165e275d7e0fbbb5f7891bf1d1a69070aebb661cfdc3b3231f923967a": "directory/alice.json",
+    "https://keys.mdsig.dev/v1/keys/7ec84fbfc96de77b1ac8696cece474c0a97437c98c379b948752f9b0fa96ec05": "directory/carol.json",
+    "https://keys.mdsig.dev/v1/keys/29635b854a199c72ca9c95cb4ef09870b32a114ae13d66a5b07a8b14ed174d86": "directory/dave.json",
+    "https://keys.mdsig.dev/v1/keys/62a9920c9943c0b0a6e0a70ff4f850cd8906a9745c0e5af424d6089ed7b87423": "404",
+    "https://keys.corp.example/v1/keys/f390913b117c25ef338d7fc5876dd0ab9cfa1a0c5b48dc5f6aadf776e6956ee6": "directory/frank.json"
   }
 }

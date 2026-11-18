@@ -214,7 +214,7 @@ test("key snapshot: embedded key verifies, published key decides valid or key-no
   const otherFp = await sshFingerprint(b.publicKey);
   assert.match((await verifyDocument(gh.replace(/key_fp: \S+/, `key_fp: ${otherFp}`), { resolvers: resolverWith([a.publicKey]) })).signatures[0]!.message!, /key_fp does not match the embedded pubkey/);
 
-  await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "x", embedKey: true }), /embedKey works with dns and git-hosting/);
+  await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "x", embedKey: true }), /embedKey works with dns, git-hosting, and directory/);
   const plain = (await signDocument(DOC, { signer: a, method: "dns", signerId: "example.com", ts: TS })).text;
   assert.doesNotMatch(plain, /pubkey:/);
   assert.deepEqual(await check(plain, "missing"), ["unresolved", "not-found"]);

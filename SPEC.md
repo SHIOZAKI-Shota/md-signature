@@ -111,7 +111,7 @@ Rules that apply in addition to the grammar:
 | Key | Requirement | Description |
 | --- | --- | --- |
 | `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
-| `method` | MUST | How the public key is resolved: `dns`, `git-hosting`, `pgp`, or `tofu`; or `tsa` for a timestamp block that has no signer (Section 4). |
+| `method` | MUST | How the public key is resolved: `dns`, `git-hosting`, `pgp`, `tofu`, or `directory`; or `tsa` for a timestamp block that has no signer (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
 | `reason` | MAY | Free-text reason or comment. |
@@ -158,6 +158,8 @@ understand that field.
   - `v` MUST be `mdsig1`.
   - `k` is the key type. It MUST be the key type of the block's `alg` (Section 6): `ed25519` for `ed25519`, `es256` for `webauthn-es256`.
   - `p` is the public key in standard base64. For `ed25519` it is the raw 32-byte key [RFC8032] (the same convention as DKIM [RFC8463]); verifiers SHOULD also accept a DER `SubjectPublicKeyInfo`. For `es256` it is a DER `SubjectPublicKeyInfo` for a P-256 key [RFC5480]; verifiers SHOULD also accept the 65-byte uncompressed point.
+  - `dir` (MAY) is the `https://` URL of a key directory (Section 4.7). `dir` has meaning only in a record at the name `_mdsig.<domain>`, which has no `selector`. A record with `dir` need not have `k` and `p`, and MAY share a record with the key tags. For example: `_mdsig.example.com. IN TXT "v=mdsig1; dir=https://keys.example.com"`.
+  - Verifiers MUST ignore unknown tags. A record without `p` is not treated as a key.
 - If the TXT record is split into multiple character-strings, verifiers MUST concatenate them before parsing.
 - If several TXT records at the name have `v=mdsig1`, the signature is valid if it verifies with any of them. This allows key rotation.
 - Implementations that cannot use the system resolver (browsers, edge runtimes) SHOULD use DNS-over-HTTPS [RFC8484], for example the JSON API at `https://cloudflare-dns.com/dns-query` with fallback to `https://dns.google/resolve`. This works for any domain; the domain's DNS provider does not have to support DoH.
@@ -202,18 +204,18 @@ understand that field.
 - A `tofu` signature proves only that the document has not changed since someone holding that key signed it. It does not prove who that is.
 - Verifiers that keep state SHOULD remember the `signer` → `pubkey` binding the first time they see it and MUST report a block as **invalid** (code `key-changed`) if a later document uses the same `signer` with a different `pubkey`. The binding is stored after the block has verified, and is replaced only when the user explicitly accepts the new key.
 
-### 4.5 Key snapshots (`dns`, `git-hosting`)
+### 4.5 Key snapshots (`dns`, `git-hosting`, `directory`)
 
-The public keys of `dns` and `git-hosting` are fetched at verification time, so
+The public keys of `dns`, `git-hosting`, and `directory` are fetched at verification time, so
 once the signer removes or changes a key, earlier signatures can no longer be
-checked (Section 9.3). To prepare for this, a `dns` or `git-hosting` block MAY
+checked (Section 9.3). To prepare for this, a `dns`, `git-hosting`, or `directory` block MAY
 include the public key it was signed with in `pubkey`, in the format of
 Section 4.4. A block whose `v` is `0.0.1` does not include `pubkey`. A `pgp`
 block does not include `pubkey`.
 
 `pubkey` is part of the signed payload, but the signer wrote it. A forger can
 embed a key of their own, so `pubkey` alone does not show that the key belongs
-to `signer`. A verifier MUST verify a `dns` or `git-hosting` block that has
+to `signer`. A verifier MUST verify a `dns`, `git-hosting`, or `directory` block that has
 `pubkey` as follows, in place of steps 4 and 5 of Section 5.4.
 
 1. A block whose `pubkey` has a key type that does not match `alg` or cannot be
@@ -221,7 +223,7 @@ to `signer`. A verifier MUST verify a `dns` or `git-hosting` block that has
    `pubkey`, is **malformed**.
 2. Verify `sig` with `pubkey`. If it does not verify, the block is
    **invalid (bad signature)**. This check comes before fetching keys.
-3. Fetch keys as in Section 4.1 or 4.2. If the fetched keys include the key in
+3. Fetch keys as in Section 4.1, 4.2, or 4.7. If the fetched keys include the key in
    `pubkey`, continue with the remaining steps as usual.
 4. If fetching succeeded but did not include that key, or no key exists,
    perform the remaining steps as usual, and if none of them fails, the block
@@ -272,6 +274,42 @@ steps after it in Section 5.4.
    certificate. If it cannot be verified, the block is **unresolved**.
 
 A `tsa` block does not satisfy `require` (Section 5.8).
+
+### 4.7 `directory`: Key directory
+
+A key directory is a service that publishes public keys bound to an email
+address after confirming that the address's owner agrees. Signers without a
+domain can sign with an email address as `signer`. Anyone can run a key
+directory; this document does not name a particular operator.
+
+- `signer`: An email address in lowercase (`local@domain`).
+- `alg`: `ed25519` or `webauthn-es256`.
+- `pubkey` (MAY): A key snapshot as in Section 4.5. Generators SHOULD include `pubkey`, for the case where the directory stops or the key is removed.
+- A block cannot name a key directory. If the signer could name the directory, anyone could sign as someone else's `signer` through a directory that does not confirm addresses (the same reason as for the keyserver in Section 4.3).
+- **Choosing the directory.** Verifiers MUST choose the directory to query in this order:
+  1. The `dir` tag of the `v=mdsig1` TXT record (Section 4.1) at `_mdsig.<domain>`, where `<domain>` is the domain part of `signer` (after `@`). If there are several different `dir` values, the block is **unresolved** (code `not-found`). If exactly one `dir` value is found, verifiers MUST query only that directory.
+  2. If there is no `dir`, the verifier's list of trusted directories. Verifiers query them in order and stop at the first that returns keys. The default list is up to the implementation. Implementations SHOULD let users add to the list or replace it.
+
+  If the DNS query does not complete because of a network failure, the result is **unresolved** (code `network`).
+- **Fetching keys.** Verifiers send `GET <dir>/v1/keys/<hex>`, where `<hex>` is the SHA-256 of the UTF-8 bytes of `signer` in lowercase hexadecimal, with any trailing `/` removed from `<dir>`. The response is a JSON object of this form:
+
+  ```json
+  {"email": "alice@example.com", "verified": "email",
+   "keys": [{"type": "es256", "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE…", "added": "2026-11-18T09:00:00Z"}]}
+  ```
+
+  - Verifiers MUST treat a response whose `email` does not equal `signer` as a response that no key exists.
+  - In each element of `keys`, `type` is a key type (Section 6) and `key` is the public key in standard base64, encoded as for `p` in Section 4.1. Verifiers MUST ignore elements whose `type` does not match the block's `alg` and elements with an unknown `type`.
+  - `verified` is how the directory confirmed the address's owner. This version defines only `email`.
+  - If no confirmed key exists, the directory returns HTTP 404.
+- **Distinguishing results.** As in Section 4.3, the result is `not-found` only if every directory queried answered that no key exists. If any directory did not answer because of a network failure, the result is `network`. Verifiers SHOULD show the user which directory returned the keys and whether it was chosen by the domain's `dir` or from the trusted list.
+- **Requirements for directories.** A key directory MUST do all of the following:
+  1. Before publishing a key, obtain the agreement of the address's owner through a confirmation sent to that address.
+  2. Confirm that the registrant holds the private key, through a signature over a challenge the directory issued.
+  3. Provide a way for the address's owner to remove keys.
+  4. Add `Access-Control-Allow-Origin: *` to lookup responses, for verifiers that run in browsers.
+
+  This document does not specify how keys are registered or removed.
 
 ## 5. Normalization and Cryptographic Procedure
 
@@ -361,7 +399,7 @@ For each block in the chain, in order, a verifier MUST:
 9. If `tsa_token` is present, check it (Section 5.5).
 
 A block whose `method` is `tsa` is verified as in Section 4.6 in place of step 4
-and the steps after it, and a `dns` or `git-hosting` block with `pubkey` as in
+and the steps after it, and a `dns`, `git-hosting`, or `directory` block with `pubkey` as in
 Section 4.5 in place of steps 4 and 5.
 
 The document is **verified** only if the chain has at least one block, every
@@ -691,7 +729,8 @@ signature packet obtained by decoding `sig`.
 
 This document has no IANA actions at this time. A future revision may request:
 
-- a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`, `tsa`);
+- a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`, `tsa`, `directory`);
+- a registry "md-signature DNS Tags" (initial entries `v`, `k`, `p`, `dir`);
 - a registry "md-signature Algorithms" (Section 6);
 - registration of the `_mdsig` underscored DNS node name in the "Underscored and Globally Scoped DNS Node Names" registry [RFC8552].
 
@@ -706,6 +745,8 @@ binds to a domain's operator, and `git-hosting` to a Git hosting account. `pgp` 
 to the operator of the email address's domain when the key comes from WKD, to
 the confirmation of the email address by the keyserver the verifier chose when
 it comes from a keyserver, and to the user's own judgment when it comes from the local keyring.
+`directory` binds to the operator of the email address's domain when the directory is chosen by the
+domain's `dir`, and to that directory's confirmation of the email address when it comes from the trusted list.
 `tofu` binds to nothing beyond the key.
 
 ### 9.2 Normalization
@@ -717,12 +758,12 @@ the same but is encoded differently (for example NFC and NFD) is treated as diff
 
 ### 9.3 Key rotation and revocation
 
-`dns`, `git-hosting`, and `pgp` resolve keys at verification time. If the signer later
+`dns`, `git-hosting`, `pgp`, and `directory` resolve keys at verification time. If the signer later
 removes the key, older signatures will no longer verify; if an attacker takes
 over the domain or account, they can publish a key of their own. Neither case
 can be detected from the document alone. For long-term evidence, signers
 SHOULD add an RFC 3161 timestamp, and verifiers SHOULD record the key they used
-and when. Signers of `dns` and `git-hosting` can include a key snapshot
+and when. Signers of `dns`, `git-hosting`, and `directory` can include a key snapshot
 (Section 4.5). It shows that the signature still holds after the key is
 removed, but even with a timestamp it does not show that the key was the
 signer's (`key-not-published`). Keepers of long-lived documents SHOULD renew
@@ -766,7 +807,8 @@ names a different `revocation_url` in each document, the server also learns
 which one. A verifier that runs on a server and processes untrusted documents can
 be made to request internal addresses (server-side request forgery); the
 restrictions in Section 5.7 apply to revocation lists and to key lookups (the
-`git-hosting` host, WKD, and the keyserver) too.
+`git-hosting` host, WKD, the keyserver, and key directories) too. The value of `dir` is chosen by
+the operator of the signer's domain, so verifiers treat it as an untrusted URL.
 
 ### 9.9 Partial signatures, requirements, and passkeys
 
@@ -781,6 +823,13 @@ restrictions in Section 5.7 apply to revocation lists and to key lookups (the
 - v4 key fingerprints are based on SHA-1. Collision attacks on SHA-1 are known, but forging an `fpr` needs a second preimage, and no practical attack is known at present. Signers who want a stronger binding can use v6 keys.
 - WKD and keyservers return the current certificate, not the key as it was at signing time. A certificate fetched after the key was revoked contains the revocation signature, so signatures made before the revocation are also reported as invalid. Evidence that a signature existed before the revocation is `tsa_token`, but the verification procedure in this version does not ignore a revocation on that ground.
 - Generators that handle private keys in a browser MUST NOT store the private key or its passphrase in persistent storage, and SHOULD wipe erasable buffers (such as decrypted key material) after signing. JavaScript strings and key material copied inside cryptographic APIs cannot be wiped, so this measure only shortens the exposure.
+
+### 9.11 Key directories
+
+- When the trusted list contains several directories, the strength of the binding is that of the least careful one, because if any of them skips confirmation, anyone can claim any address through it. Verifiers SHOULD include only directories that are known to confirm email addresses.
+- A directory operator can publish a false key for any address, and whoever takes over an email account can register keys for that address. This is the same kind of trust as in a `pgp` keyserver or a `git-hosting` service.
+- A directory returns the current keys. After a key is removed or the directory stops, a block with `pubkey` is also **unresolved** (code `key-not-published` or `network`). Evidence of the time of signing comes from `tsa_token` and `tsa` blocks.
+- The binding between a published key and an email address can be fetched by anyone. The lookup URL contains a hash of the address, but guessing an address from its hash is not hard.
 
 ## 10. References
 

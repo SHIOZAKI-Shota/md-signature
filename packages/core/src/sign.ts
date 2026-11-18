@@ -11,7 +11,7 @@ import type { WebAuthnSigner } from "./webauthn.ts";
 import type { PgpSigner } from "./pgp-secret.ts";
 import { EMAIL_RE } from "./pgp-verify.ts";
 
-export type Method = "dns" | "git-hosting" | "tofu" | "pgp";
+export type Method = "dns" | "git-hosting" | "tofu" | "pgp" | "directory";
 
 export interface SignOptions {
   signer: Signer | WebAuthnSigner | PgpSigner;
@@ -84,8 +84,14 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
     if (!GIT_HOSTING_SIGNER_RE.test(o.signerId)) throw new SignError(`git-hosting signer must be <host>/<username> with a domain name as host, got "${o.signerId}"`);
     if (o.keyFp !== false) fields.key_fp = o.keyFp ?? (await sshFingerprint((o.signer as Signer).publicKey));
   }
-  if (o.embedKey && o.method !== "dns" && o.method !== "git-hosting") throw new SignError(`embedKey works with dns and git-hosting, not ${o.method}`);
-  if (o.method === "tofu" || o.embedKey) fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as Signer | WebAuthnSigner).publicKey)}`;
+  if (o.method === "directory") {
+    fields.signer = o.signerId.toLowerCase();
+    if (!EMAIL_RE.test(fields.signer)) throw new SignError(`directory signer must be an email address, got "${o.signerId}"`);
+  }
+  // SPEC 4.7: directory blocks should carry a snapshot, so it is on unless turned off
+  const embedKey = o.embedKey ?? o.method === "directory";
+  if (embedKey && o.method !== "dns" && o.method !== "git-hosting" && o.method !== "directory") throw new SignError(`embedKey works with dns, git-hosting, and directory, not ${o.method}`);
+  if (o.method === "tofu" || embedKey) fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as Signer | WebAuthnSigner).publicKey)}`;
   if (isPgp) {
     const pgp = o.signer as PgpSigner;
     const email = o.signerId.toLowerCase();

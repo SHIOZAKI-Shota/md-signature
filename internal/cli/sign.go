@@ -31,7 +31,7 @@ type signOptions struct {
 	interactive                                          bool
 	localUser, pgpKey                                    string
 	tsaRoots                                             []string
-	embedKey                                             bool
+	embedKey, noEmbedKey                                 bool
 }
 
 var urlArg = regexp.MustCompile(`^https?://`)
@@ -61,8 +61,8 @@ func newSignCmd() *cobra.Command {
 		},
 	}
 	f := c.Flags()
-	f.StringVarP(&o.method, "method", "m", "git-hosting", "git-hosting, dns, tofu, or pgp")
-	f.StringVarP(&o.signer, "signer", "s", "", "signer ID: github.com/alice, example.com, bob@laptop, ... (required; pgp: defaults to the key's email)")
+	f.StringVarP(&o.method, "method", "m", "git-hosting", "git-hosting, dns, tofu, pgp, or directory")
+	f.StringVarP(&o.signer, "signer", "s", "", "signer ID: github.com/alice, example.com, bob@laptop, alice@example.com, ... (required; pgp: defaults to the key's email)")
 	f.StringVarP(&o.keyPath, "key", "k", "", "OpenSSH Ed25519 private key file (default: ssh-agent, then ~/.ssh/id_ed25519)")
 	f.StringVar(&o.selector, "selector", "", "dns only: DNS selector")
 	f.StringVarP(&o.localUser, "local-user", "u", "", "pgp only: key for gpg to sign with (fingerprint or user ID; default: gpg's default key)")
@@ -73,7 +73,8 @@ func newSignCmd() *cobra.Command {
 	f.Lookup("tsa").NoOptDefVal = mdsig.DefaultTSAURL
 	f.StringArrayVar(&o.tsaRoots, "tsa-root", nil, "also trust this root certificate when checking a timestamp token (PEM or DER file; repeatable)")
 	f.BoolVar(&o.toStdout, "stdout", false, "write the signed document to stdout instead of changing the file")
-	f.BoolVar(&o.embedKey, "embed-key", false, "dns and git-hosting only: also write the public key into the block, so the signature can still be checked after the key is removed")
+	f.BoolVar(&o.embedKey, "embed-key", false, "dns and git-hosting only: also write the public key into the block, so the signature can still be checked after the key is removed (directory does this by default)")
+	f.BoolVar(&o.noEmbedKey, "no-embed-key", false, "directory only: do not write the public key into the block")
 	f.BoolVar(&o.force, "force", false, "sign the whole file as a new document even if a signature block is followed by unsigned content")
 	f.StringVar(&o.scope, "scope", "", "sign only these sections, comma-separated: --scope terms,fees")
 	f.StringArrayVar(&o.require, "require", nil, "one `line` of the require value (repeatable, kept in order): <method>:<signer>[ <role>], step <n>[ any <m>], or order pending|guide|strict")
@@ -86,7 +87,7 @@ func newSignCmd() *cobra.Command {
 
 func runSign(o *signOptions, file string) error {
 	switch o.method {
-	case "git-hosting", "dns", "tofu", "pgp":
+	case "git-hosting", "dns", "tofu", "pgp", "directory":
 	default:
 		return exitf(exitUsage, "%s", i18n.T("sign.bad_method", o.method))
 	}
@@ -101,8 +102,11 @@ func runSign(o *signOptions, file string) error {
 	if len(tsaRoots) > 0 && o.tsa == "" {
 		return exitf(exitUsage, "%s", i18n.T("sign.tsa_root_needs_tsa"))
 	}
-	if o.embedKey && o.method != "dns" && o.method != "git-hosting" {
+	if o.embedKey && o.method != "dns" && o.method != "git-hosting" && o.method != "directory" {
 		return exitf(exitUsage, "%s", i18n.T("sign.embed_key_method", o.method))
+	}
+	if o.noEmbedKey && o.method != "directory" {
+		return exitf(exitUsage, "%s", i18n.T("sign.no_embed_key_method", o.method))
 	}
 	if o.selector != "" && o.method != "dns" {
 		return exitf(exitUsage, "%s", i18n.T("sign.selector_dns_only"))
@@ -170,7 +174,7 @@ func runSign(o *signOptions, file string) error {
 		Signer: signer, PGP: pgpSigner, Method: o.method, SignerID: o.signer, Selector: o.selector,
 		Role: o.role, Reason: o.reason, TSAURL: o.tsa, TSA: mdsig.TSAVerifyOptions{ExtraRoots: tsaRoots}, Force: o.force,
 		Scope: ext.scope, Require: o.require, Expires: ext.expires, RevocationURL: o.revocationURL, Resources: items,
-		HTTPClient: httpClientWithTimeout(30 * time.Second), EmbedKey: o.embedKey,
+		HTTPClient: httpClientWithTimeout(30 * time.Second), EmbedKey: o.embedKey, OmitKeySnapshot: o.noEmbedKey,
 	})
 	if err != nil {
 		var ve *mdsig.ValueError
@@ -193,6 +197,9 @@ func runSign(o *signOptions, file string) error {
 		}
 	} else if err := writeAtomic(file, []byte(res.Text)); err != nil {
 		return exitf(exitIO, "%v", err)
+	}
+	if o.method == "directory" {
+		warnIfUnpublished(ctx, res.Fields, signer.PublicKey())
 	}
 	if o.interactive {
 		fmt.Fprintln(stderr, i18n.T("launcher.signed", file))

@@ -54,9 +54,16 @@ export async function signDocument(text, o) {
         if (o.keyFp !== false)
             fields.key_fp = o.keyFp ?? (await sshFingerprint(o.signer.publicKey));
     }
-    if (o.embedKey && o.method !== "dns" && o.method !== "git-hosting")
-        throw new SignError(`embedKey works with dns and git-hosting, not ${o.method}`);
-    if (o.method === "tofu" || o.embedKey)
+    if (o.method === "directory") {
+        fields.signer = o.signerId.toLowerCase();
+        if (!EMAIL_RE.test(fields.signer))
+            throw new SignError(`directory signer must be an email address, got "${o.signerId}"`);
+    }
+    // SPEC 4.7: directory blocks should carry a snapshot, so it is on unless turned off
+    const embedKey = o.embedKey ?? o.method === "directory";
+    if (embedKey && o.method !== "dns" && o.method !== "git-hosting" && o.method !== "directory")
+        throw new SignError(`embedKey works with dns, git-hosting, and directory, not ${o.method}`);
+    if (o.method === "tofu" || embedKey)
         fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64(o.signer.publicKey)}`;
     if (isPgp) {
         const pgp = o.signer;

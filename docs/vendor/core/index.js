@@ -3,6 +3,7 @@ export * from "./canonical.js";
 export * from "./crypto.js";
 export * from "./parser.js";
 export * from "./resolvers.js";
+export * from "./directory.js";
 export * from "./tsa.js";
 export * from "./scope.js";
 export * from "./resources.js";

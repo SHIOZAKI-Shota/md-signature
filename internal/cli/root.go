@@ -133,7 +133,7 @@ func newRootCmd() *cobra.Command {
 	}
 	root.PersistentFlags().StringVar(&langFlag, "lang", "", "UI language: en or ja")
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error { return err })
-	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd(), newTimestampCmd())
+	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd(), newTimestampCmd(), newDirectoryCmd())
 	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }
@@ -315,6 +315,7 @@ func launchSign() error {
 		huh.NewOption(i18n.T("launcher.method.dns"), "dns"),
 		huh.NewOption(i18n.T("launcher.method.tofu"), "tofu"),
 		huh.NewOption(i18n.T("launcher.method.pgp"), "pgp"),
+		huh.NewOption(i18n.T("launcher.method.directory"), "directory"),
 	).Value(&o.method)); err != nil {
 		return err
 	}

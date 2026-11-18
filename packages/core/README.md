@@ -47,6 +47,7 @@ A pending agreement leaves `result.ok` `true`; check `agreement.status` (the CLI
 | `tofuStore` | Where the signer-to-key bindings of `tofu` are kept. A key that differs from the stored one is invalid with `key-changed` |
 | `acceptNewTofuKey` | Accept a changed `tofu` key and replace the stored binding |
 | `keyserver` | Keyserver for `pgp` lookups. Default: `https://keys.openpgp.org` |
+| `keyDirectories`, `extraKeyDirectories` | Replace or extend the trusted key directories for `directory` lookups. Default: `DEFAULT_KEY_DIRECTORIES` (`https://keys.mdsig.dev`). A directory named by `dir=` in the signer's domain's `_mdsig` record takes precedence |
 | `loadResource` | Function that reads the local files named in `resources`. Without it they are "not checked" |
 | `fetchResources` | Fetch `https://` resources and check their hashes. Off by default |
 | `checkRevocation` | `false` skips revocation lists |

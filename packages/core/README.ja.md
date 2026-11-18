@@ -47,6 +47,7 @@ result.agreement;   // require による連署の状況（none / complete / pend
 | `tofuStore` | `tofu` の署名者と鍵の対応を記録する場所。記録済みの鍵と異なる場合は `key-changed` で無効になる |
 | `acceptNewTofuKey` | 変更された `tofu` の鍵を受け入れ、記録を更新する |
 | `keyserver` | `pgp` の鍵を取得する鍵サーバ。既定は `https://keys.openpgp.org` |
+| `keyDirectories`、`extraKeyDirectories` | `directory` の鍵を取得する、信頼する鍵ディレクトリの一覧を置換、追加する。既定は `DEFAULT_KEY_DIRECTORIES`（`https://keys.mdsig.dev`）。署名者のドメインが `_mdsig` の `dir=` で指定したディレクトリが優先する |
 | `loadResource` | `resources` のローカルファイルを読み込む関数。指定しない場合は「未検査」になる |
 | `fetchResources` | `https://` のリソースを取得してハッシュを検査する。既定はオフ |
 | `checkRevocation` | `false` で撤回リストを取得しない |
