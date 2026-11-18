@@ -5,7 +5,7 @@ Markdown 文書に埋め込む署名形式 [md-signature](../../README.ja.md) �
 [English](README.md) · [形式仕様](../../SPEC.ja.md) · [CLI・HTTP API 仕様](../../CLI_SPEC.ja.md)
 
 - ブラウザ、Node.js 22 以降、Deno、Bun、Cloudflare Workers で動作します。`node:*` のモジュールは使用していません。
-- npm への公開は準備中です。公開後は `npm install @mdsig/core` で導入できる予定です。
+- `npm install @mdsig/core` で導入できます。バージョンは `mdsig` CLI のリリースと共通です。
 - ドラフト版です。署名は形式 `0.0.2` で作成し、`0.0.1` と `0.0.2` を検証します。API は 1.0 までに変更する可能性があります。
 
 ## 検証
