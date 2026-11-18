@@ -1,7 +1,8 @@
 # md-signature: Embedded Signatures for Markdown Documents
 
 - **Version:** 0.0.2 (draft)
-- **Status:** Working draft, intended for submission as `draft-md-signature-00`
+- **Status:** Working draft, intended for submission as the individual Internet-Draft `draft-shiozaki-md-signature-00`
+- **Author:** SHIOZAKI Shota (me@shiozakishota.com; issues: https://github.com/SHIOZAKI-Shota/md-signature/issues)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Original text:** [日本語 (SPEC.ja.md)](SPEC.ja.md). This English version is the normative text, maintained for a possible IETF submission. The two are kept in sync; if they differ, this English text prevails.
 
@@ -727,12 +728,21 @@ signature packet obtained by decoding `sig`.
 
 ## 8. IANA Considerations
 
-This document has no IANA actions at this time. A future revision may request:
+IANA is requested to add the following entry to the "Underscored and Globally
+Scoped DNS Node Names" registry [RFC8552]:
+
+| RR Type | _NODE NAME | Reference |
+| --- | --- | --- |
+| TXT | `_mdsig` | this document (Sections 4.1 and 4.7) |
+
+The `<selector>` in `<selector>._mdsig.<domain>` is a name below `_mdsig` and is
+covered by the `_mdsig` registration.
+
+A future revision may request the creation of:
 
 - a registry "md-signature Methods" (initial entries `dns`, `git-hosting`, `pgp`, `tofu`, `tsa`, `directory`);
 - a registry "md-signature DNS Tags" (initial entries `v`, `k`, `p`, `dir`);
-- a registry "md-signature Algorithms" (Section 6);
-- registration of the `_mdsig` underscored DNS node name in the "Underscored and Globally Scoped DNS Node Names" registry [RFC8552].
+- a registry "md-signature Algorithms" (Section 6).
 
 ## 9. Security Considerations
 
@@ -785,6 +795,21 @@ presence of blocks.
 
 The body of a document can contain HTML, including HTML comments, that renders
 differently from its source. A signature covers the source, not the rendering.
+This lets what the signer read and what the signature covers drift apart in the
+following ways.
+
+- **Content that is not shown.** HTML comments in the body, link reference definitions, and HTML elements hidden with the `hidden` attribute or `style` are covered by the signature but are not displayed. A document with a clause inside a comment extends the signature to words the signer never read.
+- **Differences between renderers.** Renderers differ in how they treat raw HTML, extensions such as tables and footnotes, and indentation and lazy continuation lines. A document that renders as X in one renderer and as Y in another lets someone show the signer X and later claim that Y was signed.
+- **Confusable characters.** The body can contain bidirectional controls, zero-width characters, and look-alike characters (rule 4 of Section 3.2 restricts block values only) [TROJANSRC]. The order and characters on screen may not match the source string.
+- **Links and external content.** The visible text of a link and its URL can differ. External images can be replaced after signing unless they are bound with `resources` (Section 5.7).
+- **Fake verification marks.** Anyone can put text or an image that reads as "verified" in the body.
+
+Tools that generate signatures and tools that display verification results
+SHOULD let the user see HTML comments, raw HTML, bidirectional controls, and
+invisible characters in the body, for example with a source view or by
+highlighting them. Verification results belong outside the body, in an area the
+document's content cannot reach. Signers of important documents SHOULD review
+the source, not only the rendering, before signing.
 
 ### 9.6 Key reuse and domain separation
 
@@ -851,3 +876,50 @@ the operator of the signer's domain, so verifiers treat it as an untrusted URL.
 - [FIPS204] NIST, "Module-Lattice-Based Digital Signature Standard", FIPS 204.
 - [FIPS205] NIST, "Stateless Hash-Based Digital Signature Standard", FIPS 205.
 - CommonMark Spec, Section 4.6 "HTML blocks", https://spec.commonmark.org/
+- [RFC6376] Crocker, D., Ed., Hansen, T., Ed., and M. Kucherawy, Ed., "DomainKeys Identified Mail (DKIM) Signatures", STD 76, RFC 6376.
+- [RFC7515] Jones, M., Bradley, J., and N. Sakimura, "JSON Web Signature (JWS)", RFC 7515.
+- [RFC9052] Schaad, J., "CBOR Object Signing and Encryption (COSE): Structures and Process", STD 96, RFC 9052.
+- [MINISIGN] Denis, F., "Minisign", https://jedisct1.github.io/minisign/
+- [SIGSTORE] The Sigstore Authors, "Sigstore", https://www.sigstore.dev/
+- [GIT] "git-commit(1)" (`--gpg-sign`) and "gpg.format" in git-config(1), https://git-scm.com/docs
+- [C2PA] Coalition for Content Provenance and Authenticity, "C2PA Technical Specification", https://c2pa.org/specifications/
+- [ISO32000] ISO, "Document management — Portable document format — Part 2: PDF 2.0", ISO 32000-2.
+- [TROJANSRC] Boucher, N. and R. Anderson, "Trojan Source: Invisible Vulnerabilities", https://trojansource.codes/
+
+## Appendix A. Relation to Existing Technologies (Informative)
+
+This appendix is informative and contains no normative requirements.
+
+- **OpenPGP cleartext signatures ([RFC9580], Section 7).** Like this format, they place the signature inside the text. However, lines such as `-----BEGIN PGP SIGNED MESSAGE-----` show up when rendered as Markdown, and lines starting with `-` are dash-escaped, which changes the body. There is one signer, and only OpenPGP keys. This format puts signatures in HTML comments so rendering is unaffected, and defines co-signing and several key resolution methods.
+- **Detached signatures such as minisign and signify [MINISIGN].** The signature lives in a separate file such as `.minisig`. When a document is sent by email or chat or pasted into a wiki, the signature file is easily lost, and deciding whose public key it is falls to the user. This format keeps the signature in the same file as the document (design goal 2) and resolves keys from DNS, Git hosting, OpenPGP, or key directories (Section 4).
+- **Git commit signing and gitsign [GIT] [SIGSTORE].** What is signed is a commit in a repository, not a file. Once the file leaves the repository, its link to the signature is lost, and a record of several parties agreeing to one version in turn is hard to read from commit history. Signatures in this format travel with the file and can be checked by people who do not use Git. The `git-hosting` method reuses SSH keys registered with a Git hosting service (Section 4.2).
+- **Sigstore (cosign, gitsign) [SIGSTORE].** It uses OpenID Connect identities, short-lived certificates, and a transparency log. Signatures are stored as detached bundles, and verifiers need Sigstore's trust roots (the certificate authority and the transparency log keys). This format assumes no particular infrastructure, and `tofu` and key snapshots (Section 4.5) can be checked offline. Recording in a transparency log can be done separately from this format.
+- **JWS with a detached payload [RFC7515] and COSE [RFC9052].** These are general-purpose signature containers. They do not say where in Markdown a signature goes, how co-signatures chain, or where keys come from. A JWS in compact form could be put in an HTML comment, but metadata such as the signer and role would be hidden inside base64url, out of sight of people reading the source. This format uses fields that stay readable in the source (Section 3.2).
+- **C2PA [C2PA].** It records the provenance of media such as images, video, and audio in a manifest embedded in the file. Signatures use X.509 certificates, and verifiers keep a list of trusted certificates. Text such as Markdown is not its main target. This format aims to record agreement to text documents.
+- **PDF signatures [ISO32000].** Signatures are appended through incremental updates, and later signatures cover earlier ones, the same idea as this format's append-only chain (Section 5.2). This format does the same in a text format whose changes are easy to diff.
+- **DKIM [RFC6376].** The TXT record of the `dns` method (`v=`, `k=`, and `p=` tags) and the representation of Ed25519 keys [RFC8463] follow DKIM.
+
+## Appendix B. Operational Considerations (Informative)
+
+This appendix is informative and contains no normative requirements.
+
+**Formatters and editing tools.** Normalization (Section 5.1) absorbs only line
+endings (`CRLF` and `LF`), a leading BOM, and whitespace and line breaks at the
+end of the file. The following changes break signatures:
+
+- Rewrites by formatters such as Prettier, for example list markers (`*` and `-`), emphasis markers (`*` and `_`), spaces in table columns, paragraph wrapping (`proseWrap`), and adding or removing escapes.
+- Removing trailing whitespace on each line (an editor's "trim trailing whitespace" setting, markdownlint's automatic fixes, and so on). In Markdown, two trailing spaces mean a line break, so the rendering changes too.
+- Converting between tabs and spaces, Unicode normalization (NFC and NFD), and converting between full-width and half-width characters.
+- Adding or removing blank lines between the body and the first block or between blocks. The slice of block N includes the body, the blocks before it, and the whitespace between them (Section 5.2), so the signatures of the second and later blocks break. Only a change in the blank lines just before the last block is absorbed by normalization.
+- Formatters rewriting the signature blocks themselves (adding indentation, changing folding).
+
+In practice:
+
+- Exclude signed documents from formatters (`.prettierignore`, `trim_trailing_whitespace = false` in `.editorconfig`, and so on).
+- Run formatters before signing. If formatting is needed after signing, ask for the formatted document to be signed again.
+- Keep parts that may be edited later outside `scope` (Section 5.6).
+- Run verification in CI to catch unintended rewrites early.
+
+Line ending conversion by Git's `core.autocrlf` is absorbed by normalization,
+but settings that rewrite content, such as `filter` and `ident` in
+`.gitattributes`, break signatures.

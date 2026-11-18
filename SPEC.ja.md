@@ -5,7 +5,8 @@
 [English](SPEC.md) · [CLI 仕様](CLI_SPEC.ja.md)
 
 - **バージョン：** 0.0.2（ドラフト）
-- **ステータス：** 作業草案。`draft-md-signature-00` として提出することを想定
+- **ステータス：** 作業草案。個人提出の Internet-Draft `draft-shiozaki-md-signature-00` として提出することを想定
+- **著者：** SHIOZAKI Shota（me@shiozakishota.com、Issue：https://github.com/SHIOZAKI-Shota/md-signature/issues）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
 
 ## 概要（Abstract）
@@ -712,12 +713,21 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 
 ## 8. IANA に関する考慮事項
 
-本書は現時点で IANA へのアクションを持たない。将来の改訂では次を要求する可能性がある。
+本書は、"Underscored and Globally Scoped DNS Node Names" レジストリ [RFC8552] に
+次のエントリを登録することを IANA に要求する。
+
+| RR Type | _NODE NAME | Reference |
+| --- | --- | --- |
+| TXT | `_mdsig` | 本書（4.1 節、4.7 節） |
+
+`<selector>._mdsig.<domain>` の `<selector>` は `_mdsig` の下位の名前であり、
+`_mdsig` の登録の範囲に含まれる。
+
+将来の改訂では、次のレジストリの作成を要求する可能性がある。
 
 - レジストリ "md-signature Methods"（初期エントリ `dns`、`git-hosting`、`pgp`、`tofu`、`tsa`、`directory`）
 - レジストリ "md-signature DNS Tags"（初期エントリ `v`、`k`、`p`、`dir`）
 - レジストリ "md-signature Algorithms"（第 6 節）
-- "Underscored and Globally Scoped DNS Node Names" レジストリ [RFC8552] への、アンダースコア付き DNS ノード名 `_mdsig` の登録
 
 ## 9. セキュリティに関する考慮事項
 
@@ -766,7 +776,20 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 （"signed"）として表示してはならない（MUST NOT）。
 
 文書の本文には、ソースとは異なる形でレンダリングされる HTML（HTML コメントを含む）
-が含まれうる。署名が対象とするのはソースであり、レンダリング結果ではない。
+が含まれうる。署名が対象とするのはソースであり、レンダリング結果ではない。このため、
+署名者が読んだ内容と署名の対象を、次の方法で食い違わせることができる。
+
+- **表示されない内容。** 本文中の HTML コメント、リンク参照定義、`hidden` 属性や `style` で隠した HTML 要素は、署名の対象に含まれるが表示されない。条項をコメントの中に置いた文書に署名させれば、署名者が読んでいない文言にも署名が及ぶ。
+- **レンダラごとの差異。** 生の HTML の扱い、表や脚注などの拡張記法、インデントや遅延継続行の解釈は、レンダラによって異なる。あるレンダラでは X と表示され、別のレンダラでは Y と表示される文書を作成すれば、署名者には X を見せ、後から Y に署名したと主張できる。
+- **見た目の紛らわしい文字。** 本文には双方向制御文字、ゼロ幅文字、字形の似た別の文字が含まれうる（3.2 節の規則 4 が制限するのはブロックの値のみである）[TROJANSRC]。表示される語順や文字が、ソースの文字列と一致しないことがある。
+- **リンクと外部の内容。** リンクの表示テキストと実際の URL は異なりうる。外部の画像は、`resources`（5.7 節）で結び付けない限り、署名の後に差し替えられる。
+- **偽の検証表示。** 本文に「検証済み」と読める文言や画像を置くことは誰にでもできる。
+
+署名を生成するツール、および検証結果を表示するツールは、本文中の HTML コメント、
+生の HTML、双方向制御文字、不可視の文字を利用者が確認できるようにすべきである
+（SHOULD）。たとえば、ソースの表示や、それらの箇所の強調表示である。検証結果は、
+本文の外側の、文書の内容が入り込めない領域に表示する。重要な文書の署名者は、
+レンダリング結果だけでなくソースを確認してから署名すべきである（SHOULD）。
 
 ### 9.6 鍵の再利用とドメイン分離
 
@@ -833,3 +856,48 @@ URL を取得すると、誰かが検証を行っていること、およびそ�
 - [FIPS204] NIST, "Module-Lattice-Based Digital Signature Standard", FIPS 204.
 - [FIPS205] NIST, "Stateless Hash-Based Digital Signature Standard", FIPS 205.
 - CommonMark Spec, Section 4.6 "HTML blocks", https://spec.commonmark.org/
+- [RFC6376] Crocker, D., Ed., Hansen, T., Ed., and M. Kucherawy, Ed., "DomainKeys Identified Mail (DKIM) Signatures", STD 76, RFC 6376.
+- [RFC7515] Jones, M., Bradley, J., and N. Sakimura, "JSON Web Signature (JWS)", RFC 7515.
+- [RFC9052] Schaad, J., "CBOR Object Signing and Encryption (COSE): Structures and Process", STD 96, RFC 9052.
+- [MINISIGN] Denis, F., "Minisign", https://jedisct1.github.io/minisign/
+- [SIGSTORE] The Sigstore Authors, "Sigstore", https://www.sigstore.dev/
+- [GIT] "git-commit(1)" (`--gpg-sign`) and "gpg.format" in git-config(1), https://git-scm.com/docs
+- [C2PA] Coalition for Content Provenance and Authenticity, "C2PA Technical Specification", https://c2pa.org/specifications/
+- [ISO32000] ISO, "Document management — Portable document format — Part 2: PDF 2.0", ISO 32000-2.
+- [TROJANSRC] Boucher, N. and R. Anderson, "Trojan Source: Invisible Vulnerabilities", https://trojansource.codes/
+
+## 付録 A. 既存の技術との関係（参考）
+
+本付録は参考情報であり、規範的な要件を含まない。
+
+- **OpenPGP の平文署名（[RFC9580] 7 節）。** 署名をテキストの中に置く点は本形式と同じである。ただし、`-----BEGIN PGP SIGNED MESSAGE-----` などの行は Markdown として表示されてしまい、`-` で始まる行はエスケープ（dash-escape）されて本文が変わる。署名者は 1人であり、OpenPGP の鍵に限られる。本形式は署名を HTML コメントに置くことで表示への影響をなくし、連署と複数の鍵の解決方法を定める。
+- **minisign、signify などの分離署名 [MINISIGN]。** 署名を `.minisig` などの別ファイルに置く。文書をメールやチャットで送る、Wiki に貼る、といった場面で署名ファイルが失われやすい。公開鍵を誰のものと見なすかは利用者に任される。本形式は署名を文書と同じファイルに置き（設計目標 2）、鍵を DNS、Git ホスティング、OpenPGP、鍵ディレクトリから解決する（第 4 節）。
+- **Git のコミット署名、gitsign [GIT] [SIGSTORE]。** 署名の対象はリポジトリのコミットであり、ファイルではない。ファイルをリポジトリの外へ持ち出すと、署名との結び付きは失われる。また、ある版の文書に複数の当事者が順に同意した記録は、コミットの履歴からは読み取りにくい。本形式の署名はファイルとともに移動し、Git を使わない利用者も検証できる。`git-hosting` 方式は、Git ホスティングサービスに登録した SSH 鍵を再利用する（4.2 節）。
+- **Sigstore（cosign、gitsign）[SIGSTORE]。** OpenID Connect による本人確認、短命の証明書、透明性ログを用いる。署名は分離したバンドルとして保存され、検証者は Sigstore の信頼の起点（証明書の発行局と透明性ログの公開鍵）を保持する必要がある。本形式は特定の基盤を前提とせず、オフラインでも `tofu` と鍵のスナップショット（4.5 節）による検査ができる。透明性ログへの記録は、本形式とは別に行える。
+- **JWS の分離ペイロード [RFC7515]、COSE [RFC9052]。** 汎用の署名の入れ物であり、Markdown のどこに署名を置くか、連署をどう連鎖させるか、鍵をどこから得るかは定めない。JWS のコンパクト形式を HTML コメントに入れることもできるが、署名者や役割などのメタデータが base64url の中に隠れ、ソースを読む人が確認できなくなる。本形式は、ソースのまま読めるフィールド形式（3.2 節）を採用した。
+- **C2PA [C2PA]。** 画像、動画、音声などのメディアの来歴を、ファイルに埋め込んだマニフェストで示す。署名には X.509 証明書を用い、検証者は信頼する証明書の一覧を持つ。Markdown のようなテキストは主な対象ではない。本形式は、テキスト文書への同意を記録することを目的とする。
+- **PDF の署名 [ISO32000]。** 増分更新によって署名を追記し、後の署名が先の署名を含む点は、本形式の追記専用のチェーン（5.2 節）と同じ考え方である。本形式はこれを、差分の確認しやすいテキスト形式で実現する。
+- **DKIM [RFC6376]。** `dns` 方式の TXT レコード（`v=`、`k=`、`p=` のタグ）と、Ed25519 鍵の表現 [RFC8463] は DKIM にならった。
+
+## 付録 B. 運用上の注意（参考）
+
+本付録は参考情報であり、規範的な要件を含まない。
+
+**フォーマッタと編集ツール。** 正規化（5.1 節）が吸収するのは、改行コード（`CRLF` と `LF`）、
+先頭の BOM、ファイル末尾の空白と改行のみである。次の変更は署名を破壊する。
+
+- Prettier などのフォーマッタによる書き換え。たとえば、リストの記号（`*` と `-`）、強調の記号（`*` と `_`）、表の列の空白、段落の折り返し（`proseWrap`）、エスケープの追加や削除。
+- 各行の末尾の空白の削除（エディタの「行末の空白を削除」設定、markdownlint の自動修正など）。Markdown では行末の 2つの空白が改行を意味するため、表示も変わる。
+- タブと空白の変換、Unicode の正規化（NFC と NFD）、全角と半角の変換。
+- 本文と最初のブロックの間、およびブロックの間にある空行の追加や削除。ブロック N のスライスは、本文とそれより前のブロック、およびそれらの間の空白を含むため（5.2 節）、2つ目以降のブロックの署名が破壊される。最後のブロックの直前の空行の変化だけは、正規化によって吸収される。
+- フォーマッタによる署名ブロック自体の書き換え（インデントの付与、折り返しの変更）。
+
+運用上は次の方法がある。
+
+- 署名済みの文書をフォーマッタの対象から除外する（`.prettierignore`、`.editorconfig` の `trim_trailing_whitespace = false` など）。
+- フォーマッタを実行してから署名する。署名の後に整形が必要になった場合は、整形した文書に改めて署名を求める。
+- 後から編集する可能性のある部分を `scope`（5.6 節）の範囲外に置く。
+- CI で検証を実行し、意図しない書き換えを早期に検出する。
+
+Git の `core.autocrlf` による改行コードの変換は正規化によって吸収されるが、
+`.gitattributes` の `filter` や `ident` など、内容を書き換える設定は署名を破壊する。

@@ -4,7 +4,7 @@ Repository: https://github.com/SHIOZAKI-Shota/md-signature (Pages: https://mdsig
 
 Open, vendor-neutral format for signing Markdown documents. Signatures are HTML
 comments (`<!-- md-signature ... -->`) appended to the end of the file and form an
-append-only hash chain. Target: an IETF Internet-Draft (`draft-*-md-signature-00`).
+append-only hash chain. Target: an IETF Internet-Draft (`draft-shiozaki-md-signature-00`, an individual submission; SPEC Appendix A compares it with existing technologies, Appendix B covers formatters).
 
 **Spec documents and which language is authoritative:**
 - `SPEC.ja.md` is the **original** (the author writes in Japanese). `SPEC.md` is the **normative** English text kept for a possible IETF submission. Edit the Japanese first, then reflect it in English in the same change, and check that the BCP 14 keyword counts match per section.
