@@ -495,7 +495,16 @@ test("tofu binding is stored only after the signature verifies, and never from a
   const doc = await signDocument(DOC, { signer: a, method: "tofu", signerId: "alice", ts: TS, revocationUrl: URL_ });
   assert.equal((await verifyDocument(doc.text, { tofuStore: store, fetch })).signatures[0]!.status, "unresolved");
   assert.equal(store.get("ceo"), undefined);
-  assert.ok(store.get("alice"));
+  assert.equal(store.get("alice"), undefined);
+
+  const expired = await signDocument(DOC, { signer: a, method: "tofu", signerId: "late", ts: TS, expires: "2027-01-01T00:00:00Z" });
+  assert.equal((await verifyDocument(expired.text, { tofuStore: store, now: new Date("2027-02-01T00:00:00Z") })).signatures[0]!.code, "expired");
+  assert.equal(store.get("late"), undefined);
+  const first = await verifyDocument(expired.text, { tofuStore: store, now: new Date("2026-12-01T00:00:00Z") });
+  assert.ok(first.signatures[0]!.warnings.some((w) => w.includes("seen for the first time")));
+  assert.ok(store.get("late"));
+  const again = await verifyDocument(expired.text, { tofuStore: store, now: new Date("2026-12-01T00:00:00Z") });
+  assert.ok(!again.signatures[0]!.warnings.some((w) => w.includes("seen for the first time")));
 });
 
 test("tsa_token: decompression and DER nesting are bounded", async () => {

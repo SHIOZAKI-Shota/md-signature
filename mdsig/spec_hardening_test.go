@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestTofuBindingStoredOnlyAfterVerification(t *testing.T) {
@@ -25,6 +26,36 @@ func TestTofuBindingStoredOnlyAfterVerification(t *testing.T) {
 	if pk, ok := store.Get(signer); !ok || pk != signed.Fields["pubkey"] {
 		t.Error("binding not stored for a valid signature")
 	}
+	if !hasWarning(v.Signatures[0].Warnings, "seen for the first time") {
+		t.Errorf("first-seen warning missing: %v", v.Signatures[0].Warnings)
+	}
+	v = VerifyDocument(context.Background(), signed.Text, &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: store}})
+	if hasWarning(v.Signatures[0].Warnings, "seen for the first time") {
+		t.Errorf("known key reported as new: %v", v.Signatures[0].Warnings)
+	}
+
+	expired, err := SignDocument(context.Background(), testBody, SignOptions{
+		Signer: mustSigner(t, bobSeed), Method: "tofu", SignerID: "late", TS: "2026-11-16T09:00:00Z", Expires: "2027-01-01T00:00:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: store}, Now: time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC)}
+	if v := VerifyDocument(context.Background(), expired.Text, opts); v.Signatures[0].Code != "expired" {
+		t.Fatalf("expired: %+v", v.Signatures[0])
+	}
+	if _, ok := store.Get("late"); ok {
+		t.Error("binding stored for an expired signature")
+	}
+}
+
+func hasWarning(ws []string, s string) bool {
+	for _, w := range ws {
+		if strings.Contains(w, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestTSATokenBounds(t *testing.T) {

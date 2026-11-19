@@ -520,16 +520,16 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	}
 	r.KeySource = matched.Source
 
-	// SPEC 4.4: a stored tofu binding must match, and is only written for a signature that verified
+	// SPEC 4.4: a stored tofu binding must match, and is only written once the whole block verified
+	tofuRecord := false
 	if pk, ok := f["pubkey"]; ok && f["method"] == "tofu" && opts.TofuStore != nil {
 		prev, known := opts.TofuStore.Get(f["signer"])
 		if known && prev != pk && !opts.AcceptNewTofuKey {
 			return fail(StatusInvalid, "key-changed", fmt.Sprintf("tofu: the key for signer %q differs from the stored one (%s)", f["signer"], prev))
 		}
-		if !known || prev != pk {
-			if err := opts.TofuStore.Set(f["signer"], pk); err != nil {
-				r.Warnings = append(r.Warnings, "tofu: could not record key: "+err.Error())
-			}
+		tofuRecord = !known || prev != pk
+		if !known {
+			r.Warnings = append(r.Warnings, fmt.Sprintf("tofu: no stored key for signer %q; this key is seen for the first time", f["signer"]))
 		}
 	}
 
@@ -608,6 +608,11 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 			when = "; the signature existed at " + r.TSA.GenTime + " (TSA)"
 		}
 		return fail(StatusUnresolved, "key-not-published", fmt.Sprintf("the signature verifies with the embedded key, which %s does not publish now (%s)%s", f["signer"], notPublished, when))
+	}
+	if tofuRecord {
+		if err := opts.TofuStore.Set(f["signer"], f["pubkey"]); err != nil {
+			r.Warnings = append(r.Warnings, "tofu: could not record key: "+err.Error())
+		}
 	}
 	return r
 }

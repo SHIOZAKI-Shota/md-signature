@@ -316,11 +316,13 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
   if (!matched) return fail("invalid", "bad-signature", snapshot ? "signature does not verify with the embedded key" : "signature does not verify with the signer's key(s)");
   r.key = { source: matched.source };
 
-  // SPEC 4.4: a stored tofu binding must match, and is only written for a signature that verified
+  // SPEC 4.4: a stored tofu binding must match, and is only written once the whole block verified
+  let tofuRecord = false;
   if (f.method === "tofu" && f.pubkey && opts.tofuStore) {
     const prev = await opts.tofuStore.get(f.signer!);
     if (prev !== undefined && prev !== f.pubkey && !opts.acceptNewTofuKey) return fail("invalid", "key-changed", `tofu: the key for signer "${f.signer}" differs from the stored one (${prev})`);
-    if (prev !== f.pubkey) await opts.tofuStore.set(f.signer!, f.pubkey);
+    tofuRecord = prev !== f.pubkey;
+    if (prev === undefined) r.warnings.push(`tofu: no stored key for signer "${f.signer}"; this key is seen for the first time`);
   }
 
   // 5. expiry
@@ -367,6 +369,7 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
     const when = r.tsa?.verified ? `; the signature existed at ${r.tsa.genTime} (TSA)` : "";
     return fail("unresolved", "key-not-published", `the signature verifies with the embedded key, which ${f.signer} does not publish now (${notPublished})${when}`);
   }
+  if (tofuRecord) await opts.tofuStore!.set(f.signer!, f.pubkey!);
   return r;
 }
 

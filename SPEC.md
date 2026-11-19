@@ -204,6 +204,7 @@ understand that field.
 - `pubkey` (MUST): `<key-type>:<base64>`, for example `ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`. The key type and encoding are the same as for `dns` (Section 4.1). A `pubkey` whose key type does not match `alg`, or that cannot be decoded, makes the block **malformed**.
 - A `tofu` signature proves only that the document has not changed since someone holding that key signed it. It does not prove who that is.
 - Verifiers that keep state SHOULD remember the `signer` → `pubkey` binding the first time they see it and MUST report a block as **invalid** (code `key-changed`) if a later document uses the same `signer` with a different `pubkey`. The binding is stored after the block has verified, and is replaced only when the user explicitly accepts the new key.
+- Verifiers SHOULD show a key that matches a stored binding differently from a key seen for the first time. A verifier operated by a user MAY show the key's fingerprint and ask the user to confirm before storing a binding for a key seen for the first time. If it asks, it stores the binding only after the user confirms.
 
 ### 4.5 Key snapshots (`dns`, `git-hosting`, `directory`)
 

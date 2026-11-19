@@ -103,48 +103,72 @@ func fileExitCode(r *mdsig.VerifyResult) int {
 // --- TOFU store ---
 
 type fileTofuStore struct {
-	path  string
-	m     map[string]string
-	dirty bool
+	path    string
+	m       map[string]string
+	changed map[string]string
+}
+
+func knownSignersPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "mdsig", "known_signers.json")
+}
+
+func readKnownSigners(path string) map[string]string {
+	m := map[string]string{}
+	if path == "" {
+		return m
+	}
+	if b, err := os.ReadFile(path); err == nil {
+		_ = json.Unmarshal(b, &m)
+		if m == nil {
+			m = map[string]string{}
+		}
+	}
+	return m
+}
+
+// CLI_SPEC 3.9: atomic, owner-only, and reread just before writing so other tools' records survive
+func updateKnownSigners(path string, update func(map[string]string)) error {
+	if path == "" {
+		return fmt.Errorf("no configuration directory")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	m := readKnownSigners(path)
+	update(m)
+	b, _ := json.MarshalIndent(m, "", "  ")
+	return writeAtomicMode(path, append(b, '\n'), 0o600)
 }
 
 func openTofuStore() *fileTofuStore {
-	s := &fileTofuStore{m: map[string]string{}}
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return s
-	}
-	s.path = filepath.Join(dir, "mdsig", "known_signers.json")
-	if b, err := os.ReadFile(s.path); err == nil {
-		_ = json.Unmarshal(b, &s.m)
-		if s.m == nil {
-			s.m = map[string]string{}
-		}
-	}
-	return s
+	path := knownSignersPath()
+	return &fileTofuStore{path: path, m: readKnownSigners(path)}
 }
 
 func (s *fileTofuStore) Get(k string) (string, bool) { v, ok := s.m[k]; return v, ok }
 
 func (s *fileTofuStore) Set(k, v string) error {
 	s.m[k] = v
-	s.dirty = true
+	if s.changed == nil {
+		s.changed = map[string]string{}
+	}
+	s.changed[k] = v
 	return nil
 }
 
 func (s *fileTofuStore) save() error {
-	if !s.dirty || s.path == "" {
+	if len(s.changed) == 0 || s.path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
-		return err
-	}
-	b, _ := json.MarshalIndent(s.m, "", "  ")
-	if err := writeAtomic(s.path, append(b, '\n')); err != nil {
-		return err
-	}
-	// writeAtomic keeps the mode of an existing file, which older versions created 0644
-	return os.Chmod(s.path, 0o600)
+	return updateKnownSigners(s.path, func(m map[string]string) {
+		for k, v := range s.changed {
+			m[k] = v
+		}
+	})
 }
 
 // --- verify ---

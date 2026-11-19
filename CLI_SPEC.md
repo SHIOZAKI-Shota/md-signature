@@ -62,7 +62,7 @@ Behavior:
 - The file is updated atomically (write to a temporary file in the same directory, then rename). Line endings (LF or CRLF) are preserved.
 - Field values containing `--` or line breaks MUST be rejected with exit code 2. So MUST invalid `--scope`, `--require`, `--resource`, `--expires`, and `--revocation-url` values.
 - A `--resource` file that does not exist is a file error (exit code 4); a URL that cannot be fetched is a network error (exit code 3).
-- Passkey (`webauthn-es256`) signing happens in a web browser (for example the playground). The CLI verifies such signatures but does not create them.
+- Passkey (`webauthn-es256`) signing happens in a web browser (for example the playground). The CLI verifies such signatures but does not create them. Section 8 defines how a local tool asks a signing page for such a signature.
 - On success, print one line to stderr: `Signed <file> (signature #N, <method> <signer>)`.
 
 #### 3.1.1 Key discovery
@@ -281,6 +281,25 @@ Works with key directories (SPEC 4.7).
 
 After signing, `mdsig sign -m directory` checks whether verifiers following the default rules would find the key it signed with, and prints a warning to stderr if they would not. The signature is kept.
 
+### 3.9 `mdsig known`
+
+Works with the stored `tofu` keys (SPEC 4.4). They are stored in `<user config dir>/mdsig/known_signers.json`.
+
+| Subcommand | Description |
+| --- | --- |
+| `list` | Print each stored `signer` with the fingerprint of its key. With `--json`, print `[{ "signer", "key", "fingerprint" }]`. |
+| `remove <signer>` | Delete the stored key for that `signer`. A `signer` that is not stored gives exit code 2. The next verification treats that signer's key as seen for the first time. |
+
+`known_signers.json` is a JSON object whose keys are `signer` values and whose values are `pubkey` values (`<key-type>:<base64>`). Tools that read or write this file (the CLI, desktop apps, and others) MUST follow these rules:
+
+1. Write atomically (write a temporary file, then rename it), with permissions that let only the owner read and write the file.
+2. Read the file again just before writing, and keep the entries this tool did not change.
+3. Add an entry only after the block has verified or after the user has explicitly trusted the key, and never from a block inside a revocation list.
+
+The fingerprint of an `ed25519` key is the OpenSSH form (`SHA256:` followed by the unpadded base64 of the SHA-256 of the SSH public key blob, the same as `key_fp` in SPEC 4.2). For other keys it is `SHA256:` followed by the unpadded base64 of the SHA-256 of the bytes decoded from the `pubkey` base64.
+
+A tool operated by a user MAY show the fingerprint and ask the user to confirm before storing a key seen for the first time (SPEC 4.4). `mdsig verify` does not ask; it stores the key when the block verifies.
+
 ## 4. Exit codes
 
 | Code | Meaning |
@@ -435,3 +454,64 @@ The UI language is chosen in this order:
 4. English.
 
 Supported in this release: `en`, `ja`. JSON output and output when stdout is not a TTY MUST be English.
+
+## 8. Handing off to a signing page
+
+A passkey (SPEC 6.1) can be used only on pages of the RP ID it was registered with. A tool that runs locally (the CLI, a desktop app, and others) asks a **signing page**, opened in the user's web browser, to make the passkey signature. This section defines the request and the response. Anyone can run a signing page; this section does not name an operator or a domain.
+
+### 8.1 Choosing a signing page
+
+- The user chooses the signing page. A tool MUST NOT take the signing page's URL from the document.
+- The signing page's URL MUST be `https://`.
+- A key directory (SPEC 4.7) MAY serve a signing page at `<dir>/sign`. That page works with passkeys whose RP ID is the directory's host name.
+- A tool SHOULD offer the signing pages of the trusted key directories (section 3.8) and let the user add and remove other signing pages.
+- A signature made through a handoff has `method` `tofu`, `dns`, or `directory` (`git-hosting` and `pgp` do not support passkeys).
+
+### 8.2 Request
+
+The tool opens the signing page's URL in the default web browser with the following query parameters, UTF-8 and percent-encoded:
+
+| Parameter | Content |
+| --- | --- |
+| `v` | `1`. |
+| `op` | `key` (choose a passkey) or `sign` (sign). |
+| `return` | Where the response goes (section 8.4). |
+| `state` | A random value of at least 128 bits made by the tool, in base64url. It is returned unchanged. |
+| `payload` | Only for `op=sign`. The signed payload (SPEC 5.3) in base64url. |
+| `credential` | Optional for `op=sign`. The credential ID of the passkey to use, in base64url. |
+| `name` | Optional. The document's display name. |
+
+The tool MUST NOT send the document's text. The signing page receives only the signed payload (fields and hash).
+
+### 8.3 What the signing page does
+
+For `op=key`, the signing page lets the user choose or create a passkey and returns its public key and credential ID.
+
+For `op=sign`, the signing page MUST sign only when all of the following hold:
+
+1. `payload` starts with the line `md-signature/v1` and parses as the format of SPEC 5.3.
+2. `alg` is `webauthn-es256` and `rp_id` equals the signing page's RP ID.
+3. If `pubkey` is present, it equals the public key of the passkey being used.
+4. Before signing, the page shows the payload's fields (at least `method`, `signer`, `role`, `reason`, `expires`, `scope`, `require`, and `hash`), `name` (marked as reported by the tool), and where `return` goes, and gets an explicit action from the user.
+
+The signing page gets an assertion with the challenge SHA-256(payload) (SPEC 6.1) and returns the response in section 8.4. The signing page SHOULD NOT send the payload or the signature to its own server.
+
+### 8.4 Response
+
+`return` MUST be a URL with a scheme other than `http` and `https` (for example `mdsig+fountain-pen:`), or a URL that starts with `http://127.0.0.1:<port>/` or `http://[::1]:<port>/`. The signing page MUST refuse a request with any other `return`. This keeps web sites from receiving signatures made with the user's passkey through the signing page.
+
+The signing page navigates to `return` with the following query parameters. Values are base64url (except `rp_id` and `error`).
+
+| Parameter | Content |
+| --- | --- |
+| `v`, `state` | `1` and the request's `state`. |
+| `rp_id`, `key`, `credential` | For `op=key`: the RP ID, the `es256` public key (the same key bytes as `p` in SPEC 4.1), and the credential ID. |
+| `authenticator_data`, `client_data`, `sig` | For `op=sign`: the assertion's `authenticatorData`, `clientDataJSON`, and the DER signature. |
+| `error` | On failure: `cancelled`, `invalid-request`, or `unsupported`. |
+
+### 8.5 What the tool does
+
+- The tool MUST accept only a response whose `state` matches a pending request, and MUST use each `state` once. Other responses are ignored.
+- For an `op=key` response, the tool checks that `rp_id` equals the signing page's host name or is a parent domain of it.
+- For an `op=sign` response, the tool MUST verify the signature against the requested payload and the public key from `op=key` as in SPEC 6.1, and MUST append the block only if it verifies.
+- If the document changed between the request and the response, the tool MUST discard the response.

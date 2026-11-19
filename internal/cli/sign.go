@@ -310,6 +310,10 @@ func writeAtomic(path string, data []byte) error {
 	if st, err := os.Stat(path); err == nil {
 		mode = st.Mode().Perm()
 	}
+	return writeAtomicMode(path, data, mode)
+}
+
+func writeAtomicMode(path string, data []byte, mode fs.FileMode) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".mdsig-*")
 	if err != nil {
 		return err
