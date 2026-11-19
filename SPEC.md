@@ -1,6 +1,6 @@
 # md-signature: Embedded Signatures for Markdown Documents
 
-- **Version:** 0.0.2 (draft)
+- **Version:** 0.0.4 (draft)
 - **Status:** Working draft, intended for submission as the individual Internet-Draft `draft-shiozaki-md-signature-00`
 - **Author:** SHIOZAKI Shota (me@shiozakishota.com; issues: https://github.com/SHIOZAKI-Shota/md-signature/issues)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
@@ -47,7 +47,7 @@ and only when, they appear in all capitals, as shown here.
 The parties agree to the following terms...
 
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: git-hosting
 signer: github.com/alice
 role: author
@@ -58,7 +58,7 @@ hash: sha256:3a0d0b5c...
 sig: base64:q1Xv...
 -->
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: dns
 signer: example.com
 selector: 2026
@@ -111,7 +111,7 @@ Rules that apply in addition to the grammar:
 
 | Key | Requirement | Description |
 | --- | --- | --- |
-| `v` | MUST | Format version. This document defines `0.0.2`. Verifiers MUST accept blocks with `0.0.1` and `0.0.2`. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
+| `v` | MUST | Format version. This document defines `0.0.4`. Verifiers MUST accept blocks with `0.0.1`, `0.0.2`, and `0.0.4`. `0.0.2` is the same as `0.0.4` (`0.0.4` is the version that adds the `directory` method (Section 4.7) and the key display rules (Section 4.4); blocks are read the same way). `0.0.3` is not used. `0.0.1` is the same as `0.0.2` except that its `require` has no step or order lines (Section 5.8). A chain MAY contain both. Blocks with an unsupported version are handled by step 1 of Section 5.4. |
 | `method` | MUST | How the public key is resolved: `dns`, `git-hosting`, `pgp`, `tofu`, or `directory`; or `tsa` for a timestamp block that has no signer (Section 4). |
 | `signer` | MUST | Signer identifier. Its syntax depends on `method`. |
 | `role` | MAY | Signer's role. RECOMMENDED values: `author`, `reviewer`, `approver`, `witness`. Other values are allowed. |
@@ -383,7 +383,7 @@ reason=Initial draft
 role=author
 signer=github.com/alice
 ts=2026-11-16T09:00:00Z
-v=0.0.2
+v=0.0.4
 ```
 
 ### 5.4 Verification procedure

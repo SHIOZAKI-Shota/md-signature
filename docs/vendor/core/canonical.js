@@ -1,7 +1,7 @@
 import { utf8 } from "./encoding.js";
-export const SPEC_VERSION = "0.0.2";
+export const SPEC_VERSION = "0.0.4";
 // SPEC 3.2: verifiers accept every format version listed here; generators write SPEC_VERSION
-export const SUPPORTED_VERSIONS = new Set(["0.0.1", "0.0.2"]);
+export const SUPPORTED_VERSIONS = new Set(["0.0.1", "0.0.2", "0.0.4"]);
 export const PAYLOAD_DOMAIN = "md-signature/v1";
 export const OPEN_LINE = "<!-- md-signature";
 export const CLOSE_LINE = "-->";

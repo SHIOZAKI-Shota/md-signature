@@ -1,6 +1,6 @@
 # `mdsig` Command-Line Interface Specification
 
-- **Version:** 0.0.3 (draft; format version 0.0.2)
+- **Version:** 0.0.4 (draft; format version 0.0.4)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Format specification:** [SPEC.md](SPEC.md)
 - **Normative text:** [日本語 (CLI_SPEC.ja.md)](CLI_SPEC.ja.md). This English version is an informative translation. If they differ, the Japanese text prevails.
@@ -25,7 +25,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", and "MAY" are to be inte
 | --- | --- |
 | `--lang <code>` | UI language: `en` or `ja`. See Section 7. |
 | `-h, --help` | Help. |
-| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.0.3 (format 0.0.2)`). The CLI verifies the formats `0.0.1` and `0.0.2` defined by SPEC and signs with `0.0.2`. |
+| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.0.4 (format 0.0.4)`). The CLI verifies the formats `0.0.1`, `0.0.2`, and `0.0.4` defined by SPEC and signs with `0.0.4`. |
 
 ## 3. Commands
 
@@ -166,7 +166,7 @@ Exits 0 when the file could be read, whatever the hash results (use `verify` to 
   "stray_marker_line": null,
   "warnings": [],
   "signatures": [
-    { "index": 1, "line": 16, "fields": { "v": "0.0.2", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
+    { "index": 1, "line": 16, "fields": { "v": "0.0.4", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
   ]
 }
 ```
@@ -338,7 +338,7 @@ If several files are verified, the exit code is the most severe across files, in
           "status": "valid",
           "code": null,
           "message": null,
-          "fields": { "v": "0.0.2", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "fields": { "v": "0.0.4", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
@@ -397,7 +397,7 @@ Reference session (Japanese UI, `LANG=ja_JP.UTF-8`). Each question is shown whil
    ```
    $ mdsig
 
-     md-signature v0.0.3：対話モード
+     md-signature v0.0.4：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

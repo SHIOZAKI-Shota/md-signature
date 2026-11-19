@@ -4,7 +4,7 @@
 
 [English](CLI_SPEC.md) · [形式仕様](SPEC.ja.md)
 
-- **バージョン：** 0.0.3（ドラフト。形式のバージョンは 0.0.2）
+- **バージョン：** 0.0.4（ドラフト。形式のバージョンは 0.0.4）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
 - **形式仕様：** [SPEC.ja.md](SPEC.ja.md)
 
@@ -28,7 +28,7 @@
 | --- | --- |
 | `--lang <code>` | UI 言語：`en` または `ja`。7 節を参照。 |
 | `-h, --help` | ヘルプ。 |
-| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.3 (format 0.0.2)`）。CLI は SPEC が定める形式の `0.0.1` と `0.0.2` を検証し、`0.0.2` で署名する。 |
+| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.4 (format 0.0.4)`）。CLI は SPEC が定める形式の `0.0.1`、`0.0.2`、`0.0.4` を検証し、`0.0.4` で署名する。 |
 
 ## 3. コマンド
 
@@ -159,7 +159,7 @@ docs/contract.md
   "stray_marker_line": null,
   "warnings": [],
   "signatures": [
-    { "index": 1, "line": 16, "fields": { "v": "0.0.2", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
+    { "index": 1, "line": 16, "fields": { "v": "0.0.4", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
   ]
 }
 ```
@@ -331,7 +331,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
           "status": "valid",
           "code": null,
           "message": null,
-          "fields": { "v": "0.0.2", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "fields": { "v": "0.0.4", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
@@ -388,7 +388,7 @@ JavaScript では `@clack/prompts` を使用する。
    ```
    $ mdsig
 
-     md-signature v0.0.3：対話モード
+     md-signature v0.0.4：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

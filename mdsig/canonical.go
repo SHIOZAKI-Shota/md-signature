@@ -12,11 +12,11 @@ import (
 )
 
 // SPEC 3.2: verifiers accept every format version listed here; generators write SpecVersion (must match packages/core canonical.ts)
-var supportedVersions = map[string]bool{"0.0.1": true, "0.0.2": true}
+var supportedVersions = map[string]bool{"0.0.1": true, "0.0.2": true, "0.0.4": true}
 
 const (
 	// must match packages/core canonical.ts
-	SpecVersion   = "0.0.2"
+	SpecVersion   = "0.0.4"
 	payloadDomain = "md-signature/v1"
 	openLine      = "<!-- md-signature"
 	closeLine     = "-->"

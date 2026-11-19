@@ -43,6 +43,6 @@
 //
 // # Status
 //
-// This release writes format version 0.0.2 and verifies 0.0.1 and 0.0.2. It is
+// This release writes format version 0.0.4 and verifies 0.0.1, 0.0.2, and 0.0.4. It is
 // a draft without an independent security audit. The API may change before 1.0.
 package mdsig

@@ -60,7 +60,7 @@ release:
     owner: SHIOZAKI-Shota
     name: md-signature
   # the tag is the release version; the signature format has its own version
-  name_template: "{{ .Tag }} (format 0.0.2)"
+  name_template: "{{ .Tag }} (format 0.0.4)"
   # published at once: the Homebrew cask below points at these assets
   draft: false
   prerelease: auto

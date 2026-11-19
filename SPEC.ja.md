@@ -4,7 +4,7 @@
 
 [English](SPEC.md) · [CLI 仕様](CLI_SPEC.ja.md)
 
-- **バージョン：** 0.0.2（ドラフト）
+- **バージョン：** 0.0.4（ドラフト）
 - **ステータス：** 作業草案。個人提出の Internet-Draft `draft-shiozaki-md-signature-00` として提出することを想定
 - **著者：** SHIOZAKI Shota（me@shiozakishota.com、Issue：https://github.com/SHIOZAKI-Shota/md-signature/issues）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
@@ -51,7 +51,7 @@
 The parties agree to the following terms...
 
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: git-hosting
 signer: github.com/alice
 role: author
@@ -62,7 +62,7 @@ hash: sha256:3a0d0b5c...
 sig: base64:q1Xv...
 -->
 <!-- md-signature
-v: 0.0.2
+v: 0.0.4
 method: dns
 signer: example.com
 selector: 2026
@@ -115,7 +115,7 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 
 | キー | 要件 | 説明 |
 | --- | --- | --- |
-| `v` | MUST | 形式のバージョン。本書は `0.0.2` を定義する。検証者は `0.0.1` と `0.0.2` のブロックを受け付けなければならない（MUST）。`0.0.1` は、`require` の段階行と順序行（5.8 節）を持たない点を除き、`0.0.2` と同一である。1つのチェーンに両者が混在してもよい（MAY）。未対応のバージョンの扱いは 5.4 節の手順 1 による。 |
+| `v` | MUST | 形式のバージョン。本書は `0.0.4` を定義する。検証者は `0.0.1`、`0.0.2`、`0.0.4` のブロックを受け付けなければならない（MUST）。`0.0.2` は `0.0.4` と同一である（`0.0.4` は `directory` 方式（4.7 節）と鍵の表示（4.4 節）を加えた版であり、ブロックの解釈は変わらない）。`0.0.3` は欠番である。`0.0.1` は、`require` の段階行と順序行（5.8 節）を持たない点を除き、`0.0.2` と同一である。1つのチェーンにこれらが混在してもよい（MAY）。未対応のバージョンの扱いは 5.4 節の手順 1 による。 |
 | `method` | MUST | 公開鍵の解決方法：`dns`、`git-hosting`、`pgp`、`tofu`、`directory` のいずれか。または、署名者を持たないタイムスタンプ専用ブロックを示す `tsa`（第 4 節）。 |
 | `signer` | MUST | 署名者の識別子。構文は `method` に依存する。 |
 | `role` | MAY | 署名者の役割。推奨（RECOMMENDED）される値：`author`、`reviewer`、`approver`、`witness`。その他の値も許される。 |
@@ -379,7 +379,7 @@ reason=Initial draft
 role=author
 signer=github.com/alice
 ts=2026-11-16T09:00:00Z
-v=0.0.2
+v=0.0.4
 ```
 
 ### 5.4 検証手順

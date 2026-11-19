@@ -58,7 +58,7 @@ export default {
     "docs.spec.en": "形式の仕様（英語、規範）",
     "docs.spec.cliJa": "CLI の仕様（日本語、規範）",
     "docs.spec.cliEn": "CLI の仕様（英語、参考訳）",
-    "docs.versions": "本ドキュメントは形式 <code>0.0.2</code>（CLI v0.0.3）に対応します。検証者は <code>0.0.1</code> と <code>0.0.2</code> のブロックを検証でき、両者が同じチェーンに混在してもかまいません。",
+    "docs.versions": "本ドキュメントは形式 <code>0.0.4</code>（CLI v0.0.4）に対応します。検証者は <code>0.0.1</code>、<code>0.0.2</code>、<code>0.0.4</code> のブロックを検証でき、これらが同じチェーンに混在してもかまいません。",
 
     "docs.format.lede": "署名ブロックの書式、ハッシュの対象となる範囲、秘密鍵が署名するバイト列を順に説明します。別の言語で実装する場合は、このページと検証手順のページが出発点になります。",
     "docs.keys.methodsT": "方式と鍵の取得先",
@@ -260,7 +260,7 @@ export default {
     "ar.ref3": "§4.6 タイムスタンプ専用ブロック",
     "ar.href3": SPEC_JA + "#46-tsaタイムスタンプ専用ブロック",
 
-    "docs.fields.lede": "基本のフィールドに加えて、形式 0.0.2 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。",
+    "docs.fields.lede": "基本のフィールドに加えて、形式 0.0.4 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。",
     "fl.scope.title": "部分署名（scope）",
     "fl.scope.lede": "マーカで囲んだセクションのみに署名します。セクション外の注記や記入欄は、署名後も署名を破壊せずに編集できます。",
     "fl.scope.markT": "セクションマーカ",
@@ -440,7 +440,7 @@ export default {
     "docs.spec.en": "Format spec (English, normative)",
     "docs.spec.cliJa": "CLI spec (Japanese, normative)",
     "docs.spec.cliEn": "CLI spec (English translation)",
-    "docs.versions": "This documentation covers format <code>0.0.2</code> (CLI v0.0.3). Verifiers accept <code>0.0.1</code> and <code>0.0.2</code> blocks, and one chain may contain both.",
+    "docs.versions": "This documentation covers format <code>0.0.4</code> (CLI v0.0.4). Verifiers accept <code>0.0.1</code>, <code>0.0.2</code>, and <code>0.0.4</code> blocks, and one chain may mix them.",
 
     "docs.format.lede": "How a signature block is written, which bytes the hash covers, and what exactly the private key signs. If you are writing another implementation, start with this page and the verification page.",
     "docs.keys.methodsT": "Methods and key sources",
@@ -642,7 +642,7 @@ export default {
     "ar.ref3": "§4.6 Timestamp blocks",
     "ar.href3": SPEC_EN + "#46-tsa-timestamp-block",
 
-    "docs.fields.lede": "Besides the core fields, format 0.0.2 defines the optional fields below. All of them are part of the signed payload, so changing one after signing breaks the signature. Co-signing declarations (require) are under Co-signing workflows and timestamps under Long-term evidence.",
+    "docs.fields.lede": "Besides the core fields, format 0.0.4 defines the optional fields below. All of them are part of the signed payload, so changing one after signing breaks the signature. Co-signing declarations (require) are under Co-signing workflows and timestamps under Long-term evidence.",
     "fl.scope.title": "Signing part of a document (scope)",
     "fl.scope.lede": "Signs only the sections between markers. Notes or form fields outside them can be edited after signing without breaking the signature.",
     "fl.scope.markT": "Section markers",

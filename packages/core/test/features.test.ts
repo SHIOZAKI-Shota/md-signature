@@ -229,7 +229,7 @@ test("require: format 0.0.1 blocks keep their rules", async () => {
     return new Response(JSON.stringify({ Status: 0, Answer: dns[n] ? [{ type: 16, data: `"${dns[n]}"` }] : [] }));
   }) as typeof globalThis.fetch;
   const mixed = await verifyDocument(text("mixed-versions.md"), { fetch, now: new Date(keys.now), tofuStore: new MemoryTofuStore() });
-  assert.deepEqual(mixed.signatures.map((s) => [s.fields.v, s.status]), [["0.0.1", "valid"], ["0.0.2", "valid"]]);
+  assert.deepEqual(mixed.signatures.map((s) => [s.fields.v, s.status]), [["0.0.1", "valid"], ["0.0.4", "valid"], ["0.0.2", "valid"]]);
   assert.equal(mixed.agreement.status, "complete");
   const bad = await verifyDocument(text("malformed-require-step-v001.md"), { offline: true });
   assert.match(bad.signatures[0]!.message!, /need format 0\.0\.2/);
@@ -240,13 +240,13 @@ test("require: format 0.0.1 blocks keep their rules", async () => {
 test("version: an unknown version is reported before unknown fields", async () => {
   const signed = (await signDocument(DOC, { signer: await signerFromSeed(SEED_A), method: "tofu", signerId: "alice", ts: TS })).text;
   const code = async (t: string) => (await verifyDocument(t, { offline: true })).signatures[0]!;
-  const later = await code(signed.replace("v: 0.0.2\n", "v: 0.0.3\nnew_field: 1\n"));
+  const later = await code(signed.replace("v: 0.0.4\n", "v: 0.0.5\nnew_field: 1\n"));
   assert.deepEqual([later.status, later.code], ["unsupported", "unsupported-version"]);
-  const known = await code(signed.replace("v: 0.0.2\n", "v: 0.0.2\nnew_field: 1\n"));
+  const known = await code(signed.replace("v: 0.0.4\n", "v: 0.0.4\nnew_field: 1\n"));
   assert.deepEqual([known.status, known.code], ["malformed", "unknown-field"]);
-  const twice = await code(signed.replace("v: 0.0.2\n", "v: 0.0.3\nv: 0.0.4\n"));
+  const twice = await code(signed.replace("v: 0.0.4\n", "v: 0.0.4\nv: 0.0.5\n"));
   assert.deepEqual([twice.status, twice.code], ["malformed", "malformed"]);
-  const missing = await code(signed.replace("v: 0.0.2\n", ""));
+  const missing = await code(signed.replace("v: 0.0.4\n", ""));
   assert.deepEqual([missing.status, missing.code], ["malformed", "malformed"]);
 });
 

@@ -165,7 +165,7 @@ messageImprint = SHA-256(base64-decode(sig))</code></pre>
                     <figure class="guide-cell">
                         <figcaption data-i18n="ar.tok.exCap">tsa_token を持つブロック</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.2
+v: 0.0.4
 method: git-hosting
 signer: github.com/alice
 …
@@ -240,7 +240,7 @@ tsa_token: |
                     <figure class="guide-cell">
                         <figcaption data-i18n="ar.blk.exCap">tsa ブロック（examples/valid-tsa-renewal.md）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.2
+v: 0.0.4
 method: tsa
 signer: http://ts.ssl.com
 reason: renewal
@@ -304,7 +304,7 @@ mdsig timestamp contract.md --hash sha512 --reason renewal</code></pre>
                     <figure class="guide-cell">
                         <figcaption data-i18n="ar.snap.exCap">pubkey を持つ dns ブロック（examples/valid-key-snapshot.md）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.2
+v: 0.0.4
 method: dns
 signer: example.com
 selector: 2026

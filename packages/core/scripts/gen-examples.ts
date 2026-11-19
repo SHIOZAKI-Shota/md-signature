@@ -131,17 +131,19 @@ w("require-any-complete.md", (await signDocument(anyOne.text, { signer: ex, meth
 // SPEC 5.8: checked before the signature, so the edit gives malformed rather than bad-signature
 w("malformed-require-steps.md", anyDecl.text.replace("step 1 any 2", "step 1 any 4"));
 
-// format 0.0.1 blocks are still verified; this re-signs a block under the old version string
-async function signAsV001(text: string, signer: Signer, o: Parameters<typeof signDocument>[1]) {
+// older format blocks are still verified; this re-signs a block under an old version string
+async function signAsVersion(v: string, text: string, signer: Signer, o: Parameters<typeof signDocument>[1]) {
   const r = await signDocument(text, o);
-  const fields: Record<string, string> = { ...r.fields, v: "0.0.1" };
+  const fields: Record<string, string> = { ...r.fields, v };
   delete fields.sig;
   fields.sig = "base64:" + toBase64(await signer.sign(signedPayload(fields)));
   return r.text.slice(0, r.text.length - r.block.length - 1) + serializeBlock(fields) + NL;
 }
+const signAsV001 = (text: string, signer: Signer, o: Parameters<typeof signDocument>[1]) => signAsVersion("0.0.1", text, signer, o);
 const legacy = await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", role: "author", ts: "2026-11-16T09:00:00Z", require: ["dns:example.com approver"] });
 w("legacy-v001.md", legacy);
-w("mixed-versions.md", (await approve(legacy, "2026-11-16T09:46:00Z")).text);
+const mixed = (await approve(legacy, "2026-11-16T09:46:00Z")).text;
+w("mixed-versions.md", await signAsVersion("0.0.2", mixed, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", role: "witness", ts: "2026-11-16T10:00:00Z" }));
 w("malformed-require-step-v001.md", await signAsV001(body, bob, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", require: ["step 1", "dns:example.com approver"] }));
 
 // --- key snapshots (SPEC 3.3) and tsa blocks (SPEC 4.6)
@@ -156,8 +158,8 @@ if (tsaUrl) {
 }
 
 // SPEC 5.4 step 1: a later format with a field this version does not know is "unsupported", not "malformed"
-w("unsupported-version-new-field.md", single.text.replace("v: 0.0.2\n", "v: 0.0.3\n").replace("role: author\n", "role: author\nwitness_policy: any\n"));
-w("malformed-duplicate-version.md", single.text.replace("v: 0.0.2\n", "v: 0.0.2\nv: 0.0.3\n"));
+w("unsupported-version-new-field.md", single.text.replace("v: 0.0.4\n", "v: 0.0.5\n").replace("role: author\n", "role: author\nwitness_policy: any\n"));
+w("malformed-duplicate-version.md", single.text.replace("v: 0.0.4\n", "v: 0.0.4\nv: 0.0.5\n"));
 
 const exp = await signDocument(body, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: "2026-11-16T09:00:00Z", expires: "2026-11-30T00:00:00Z" });
 w("expired.md", exp.text);
@@ -438,7 +440,7 @@ const expected = {
   "require-any-complete.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "complete" },
   "malformed-require-steps.md": { ok: false, signatures: ["malformed:malformed"] },
   "legacy-v001.md": { ok: true, signatures: ["valid"], agreement: "pending" },
-  "mixed-versions.md": { ok: true, signatures: ["valid", "valid"], agreement: "complete" },
+  "mixed-versions.md": { ok: true, signatures: ["valid", "valid", "valid"], agreement: "complete" },
   "malformed-require-step-v001.md": { ok: false, signatures: ["malformed:malformed"] },
   "unsupported-version-new-field.md": { ok: false, signatures: ["unsupported:unsupported-version"] },
   "valid-key-snapshot.md": { ok: true, signatures: ["valid"] },
