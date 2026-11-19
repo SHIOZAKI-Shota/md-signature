@@ -1,5 +1,5 @@
 import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizeNewlines, normalizedBytes, nowTs, serializeBlock, signedPayload, validateValue } from "./canonical.ts";
-import { digest, sha256, sshFingerprint, type HashAlg, type Signer } from "./crypto.ts";
+import { digest, ed25519Verify, sha256, sshFingerprint, type HashAlg, type Signer } from "./crypto.ts";
 import { GIT_HOSTING_SIGNER_RE } from "./resolvers.ts";
 import { toBase64, toHex, utf8 } from "./encoding.ts";
 import { parseDocument } from "./parser.ts";
@@ -7,7 +7,7 @@ import { DEFAULT_TSA_URL, requestTimestamp, requestTimestampOver, type TsaRootIn
 import { scopedHashInput } from "./scope.ts";
 import { formatResources } from "./resources.ts";
 import { formatRequirement, parseRequire, type Requirement } from "./agreement.ts";
-import type { WebAuthnSigner } from "./webauthn.ts";
+import { checkWebAuthnData, verifyWebAuthnSignature, type WebAuthnAssertion, type WebAuthnSigner } from "./webauthn.ts";
 import type { PgpSigner } from "./pgp-secret.ts";
 import { EMAIL_RE } from "./pgp-verify.ts";
 
@@ -47,6 +47,23 @@ export interface SignResult {
 
 export class SignError extends Error {}
 
+// the public half of a signer: enough to build the payload when the signature is made elsewhere
+export type SigningKey =
+  | { alg: "ed25519"; publicKey: Uint8Array }
+  | { alg: "webauthn-es256"; publicKey: Uint8Array; rpId: string }
+  | { alg: "openpgp"; fpr: string; emails: string[] };
+
+export type PrepareOptions = Omit<SignOptions, "signer"> & { signer: SigningKey };
+
+export interface PreparedSignature {
+  fields: Record<string, string>;
+  payload: Uint8Array;
+  // SPEC 6.1: the WebAuthn challenge, SHA-256(payload)
+  challenge: Uint8Array;
+  // checks an Ed25519 signature or a WebAuthn assertion against the key before appending; OpenPGP signatures are not checked
+  finish(signature: Uint8Array | WebAuthnAssertion): Promise<SignResult>;
+}
+
 // SPEC 5.1: generators refuse documents that are not valid UTF-8; a lone surrogate has no UTF-8 encoding.
 const LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 function assertUtf8(text: string): void {
@@ -54,6 +71,59 @@ function assertUtf8(text: string): void {
 }
 
 export async function signDocument(text: string, o: SignOptions): Promise<SignResult> {
+  const p = await prepare(text, o);
+  if (o.signer.alg === "webauthn-es256") {
+    // SPEC 6.1: the WebAuthn challenge is SHA-256(payload)
+    const a = await (o.signer as WebAuthnSigner).getAssertion(p.challenge);
+    return complete(text, o, p, a.signature, a);
+  }
+  return complete(text, o, p, await (o.signer as Signer | PgpSigner).sign(p.payload));
+}
+
+export async function prepareSignature(text: string, o: PrepareOptions): Promise<PreparedSignature> {
+  const p = await prepare(text, o);
+  return {
+    fields: { ...p.fields },
+    payload: p.payload,
+    challenge: p.challenge,
+    async finish(input) {
+      const key = o.signer;
+      if (key.alg === "webauthn-es256") {
+        if (input instanceof Uint8Array) throw new SignError("a passkey signature needs the whole WebAuthn assertion");
+        const f = { ...p.fields, webauthn_authenticator_data: toBase64(input.authenticatorData), webauthn_client_data: toBase64(input.clientDataJSON) };
+        const check = await checkWebAuthnData(f, p.payload);
+        if (!check.ok || !(await verifyWebAuthnSignature(key.publicKey, input.signature, input.authenticatorData, input.clientDataJSON))) throw new SignError("the WebAuthn assertion does not verify for this payload and key");
+        return complete(text, o, p, input.signature, input);
+      }
+      if (!(input instanceof Uint8Array)) throw new SignError(`a ${key.alg} signature is a byte string`);
+      if (key.alg === "ed25519" && !(await ed25519Verify(key.publicKey, input, p.payload))) throw new SignError("the signature does not verify for this payload and key");
+      return complete(text, o, p, input);
+    },
+  };
+}
+
+interface Prepared {
+  fields: Record<string, string>;
+  payload: Uint8Array;
+  challenge: Uint8Array;
+  previous: number;
+}
+
+async function complete(text: string, o: Omit<SignOptions, "signer">, p: Prepared, sig: Uint8Array, a?: WebAuthnAssertion): Promise<SignResult> {
+  const fields = { ...p.fields };
+  if (a) {
+    fields.webauthn_authenticator_data = toBase64(a.authenticatorData);
+    fields.webauthn_client_data = toBase64(a.clientDataJSON);
+  }
+  fields.sig = "base64:" + toBase64(sig);
+  if (o.tsaUrl) {
+    fields.tsa_url = o.tsaUrl;
+    fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
+  }
+  return appendBlock(text, p.previous, fields);
+}
+
+async function prepare(text: string, o: Omit<SignOptions, "signer"> & { signer: SigningKey }): Promise<Prepared> {
   assertUtf8(text);
   const doc = parseDocument(text);
   if (doc.chain.length === 0 && doc.strayMarker && !o.force) {
@@ -82,7 +152,7 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
   if (o.method === "git-hosting") {
     if (isWebAuthn) throw new SignError("git-hosting supports only Ed25519 SSH keys; use tofu or dns for passkeys");
     if (!GIT_HOSTING_SIGNER_RE.test(o.signerId)) throw new SignError(`git-hosting signer must be <host>/<username> with a domain name as host, got "${o.signerId}"`);
-    if (o.keyFp !== false) fields.key_fp = o.keyFp ?? (await sshFingerprint((o.signer as Signer).publicKey));
+    if (o.keyFp !== false) fields.key_fp = o.keyFp ?? (await sshFingerprint((o.signer as { publicKey: Uint8Array }).publicKey));
   }
   if (o.method === "directory") {
     fields.signer = o.signerId.toLowerCase();
@@ -91,16 +161,16 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
   // SPEC 4.7: directory blocks should carry a snapshot, so it is on unless turned off
   const embedKey = o.embedKey ?? o.method === "directory";
   if (embedKey && o.method !== "dns" && o.method !== "git-hosting" && o.method !== "directory") throw new SignError(`embedKey works with dns, git-hosting, and directory, not ${o.method}`);
-  if (o.method === "tofu" || embedKey) fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as Signer | WebAuthnSigner).publicKey)}`;
+  if (o.method === "tofu" || embedKey) fields.pubkey = `${isWebAuthn ? "es256" : "ed25519"}:${toBase64((o.signer as { publicKey: Uint8Array }).publicKey)}`;
   if (isPgp) {
-    const pgp = o.signer as PgpSigner;
+    const pgp = o.signer as { fpr: string; emails: string[] };
     const email = o.signerId.toLowerCase();
     if (!EMAIL_RE.test(email)) throw new SignError(`pgp signer must be an email address, got "${o.signerId}"`);
     if (pgp.emails.length && !pgp.emails.includes(email)) throw new SignError(`the OpenPGP key has no user ID with <${email}> (has: ${pgp.emails.join(", ")})`);
     fields.signer = email;
     fields.fpr = pgp.fpr;
   }
-  if (isWebAuthn) fields.rp_id = (o.signer as WebAuthnSigner).rpId;
+  if (isWebAuthn) fields.rp_id = (o.signer as { rpId: string }).rpId;
   Object.assign(fields, o.extra ?? {});
   if (o.role) fields.role = o.role;
   if (o.reason) fields.reason = o.reason;
@@ -136,23 +206,7 @@ export async function signDocument(text: string, o: SignOptions): Promise<SignRe
   }
 
   const payload = signedPayload(fields);
-  let sig: Uint8Array;
-  if (isWebAuthn) {
-    // SPEC 6.1: the WebAuthn challenge is SHA-256(payload)
-    const a = await (o.signer as WebAuthnSigner).getAssertion(await sha256(payload));
-    sig = a.signature;
-    fields.webauthn_authenticator_data = toBase64(a.authenticatorData);
-    fields.webauthn_client_data = toBase64(a.clientDataJSON);
-  } else {
-    sig = await (o.signer as Signer | PgpSigner).sign(payload);
-  }
-  fields.sig = "base64:" + toBase64(sig);
-  if (o.tsaUrl) {
-    fields.tsa_url = o.tsaUrl;
-    fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
-  }
-
-  return appendBlock(text, doc.chain.length, fields);
+  return { fields, payload, challenge: await sha256(payload), previous: doc.chain.length };
 }
 
 function appendBlock(text: string, previous: number, fields: Record<string, string>): SignResult {

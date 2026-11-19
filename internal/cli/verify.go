@@ -332,6 +332,9 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 		if s.PGP != nil {
 			printPgpHuman(w, s)
 		}
+		if s.Tofu != nil && s.Tofu.Status != mdsig.TofuKnown {
+			fmt.Fprintf(w, "      %s\n", i18n.T("verify.tofu_"+s.Tofu.Status, s.Tofu.Fingerprint))
+		}
 		if s.Partial != nil {
 			fmt.Fprintf(w, "      %s\n", i18n.T("verify.partial", strings.Join(safeAll(s.Partial), ", ")))
 		}

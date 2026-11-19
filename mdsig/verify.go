@@ -34,6 +34,17 @@ type RevocationCheck struct {
 	Failure string
 }
 
+const (
+	TofuKnown    = "known"
+	TofuNew      = "new"
+	TofuReplaced = "replaced"
+)
+
+type TofuInfo struct {
+	Status      string
+	Fingerprint string
+}
+
 type BlockResult struct {
 	Index        int
 	Line         int
@@ -45,12 +56,14 @@ type BlockResult struct {
 	ComputedHash string
 	Partial      []string
 	KeySource    string
-	WebAuthn     *WebAuthnInfo
-	PGP          *PGPInfo
-	Resources    []ResourceResult
-	Revocation   *RevocationCheck
-	TSA          *TSACheck
-	Warnings     []string
+	// SPEC 4.4: whether a tofu key matched the stored binding, was seen for the first time, or replaced it
+	Tofu       *TofuInfo
+	WebAuthn   *WebAuthnInfo
+	PGP        *PGPInfo
+	Resources  []ResourceResult
+	Revocation *RevocationCheck
+	TSA        *TSACheck
+	Warnings   []string
 }
 
 type VerifyResult struct {
@@ -72,6 +85,7 @@ type VerifyOptions struct {
 
 	skipAgreement   bool
 	revocationCache map[string]*revocationList
+	pendingTofu     map[string]string
 }
 
 var supportedAlgs = map[string]bool{"ed25519": true, "webauthn-es256": true, "openpgp": true}
@@ -521,15 +535,28 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 	r.KeySource = matched.Source
 
 	// SPEC 4.4: a stored tofu binding must match, and is only written once the whole block verified
-	tofuRecord := false
+	tofuStatus := ""
 	if pk, ok := f["pubkey"]; ok && f["method"] == "tofu" && opts.TofuStore != nil {
-		prev, known := opts.TofuStore.Get(f["signer"])
-		if known && prev != pk && !opts.AcceptNewTofuKey {
-			return fail(StatusInvalid, "key-changed", fmt.Sprintf("tofu: the key for signer %q differs from the stored one (%s)", f["signer"], prev))
+		// SPEC 4.4: an unconfirmed key from an earlier block of this document counts as recorded for the blocks after it
+		prev, unconfirmed := opts.pendingTofu[f["signer"]]
+		known := unconfirmed
+		if !unconfirmed {
+			prev, known = opts.TofuStore.Get(f["signer"])
 		}
-		tofuRecord = !known || prev != pk
-		if !known {
-			r.Warnings = append(r.Warnings, fmt.Sprintf("tofu: no stored key for signer %q; this key is seen for the first time", f["signer"]))
+		if known && prev != pk && !opts.AcceptNewTofuKey {
+			from := "the stored one"
+			if unconfirmed {
+				from = "the one in an earlier signature"
+			}
+			return fail(StatusInvalid, "key-changed", fmt.Sprintf("tofu: the key for signer %q differs from %s (%s)", f["signer"], from, prev))
+		}
+		switch {
+		case !known || (unconfirmed && prev == pk):
+			tofuStatus = TofuNew
+		case prev == pk:
+			tofuStatus = TofuKnown
+		default:
+			tofuStatus = TofuReplaced
 		}
 	}
 
@@ -609,9 +636,14 @@ func verifyBlock(ctx context.Context, text string, block *ParsedBlock, opts *Ver
 		}
 		return fail(StatusUnresolved, "key-not-published", fmt.Sprintf("the signature verifies with the embedded key, which %s does not publish now (%s)%s", f["signer"], notPublished, when))
 	}
-	if tofuRecord {
-		if err := opts.TofuStore.Set(f["signer"], f["pubkey"]); err != nil {
-			r.Warnings = append(r.Warnings, "tofu: could not record key: "+err.Error())
+	if tofuStatus != "" {
+		r.Tofu = &TofuInfo{Status: tofuStatus, Fingerprint: KeyFingerprint(f["pubkey"])}
+		if tofuStatus == TofuNew && opts.ConfirmNewTofuKeys {
+			opts.pendingTofu[f["signer"]] = f["pubkey"]
+		} else if tofuStatus != TofuKnown {
+			if err := opts.TofuStore.Set(f["signer"], f["pubkey"]); err != nil {
+				r.Warnings = append(r.Warnings, "tofu: could not record key: "+err.Error())
+			}
 		}
 	}
 	return r
@@ -693,6 +725,7 @@ func VerifyDocument(ctx context.Context, text string, opts *VerifyOptions) *Veri
 	if o.revocationCache == nil {
 		o.revocationCache = map[string]*revocationList{}
 	}
+	o.pendingTofu = map[string]string{}
 	res.OK = true
 	for _, b := range doc.Chain {
 		br := verifyBlock(ctx, doc.Text, b, &o)

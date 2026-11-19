@@ -10,6 +10,7 @@ export * from "./resources.js";
 export * from "./agreement.js";
 export * from "./webauthn.js";
 export * from "./sign.js";
+export * from "./handoff.js";
 export * from "./verify.js";
 export { PgpError, armor, dearmor } from "./pgp-packets.js";
 export { parseCerts, checkCert, fprHex, keyAlgName, emailOf, readPgpPublicKey } from "./pgp-keys.js";

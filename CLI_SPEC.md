@@ -1,6 +1,6 @@
 # `mdsig` Command-Line Interface Specification
 
-- **Version:** 0.0.4 (draft; format version 0.0.4)
+- **Version:** 0.0.5 (draft; format version 0.0.4)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Format specification:** [SPEC.md](SPEC.md)
 - **Normative text:** [日本語 (CLI_SPEC.ja.md)](CLI_SPEC.ja.md). This English version is an informative translation. If they differ, the Japanese text prevails.
@@ -25,7 +25,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", and "MAY" are to be inte
 | --- | --- |
 | `--lang <code>` | UI language: `en` or `ja`. See Section 7. |
 | `-h, --help` | Help. |
-| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.0.4 (format 0.0.4)`). The CLI verifies the formats `0.0.1`, `0.0.2`, and `0.0.4` defined by SPEC and signs with `0.0.4`. |
+| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.0.5 (format 0.0.4)`). The CLI verifies the formats `0.0.1`, `0.0.2`, and `0.0.4` defined by SPEC and signs with `0.0.4`. |
 
 ## 3. Commands
 
@@ -342,6 +342,7 @@ If several files are verified, the exit code is the most severe across files, in
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
+          "tofu": null,
           "webauthn": null,
           "pgp": null,
           "resources": [
@@ -364,7 +365,7 @@ or 5; `agreement.status` tells the two apart. A file whose agreement status is
 was not checked has `status: "unresolved"` and `code: "offline"`, and `ok` is
 false.
 
-- `partial`, `webauthn`, `pgp`, `resources`, `revocation`, and `tsa` are `null` when they do not apply. `webauthn` is `{ "rp_id", "origin", "user_verified" }`. `pgp` is `{ "fpr", "uid", "key_alg", "key_source", "created" }`, where `key_alg` is a string such as `rsa2048`, `ecdsa-p256`, or `ed25519`, `key_source` is one of `keyring`, `wkd`, `keyserver`, and `created` is the creation time of the signature packet (RFC 3339).
+- `partial`, `tofu`, `webauthn`, `pgp`, `resources`, `revocation`, and `tsa` are `null` when they do not apply. `tofu` is `{ "status", "fingerprint" }` and has a value when a `tofu` block was checked against the stored keys (Section 3.9). `status` is one of `known` (matches the stored key), `new` (a key seen for the first time), or `replaced` (the stored key was replaced by `--accept-new-key`), and `fingerprint` is the key fingerprint of Section 3.9. `webauthn` is `{ "rp_id", "origin", "user_verified" }`. `pgp` is `{ "fpr", "uid", "key_alg", "key_source", "created" }`, where `key_alg` is a string such as `rsa2048`, `ecdsa-p256`, or `ed25519`, `key_source` is one of `keyring`, `wkd`, `keyserver`, and `created` is the creation time of the signature packet (RFC 3339).
 - `agreement.status` is `none`, `complete`, `pending`, or `violated`. `role` is omitted when the requirement has none.
 - Each element of `required` and `missing` has the step number `step` and the number of members its step needs, `any`. For a `require` without step lines, `step` is 1 and `any` is the number of requirement lines. Each element of `missing` also has `need`, how many more signatures its step needs; `blocked_by`, the number of an earlier step that is not complete yet, when it is waiting for one; and `early: true` when the signer signed before their turn and the signature did not count.
 - `violations` lists order violations. Each element is `{ "declared_by", "step", "index", "method", "signer", "role", "order" }`, where `index` is the offending block and `order` is the value of the declaration's order line (`guide` or `strict`). `order guide` violations are listed too, but they do not change the agreement status.
@@ -397,7 +398,7 @@ Reference session (Japanese UI, `LANG=ja_JP.UTF-8`). Each question is shown whil
    ```
    $ mdsig
 
-     md-signature v0.0.4：対話モード
+     md-signature v0.0.5：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

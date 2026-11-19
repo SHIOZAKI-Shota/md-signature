@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -85,6 +86,20 @@ func FormatSSHPublicKey(publicKey []byte, comment string) string {
 
 func SSHFingerprint(publicKey []byte) string {
 	sum := sha256.Sum256(sshEd25519Blob(publicKey))
+	return "SHA256:" + toBase64Unpadded(sum[:])
+}
+
+// CLI_SPEC 3.9: OpenSSH form for a 32-byte ed25519 key, otherwise SHA-256 of the decoded pubkey bytes
+func KeyFingerprint(pubkey string) string {
+	typ, b64, _ := strings.Cut(pubkey, ":")
+	raw, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(b64), ""))
+	if err != nil {
+		return "?"
+	}
+	if typ == "ed25519" && len(raw) == ed25519.PublicKeySize {
+		return SSHFingerprint(raw)
+	}
+	sum := sha256.Sum256(raw)
 	return "SHA256:" + toBase64Unpadded(sum[:])
 }
 

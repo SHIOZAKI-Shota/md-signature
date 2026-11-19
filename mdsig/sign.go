@@ -2,9 +2,11 @@ package mdsig
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"regexp"
 	"slices"
@@ -60,7 +62,115 @@ func (e *ValueError) Error() string { return e.Msg }
 // SPEC 5.1: generators refuse documents that are not valid UTF-8
 var errNotUTF8 = &SignError{Msg: "the document is not valid UTF-8"}
 
+// SigningKey is the public half of a signer: enough to build the payload when the signature is made elsewhere
+type SigningKey struct {
+	Alg       string // ed25519, webauthn-es256, or openpgp
+	PublicKey []byte // Ed25519 key, or the passkey's SPKI
+	RPID      string // webauthn-es256
+	Fpr       string // openpgp
+	Emails    []string
+}
+
+type PreparedSignature struct {
+	Fields  map[string]string
+	Payload []byte
+	// SPEC 6.1: the WebAuthn challenge, SHA-256(payload)
+	Challenge []byte
+	text      string
+	opts      SignOptions
+	key       SigningKey
+	previous  int
+}
+
 func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult, error) {
+	if !utf8.ValidString(text) {
+		return nil, errNotUTF8
+	}
+	var key SigningKey
+	switch {
+	case o.PGP != nil:
+		key = SigningKey{Alg: "openpgp", Fpr: o.PGP.Fpr(), Emails: o.PGP.Emails()}
+	case o.WebAuthn != nil:
+		key = SigningKey{Alg: "webauthn-es256", PublicKey: o.WebAuthn.PublicKeySPKI(), RPID: o.WebAuthn.RPID()}
+	case o.Signer != nil:
+		key = SigningKey{Alg: "ed25519", PublicKey: o.Signer.PublicKey()}
+	default:
+		if o.Method == "pgp" {
+			return nil, &ValueError{Msg: "method pgp needs an OpenPGP key"}
+		}
+		return nil, errors.New("no signer")
+	}
+	p, err := PrepareSignature(text, key, o)
+	if err != nil {
+		return nil, err
+	}
+	switch key.Alg {
+	case "webauthn-es256":
+		a, err := o.WebAuthn.GetAssertion(p.Challenge)
+		if err != nil {
+			return nil, err
+		}
+		return p.complete(ctx, a.Signature, a)
+	case "openpgp":
+		sig, err := o.PGP.Sign(p.Payload)
+		if err != nil {
+			return nil, err
+		}
+		return p.complete(ctx, sig, nil)
+	default:
+		sig, err := o.Signer.Sign(p.Payload)
+		if err != nil {
+			return nil, err
+		}
+		return p.complete(ctx, sig, nil)
+	}
+}
+
+// Finish checks an Ed25519 signature, or a WebAuthn assertion (a, with sig nil), against the key and appends the block; OpenPGP signatures are not checked
+func (p *PreparedSignature) Finish(ctx context.Context, sig []byte, a *WebAuthnAssertion) (*SignResult, error) {
+	switch p.key.Alg {
+	case "webauthn-es256":
+		if a == nil {
+			return nil, &SignError{Msg: "a passkey signature needs the whole WebAuthn assertion"}
+		}
+		f := maps.Clone(p.Fields)
+		f["webauthn_authenticator_data"] = toBase64(a.AuthenticatorData)
+		f["webauthn_client_data"] = toBase64(a.ClientDataJSON)
+		if chk := checkWebAuthnData(f, p.Payload); !chk.ok {
+			return nil, &SignError{Msg: "the WebAuthn assertion does not verify for this payload and key: " + chk.msg}
+		}
+		if ok, err := verifyWebAuthnSignature(p.key.PublicKey, a.Signature, a.AuthenticatorData, a.ClientDataJSON); err != nil || !ok {
+			return nil, &SignError{Msg: "the WebAuthn assertion does not verify for this payload and key"}
+		}
+		return p.complete(ctx, a.Signature, a)
+	case "ed25519":
+		if len(p.key.PublicKey) != ed25519.PublicKeySize || !ed25519.Verify(p.key.PublicKey, p.Payload, sig) {
+			return nil, &SignError{Msg: "the signature does not verify for this payload and key"}
+		}
+	}
+	return p.complete(ctx, sig, nil)
+}
+
+func (p *PreparedSignature) complete(ctx context.Context, sig []byte, a *WebAuthnAssertion) (*SignResult, error) {
+	fields := maps.Clone(p.Fields)
+	if a != nil {
+		fields["webauthn_authenticator_data"] = toBase64(a.AuthenticatorData)
+		fields["webauthn_client_data"] = toBase64(a.ClientDataJSON)
+	}
+	fields["sig"] = "base64:" + toBase64(sig)
+	if p.opts.TSAURL != "" {
+		tok, err := RequestTimestamp(ctx, sig, p.opts.TSAURL, p.opts.HTTPClient, &p.opts.TSA)
+		if err != nil {
+			return nil, fmt.Errorf("timestamp request to %s failed: %w", p.opts.TSAURL, err)
+		}
+		fields["tsa_url"] = p.opts.TSAURL
+		fields["tsa_token"] = tok
+	}
+	return appendBlock(p.text, p.previous, fields)
+}
+
+// PrepareSignature builds the block for key without signing; o.Signer, o.WebAuthn, and o.PGP are ignored
+func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSignature, error) {
 	if !utf8.ValidString(text) {
 		return nil, errNotUTF8
 	}
@@ -100,27 +210,19 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		}
 	}
 
-	isPgp := o.PGP != nil
-	isWebAuthn := !isPgp && o.WebAuthn != nil
+	alg := key.Alg
+	if alg != "ed25519" && alg != "webauthn-es256" && alg != "openpgp" {
+		return nil, &ValueError{Msg: fmt.Sprintf("unsupported key algorithm %q", alg)}
+	}
+	isPgp := alg == "openpgp"
+	isWebAuthn := alg == "webauthn-es256"
 	if isPgp != (o.Method == "pgp") {
 		if isPgp {
 			return nil, &ValueError{Msg: "an OpenPGP key can only sign with method pgp"}
 		}
 		return nil, &ValueError{Msg: "method pgp needs an OpenPGP key"}
 	}
-	alg := "ed25519"
-	var pub []byte
-	if isPgp {
-		alg = "openpgp"
-	} else if isWebAuthn {
-		alg = "webauthn-es256"
-		pub = o.WebAuthn.PublicKeySPKI()
-	} else {
-		if o.Signer == nil {
-			return nil, errors.New("no signer")
-		}
-		pub = o.Signer.PublicKey()
-	}
+	pub := key.PublicKey
 	fields := map[string]string{"v": SpecVersion, "method": o.Method, "signer": o.SignerID}
 	switch o.Method {
 	case "dns":
@@ -164,14 +266,14 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 		if !emailRe.MatchString(email) {
 			return nil, &ValueError{Msg: fmt.Sprintf("pgp signer must be an email address, got %q", o.SignerID)}
 		}
-		if emails := o.PGP.Emails(); len(emails) > 0 && !slices.Contains(emails, email) {
+		if emails := key.Emails; len(emails) > 0 && !slices.Contains(emails, email) {
 			return nil, &ValueError{Msg: fmt.Sprintf("the OpenPGP key has no user ID with <%s> (has: %s)", email, strings.Join(emails, ", "))}
 		}
 		fields["signer"] = email
-		fields["fpr"] = o.PGP.Fpr()
+		fields["fpr"] = key.Fpr
 	}
 	if isWebAuthn {
-		fields["rp_id"] = o.WebAuthn.RPID()
+		fields["rp_id"] = key.RPID
 	}
 	for k, v := range o.Extra {
 		fields[k] = v
@@ -238,39 +340,8 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 	}
 
 	payload := SignedPayload(fields)
-	var sig []byte
-	if isWebAuthn {
-		challenge := sha256.Sum256(payload)
-		a, err := o.WebAuthn.GetAssertion(challenge[:])
-		if err != nil {
-			return nil, err
-		}
-		sig = a.Signature
-		fields["webauthn_authenticator_data"] = toBase64(a.AuthenticatorData)
-		fields["webauthn_client_data"] = toBase64(a.ClientDataJSON)
-	} else if isPgp {
-		var err error
-		if sig, err = o.PGP.Sign(payload); err != nil {
-			return nil, err
-		}
-	} else {
-		var err error
-		sig, err = o.Signer.Sign(payload)
-		if err != nil {
-			return nil, err
-		}
-	}
-	fields["sig"] = "base64:" + toBase64(sig)
-	if o.TSAURL != "" {
-		tok, err := RequestTimestamp(ctx, sig, o.TSAURL, o.HTTPClient, &o.TSA)
-		if err != nil {
-			return nil, fmt.Errorf("timestamp request to %s failed: %w", o.TSAURL, err)
-		}
-		fields["tsa_url"] = o.TSAURL
-		fields["tsa_token"] = tok
-	}
-
-	return appendBlock(text, len(doc.Chain), fields)
+	challenge := sha256.Sum256(payload)
+	return &PreparedSignature{Fields: fields, Payload: payload, Challenge: challenge[:], text: text, opts: o, key: key, previous: len(doc.Chain)}, nil
 }
 
 func appendBlock(text string, previous int, fields map[string]string) (*SignResult, error) {

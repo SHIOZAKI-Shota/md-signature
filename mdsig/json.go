@@ -49,12 +49,18 @@ type JSONSignature struct {
 	HashOK     *bool             `json:"hash_ok"`
 	Partial    *JSONPartial      `json:"partial"`
 	KeySource  *string           `json:"key_source"`
+	Tofu       *JSONTofu         `json:"tofu"`
 	WebAuthn   *JSONWebAuthn     `json:"webauthn"`
 	PGP        *JSONPGP          `json:"pgp"`
 	Resources  []JSONResource    `json:"resources"`
 	Revocation *JSONRevocation   `json:"revocation"`
 	TSA        *JSONTSA          `json:"tsa"`
 	Warnings   []string          `json:"warnings"`
+}
+
+type JSONTofu struct {
+	Status      string `json:"status"`
+	Fingerprint string `json:"fingerprint"`
 }
 
 type JSONRequirement struct {
@@ -127,6 +133,9 @@ func toJSONSignature(s *BlockResult) JSONSignature {
 	}
 	if js.Fields == nil {
 		js.Fields = map[string]string{}
+	}
+	if s.Tofu != nil {
+		js.Tofu = &JSONTofu{Status: s.Tofu.Status, Fingerprint: s.Tofu.Fingerprint}
 	}
 	if js.Warnings == nil {
 		js.Warnings = []string{}

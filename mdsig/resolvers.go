@@ -70,6 +70,8 @@ type ResolveOptions struct {
 	TofuStore    TofuStore
 	// SPEC 4.4: replace a stored binding instead of failing with key-changed
 	AcceptNewTofuKey bool
+	// SPEC 4.4: leave first-seen keys unrecorded so the user can confirm them (BlockResult.Tofu.Status "new")
+	ConfirmNewTofuKeys bool
 	// PGPKeyring returns the local certificate for fpr, or nil when the keyring has none
 	PGPKeyring func(ctx context.Context, fpr string) ([]byte, error)
 	// PGPClient fetches WKD and keyserver URLs; nil means SafeHTTPClient

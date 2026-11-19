@@ -1,5 +1,5 @@
 import { SUPPORTED_VERSIONS, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.js";
-import { digest, ed25519Verify, isSupportedHash, sha256, sshFingerprint } from "./crypto.js";
+import { digest, ed25519Verify, isSupportedHash, keyFingerprint, sha256, sshFingerprint } from "./crypto.js";
 import { bytesEqual, decodePrefixedBinary, fromBase64, toHex, utf8 } from "./encoding.js";
 import { parseDocument } from "./parser.js";
 import { DEFAULT_RESOLVERS, GIT_HOSTING_SIGNER_RE, ResolutionError, decodePublicKey, keyTypeFor } from "./resolvers.js";
@@ -281,14 +281,15 @@ export async function verifyBlock(text, block, opts = {}) {
         return fail("invalid", "bad-signature", snapshot ? "signature does not verify with the embedded key" : "signature does not verify with the signer's key(s)");
     r.key = { source: matched.source };
     // SPEC 4.4: a stored tofu binding must match, and is only written once the whole block verified
-    let tofuRecord = false;
+    let tofuStatus;
+    const pending = PENDING_TOFU.get(opts);
     if (f.method === "tofu" && f.pubkey && opts.tofuStore) {
-        const prev = await opts.tofuStore.get(f.signer);
+        // SPEC 4.4: an unconfirmed key from an earlier block of this document counts as recorded for the blocks after it
+        const unconfirmed = pending?.get(f.signer);
+        const prev = unconfirmed ?? (await opts.tofuStore.get(f.signer));
         if (prev !== undefined && prev !== f.pubkey && !opts.acceptNewTofuKey)
-            return fail("invalid", "key-changed", `tofu: the key for signer "${f.signer}" differs from the stored one (${prev})`);
-        tofuRecord = prev !== f.pubkey;
-        if (prev === undefined)
-            r.warnings.push(`tofu: no stored key for signer "${f.signer}"; this key is seen for the first time`);
+            return fail("invalid", "key-changed", `tofu: the key for signer "${f.signer}" differs from the ${unconfirmed ? "one in an earlier signature" : "stored one"} (${prev})`);
+        tofuStatus = prev === undefined || (unconfirmed !== undefined && unconfirmed === f.pubkey) ? "new" : prev === f.pubkey ? "known" : "replaced";
     }
     // 5. expiry
     if (f.expires && (opts.now ?? new Date()).getTime() > Date.parse(f.expires))
@@ -344,8 +345,13 @@ export async function verifyBlock(text, block, opts = {}) {
         const when = r.tsa?.verified ? `; the signature existed at ${r.tsa.genTime} (TSA)` : "";
         return fail("unresolved", "key-not-published", `the signature verifies with the embedded key, which ${f.signer} does not publish now (${notPublished})${when}`);
     }
-    if (tofuRecord)
-        await opts.tofuStore.set(f.signer, f.pubkey);
+    if (tofuStatus) {
+        r.tofu = { status: tofuStatus, fingerprint: await keyFingerprint(f.pubkey) };
+        if (tofuStatus === "new" && opts.confirmNewTofuKeys)
+            pending?.set(f.signer, f.pubkey);
+        else if (tofuStatus !== "known")
+            await opts.tofuStore.set(f.signer, f.pubkey);
+    }
     return r;
 }
 async function keySnapshot(f, alg) {
@@ -393,6 +399,7 @@ async function verifyTsaBlock(r, f, hashAlg, opts, fail) {
 }
 // SPEC 5.2: every block hashes the document from the start, so the chain length is bounded
 export const MAX_CHAIN_BLOCKS = 256;
+const PENDING_TOFU = new WeakMap();
 export async function verifyDocument(text, opts = {}) {
     const doc = parseDocument(text);
     const warnings = [];
@@ -413,6 +420,8 @@ export async function verifyDocument(text, opts = {}) {
     if (doc.strayMarker)
         warnings.push(`line ${doc.strayMarkerLine}: an md-signature marker inside the body is treated as document content, not as a signature`);
     const o = { ...opts, revocationCache: opts.revocationCache ?? new Map() };
+    if (o.tofuStore && o.confirmNewTofuKeys)
+        PENDING_TOFU.set(o, new Map());
     const signatures = [];
     for (const b of doc.chain)
         signatures.push(await verifyBlock(doc.text, b, o));

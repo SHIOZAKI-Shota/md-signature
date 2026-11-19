@@ -9,6 +9,7 @@ import {
   fromHex,
   utf8,
   sha256,
+  keyFingerprint,
   toHex,
   signedPayload,
   parseDocument,
@@ -501,10 +502,52 @@ test("tofu binding is stored only after the signature verifies, and never from a
   assert.equal((await verifyDocument(expired.text, { tofuStore: store, now: new Date("2027-02-01T00:00:00Z") })).signatures[0]!.code, "expired");
   assert.equal(store.get("late"), undefined);
   const first = await verifyDocument(expired.text, { tofuStore: store, now: new Date("2026-12-01T00:00:00Z") });
-  assert.ok(first.signatures[0]!.warnings.some((w) => w.includes("seen for the first time")));
+  assert.equal(first.signatures[0]!.tofu?.status, "new");
+  assert.match(first.signatures[0]!.tofu!.fingerprint, /^SHA256:[A-Za-z0-9+/]{43}$/);
   assert.ok(store.get("late"));
   const again = await verifyDocument(expired.text, { tofuStore: store, now: new Date("2026-12-01T00:00:00Z") });
-  assert.ok(!again.signatures[0]!.warnings.some((w) => w.includes("seen for the first time")));
+  assert.equal(again.signatures[0]!.tofu?.status, "known");
+});
+
+test("tofu: confirmNewTofuKeys leaves first-seen keys unrecorded; an accepted change is replaced", async () => {
+  const a = await signerFromSeed(SEED_A);
+  const b = await signerFromSeed(SEED_B);
+  const store = new MemoryTofuStore();
+  const s1 = await signDocument(DOC, { signer: a, method: "tofu", signerId: "same", ts: TS });
+  const s2 = await signDocument(DOC, { signer: b, method: "tofu", signerId: "same", ts: TS });
+  const v = await verifyDocument(s1.text, { tofuStore: store, confirmNewTofuKeys: true });
+  assert.equal(v.ok, true);
+  assert.equal(v.signatures[0]!.tofu?.status, "new");
+  assert.equal(store.get("same"), undefined);
+  await verifyDocument(s1.text, { tofuStore: store });
+  const r = await verifyDocument(s2.text, { tofuStore: store, acceptNewTofuKey: true });
+  assert.equal(r.signatures[0]!.tofu?.status, "replaced");
+  assert.equal(store.get("same"), s2.fields.pubkey);
+  assert.equal(r.signatures[0]!.tofu?.fingerprint, await keyFingerprint(s2.fields.pubkey!));
+});
+
+test("tofu: a failed block has no tofu status; unconfirmed keys count within one document", async () => {
+  const a = await signerFromSeed(SEED_A);
+  const b = await signerFromSeed(SEED_B);
+  const expired = await signDocument(DOC, { signer: a, method: "tofu", signerId: "late", ts: TS, expires: "2027-01-01T00:00:00Z" });
+  const v = await verifyDocument(expired.text, { tofuStore: new MemoryTofuStore(), confirmNewTofuKeys: true, now: new Date("2027-02-01T00:00:00Z") });
+  assert.equal(v.signatures[0]!.code, "expired");
+  assert.equal(v.signatures[0]!.tofu, undefined);
+  const one = await signDocument(DOC, { signer: a, method: "tofu", signerId: "same", ts: TS });
+  const same = await signDocument(one.text, { signer: a, method: "tofu", signerId: "same", ts: TS });
+  const other = await signDocument(one.text, { signer: b, method: "tofu", signerId: "same", ts: TS });
+  const store = new MemoryTofuStore();
+  const s = await verifyDocument(same.text, { tofuStore: store, confirmNewTofuKeys: true });
+  assert.deepEqual(s.signatures.map((x) => x.tofu?.status), ["new", "new"]);
+  assert.equal(store.get("same"), undefined);
+  const o = await verifyDocument(other.text, { tofuStore: store, confirmNewTofuKeys: true });
+  assert.deepEqual(o.signatures.map((x) => x.code ?? x.tofu?.status), ["new", "key-changed"]);
+});
+
+test("keyFingerprint: OpenSSH form for ed25519, SHA-256 of the key bytes otherwise", async () => {
+  assert.equal(await keyFingerprint("ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="), "SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8");
+  const es = "es256:" + toBase64(new Uint8Array(91).fill(7));
+  assert.equal(await keyFingerprint(es), "SHA256:" + toBase64(await sha256(new Uint8Array(91).fill(7))).replace(/=+$/, ""));
 });
 
 test("tsa_token: decompression and DER nesting are bounded", async () => {

@@ -8,6 +8,9 @@ name: Release
 #   TAP_DEPLOY_KEY       private half of a deploy key with write access to SHIOZAKI-Shota/homebrew-tap
 #   DISTRIBUTE_TOKEN     optional; classic token with public_repo, used to push to the SHIOZAKI-Shota/winget-pkgs
 #                        fork and open the pull request on microsoft/winget-pkgs
+#
+# Variables:
+#   WINGET_PAUSED        "true" skips winget while an earlier submission is still under review
 
 on:
   push:
@@ -43,10 +46,12 @@ jobs:
         env:
           TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
           DISTRIBUTE_TOKEN: ${{ secrets.DISTRIBUTE_TOKEN }}
+          WINGET_PAUSED: ${{ vars.WINGET_PAUSED }}
         run: |
           skip=""
           if [ -z "$TAP_DEPLOY_KEY" ]; then skip="homebrew"; echo "::warning::TAP_DEPLOY_KEY is not set: the Homebrew tap is not updated"; fi
-          if [ -z "$DISTRIBUTE_TOKEN" ]; then skip="${skip:+$skip,}winget"; echo "::notice::DISTRIBUTE_TOKEN is not set: winget is skipped"; fi
+          if [ -z "$DISTRIBUTE_TOKEN" ]; then skip="${skip:+$skip,}winget"; echo "::notice::DISTRIBUTE_TOKEN is not set: winget is skipped"
+          elif [ "$WINGET_PAUSED" = "true" ]; then skip="${skip:+$skip,}winget"; echo "::notice::WINGET_PAUSED is true: winget is skipped"; fi
           echo "args=${skip:+--skip=$skip}" >> "$GITHUB_OUTPUT"
       - uses: goreleaser/goreleaser-action@v6
         with:
@@ -59,8 +64,9 @@ jobs:
       - name: Add the ja-JP winget locale
         env:
           GH_TOKEN: ${{ secrets.DISTRIBUTE_TOKEN }}
+          WINGET_PAUSED: ${{ vars.WINGET_PAUSED }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then exit 0; fi
+          if [ -z "$GH_TOKEN" ] || [ "$WINGET_PAUSED" = "true" ]; then exit 0; fi
           version="${GITHUB_REF_NAME#v}"
           file="ShiozakiShota.mdsig.locale.ja-JP.yaml"
           sed "s/{{VERSION}}/$version/g" ".github/winget/$file" > "$RUNNER_TEMP/$file"

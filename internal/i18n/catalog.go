@@ -71,6 +71,8 @@ var en = map[string]string{
 	"verify.pgp_key_from":          "key from %s",
 	"verify.pgp_created":           "OpenPGP signature time: %s (claimed by the signer, not a TSA time)",
 	"pgp.source.keyring":           "local keyring",
+	"verify.tofu_new":              "first time this key is seen for the signer (%s); recorded",
+	"verify.tofu_replaced":         "the stored key was replaced with this one (%s)",
 	"pgp.source.wkd":               "WKD",
 	"pgp.source.keyserver":         "keyserver",
 
@@ -264,6 +266,8 @@ var ja = map[string]string{
 	"verify.pgp_key_from":          "鍵の取得元：%s",
 	"verify.pgp_created":           "OpenPGP 署名の作成時刻：%s（署名者の申告であり、TSA の時刻ではありません）",
 	"pgp.source.keyring":           "ローカル鍵束",
+	"verify.tofu_new":              "この署名者の鍵を初めて検出しました（%s）。記録しました",
+	"verify.tofu_replaced":         "記録済みの鍵をこの鍵に置き換えました（%s）",
 	"pgp.source.wkd":               "WKD",
 	"pgp.source.keyserver":         "鍵サーバ",
 

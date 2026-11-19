@@ -26,12 +26,12 @@ func TestTofuBindingStoredOnlyAfterVerification(t *testing.T) {
 	if pk, ok := store.Get(signer); !ok || pk != signed.Fields["pubkey"] {
 		t.Error("binding not stored for a valid signature")
 	}
-	if !hasWarning(v.Signatures[0].Warnings, "seen for the first time") {
-		t.Errorf("first-seen warning missing: %v", v.Signatures[0].Warnings)
+	if tf := v.Signatures[0].Tofu; tf == nil || tf.Status != TofuNew || tf.Fingerprint != KeyFingerprint(signed.Fields["pubkey"]) {
+		t.Errorf("first-seen status: %+v", v.Signatures[0].Tofu)
 	}
 	v = VerifyDocument(context.Background(), signed.Text, &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: store}})
-	if hasWarning(v.Signatures[0].Warnings, "seen for the first time") {
-		t.Errorf("known key reported as new: %v", v.Signatures[0].Warnings)
+	if tf := v.Signatures[0].Tofu; tf == nil || tf.Status != TofuKnown {
+		t.Errorf("known key: %+v", v.Signatures[0].Tofu)
 	}
 
 	expired, err := SignDocument(context.Background(), testBody, SignOptions{
@@ -49,13 +49,61 @@ func TestTofuBindingStoredOnlyAfterVerification(t *testing.T) {
 	}
 }
 
-func hasWarning(ws []string, s string) bool {
-	for _, w := range ws {
-		if strings.Contains(w, s) {
-			return true
+func TestTofuConfirmAndReplace(t *testing.T) {
+	a, b := mustSigner(t, bobSeed), mustSigner(t, aliceSeed)
+	sign := func(s Signer) *SignResult {
+		r, err := SignDocument(context.Background(), testBody, SignOptions{Signer: s, Method: "tofu", SignerID: "same", TS: "2026-11-16T09:00:00Z"})
+		if err != nil {
+			t.Fatal(err)
 		}
+		return r
 	}
-	return false
+	s1, s2 := sign(a), sign(b)
+	store := &MemoryTofuStore{}
+	opts := func(confirm, accept bool) *VerifyOptions {
+		return &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: store, ConfirmNewTofuKeys: confirm, AcceptNewTofuKey: accept}}
+	}
+	v := VerifyDocument(context.Background(), s1.Text, opts(true, false))
+	if !v.OK || v.Signatures[0].Tofu.Status != TofuNew {
+		t.Fatalf("confirm: %+v", v.Signatures[0])
+	}
+	if _, ok := store.Get("same"); ok {
+		t.Fatal("a first-seen key was recorded with ConfirmNewTofuKeys")
+	}
+	VerifyDocument(context.Background(), s1.Text, opts(false, false))
+	v = VerifyDocument(context.Background(), s2.Text, opts(false, true))
+	if v.Signatures[0].Tofu.Status != TofuReplaced {
+		t.Fatalf("replace: %+v", v.Signatures[0].Tofu)
+	}
+	if pk, _ := store.Get("same"); pk != s2.Fields["pubkey"] {
+		t.Fatal("the accepted key was not recorded")
+	}
+	two := func(first, second Signer) string {
+		r1 := sign(first)
+		r2, err := SignDocument(context.Background(), r1.Text, SignOptions{Signer: second, Method: "tofu", SignerID: "same", TS: "2026-11-16T09:00:00Z"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r2.Text
+	}
+	fresh := &MemoryTofuStore{}
+	confirm := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: fresh, ConfirmNewTofuKeys: true}}
+	v = VerifyDocument(context.Background(), two(a, a), confirm)
+	if v.Signatures[0].Tofu.Status != TofuNew || v.Signatures[1].Tofu.Status != TofuNew {
+		t.Fatalf("same key twice: %+v %+v", v.Signatures[0].Tofu, v.Signatures[1].Tofu)
+	}
+	v = VerifyDocument(context.Background(), two(a, b), confirm)
+	if v.Signatures[1].Code != "key-changed" {
+		t.Fatalf("two first-seen keys: %+v", v.Signatures[1])
+	}
+	expired, _ := SignDocument(context.Background(), testBody, SignOptions{Signer: a, Method: "tofu", SignerID: "late", TS: "2026-11-16T09:00:00Z", Expires: "2027-01-01T00:00:00Z"})
+	late := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true, TofuStore: fresh, ConfirmNewTofuKeys: true}, Now: time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC)}
+	if v := VerifyDocument(context.Background(), expired.Text, late); v.Signatures[0].Tofu != nil {
+		t.Fatalf("failed block has a tofu status: %+v", v.Signatures[0].Tofu)
+	}
+	if got := KeyFingerprint("ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="); got != "SHA256:bbXpuKG6zhzdmnxq256TlqzFBzRl2f6OOg722cYNbU8" {
+		t.Fatalf("fingerprint %s", got)
+	}
 }
 
 func TestTSATokenBounds(t *testing.T) {

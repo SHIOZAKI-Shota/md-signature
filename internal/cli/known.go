@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -20,20 +18,6 @@ type knownSigner struct {
 	Signer      string `json:"signer"`
 	Key         string `json:"key"`
 	Fingerprint string `json:"fingerprint"`
-}
-
-// CLI_SPEC 3.9: OpenSSH form for 32-byte ed25519 keys, otherwise SHA-256 of the decoded pubkey bytes
-func keyFingerprint(pubkey string) string {
-	typ, b64, _ := strings.Cut(pubkey, ":")
-	raw, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(b64), ""))
-	if err != nil {
-		return "?"
-	}
-	if typ == "ed25519" && len(raw) == 32 {
-		return mdsig.SSHFingerprint(raw)
-	}
-	sum := sha256.Sum256(raw)
-	return "SHA256:" + base64.RawStdEncoding.EncodeToString(sum[:])
 }
 
 func newKnownCmd() *cobra.Command {
@@ -56,7 +40,7 @@ func knownList() []knownSigner {
 	m := readKnownSigners(knownSignersPath())
 	out := make([]knownSigner, 0, len(m))
 	for s, k := range m {
-		out = append(out, knownSigner{Signer: s, Key: k, Fingerprint: keyFingerprint(k)})
+		out = append(out, knownSigner{Signer: s, Key: k, Fingerprint: mdsig.KeyFingerprint(k)})
 	}
 	slices.SortFunc(out, func(a, b knownSigner) int { return strings.Compare(a.Signer, b.Signer) })
 	return out

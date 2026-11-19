@@ -58,7 +58,7 @@ export default {
     "docs.spec.en": "形式の仕様（英語、規範）",
     "docs.spec.cliJa": "CLI の仕様（日本語、規範）",
     "docs.spec.cliEn": "CLI の仕様（英語、参考訳）",
-    "docs.versions": "本ドキュメントは形式 <code>0.0.4</code>（CLI v0.0.4）に対応します。検証者は <code>0.0.1</code>、<code>0.0.2</code>、<code>0.0.4</code> のブロックを検証でき、これらが同じチェーンに混在してもかまいません。",
+    "docs.versions": "本ドキュメントは形式 <code>0.0.4</code>（CLI v0.0.5）に対応します。検証者は <code>0.0.1</code>、<code>0.0.2</code>、<code>0.0.4</code> のブロックを検証でき、これらが同じチェーンに混在してもかまいません。",
 
     "docs.format.lede": "署名ブロックの書式、ハッシュの対象となる範囲、秘密鍵が署名するバイト列を順に説明します。別の言語で実装する場合は、このページと検証手順のページが出発点になります。",
     "docs.keys.methodsT": "方式と鍵の取得先",
@@ -440,7 +440,7 @@ export default {
     "docs.spec.en": "Format spec (English, normative)",
     "docs.spec.cliJa": "CLI spec (Japanese, normative)",
     "docs.spec.cliEn": "CLI spec (English translation)",
-    "docs.versions": "This documentation covers format <code>0.0.4</code> (CLI v0.0.4). Verifiers accept <code>0.0.1</code>, <code>0.0.2</code>, and <code>0.0.4</code> blocks, and one chain may mix them.",
+    "docs.versions": "This documentation covers format <code>0.0.4</code> (CLI v0.0.5). Verifiers accept <code>0.0.1</code>, <code>0.0.2</code>, and <code>0.0.4</code> blocks, and one chain may mix them.",
 
     "docs.format.lede": "How a signature block is written, which bytes the hash covers, and what exactly the private key signs. If you are writing another implementation, start with this page and the verification page.",
     "docs.keys.methodsT": "Methods and key sources",

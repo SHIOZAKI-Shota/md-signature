@@ -87,6 +87,14 @@ export function formatSshPublicKey(publicKey, comment = "") {
 export async function sshFingerprint(publicKey) {
     return "SHA256:" + toBase64Unpadded(await sha256(sshEd25519Blob(publicKey)));
 }
+// CLI_SPEC 3.9: OpenSSH form for a 32-byte ed25519 key, otherwise SHA-256 of the decoded pubkey bytes
+export async function keyFingerprint(pubkey) {
+    const i = pubkey.indexOf(":");
+    const bytes = fromBase64(pubkey.slice(i + 1));
+    if (pubkey.slice(0, i) === "ed25519" && bytes.length === 32)
+        return sshFingerprint(bytes);
+    return "SHA256:" + toBase64Unpadded(await sha256(bytes));
+}
 export function parseSshPublicKeys(text) {
     const out = [];
     for (const line of text.split(/\r?\n/)) {

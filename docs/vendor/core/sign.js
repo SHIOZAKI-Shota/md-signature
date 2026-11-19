@@ -1,5 +1,5 @@
 import { SPEC_VERSION, TS_RE, isValidTimestamp, normalizeNewlines, normalizedBytes, nowTs, serializeBlock, signedPayload, validateValue } from "./canonical.js";
-import { digest, sha256, sshFingerprint } from "./crypto.js";
+import { digest, ed25519Verify, sha256, sshFingerprint } from "./crypto.js";
 import { GIT_HOSTING_SIGNER_RE } from "./resolvers.js";
 import { toBase64, toHex, utf8 } from "./encoding.js";
 import { parseDocument } from "./parser.js";
@@ -7,6 +7,7 @@ import { DEFAULT_TSA_URL, requestTimestamp, requestTimestampOver } from "./tsa.j
 import { scopedHashInput } from "./scope.js";
 import { formatResources } from "./resources.js";
 import { formatRequirement, parseRequire } from "./agreement.js";
+import { checkWebAuthnData, verifyWebAuthnSignature } from "./webauthn.js";
 import { EMAIL_RE } from "./pgp-verify.js";
 export class SignError extends Error {
 }
@@ -17,6 +18,53 @@ function assertUtf8(text) {
         throw new SignError("the document is not valid UTF-8");
 }
 export async function signDocument(text, o) {
+    const p = await prepare(text, o);
+    if (o.signer.alg === "webauthn-es256") {
+        // SPEC 6.1: the WebAuthn challenge is SHA-256(payload)
+        const a = await o.signer.getAssertion(p.challenge);
+        return complete(text, o, p, a.signature, a);
+    }
+    return complete(text, o, p, await o.signer.sign(p.payload));
+}
+export async function prepareSignature(text, o) {
+    const p = await prepare(text, o);
+    return {
+        fields: { ...p.fields },
+        payload: p.payload,
+        challenge: p.challenge,
+        async finish(input) {
+            const key = o.signer;
+            if (key.alg === "webauthn-es256") {
+                if (input instanceof Uint8Array)
+                    throw new SignError("a passkey signature needs the whole WebAuthn assertion");
+                const f = { ...p.fields, webauthn_authenticator_data: toBase64(input.authenticatorData), webauthn_client_data: toBase64(input.clientDataJSON) };
+                const check = await checkWebAuthnData(f, p.payload);
+                if (!check.ok || !(await verifyWebAuthnSignature(key.publicKey, input.signature, input.authenticatorData, input.clientDataJSON)))
+                    throw new SignError("the WebAuthn assertion does not verify for this payload and key");
+                return complete(text, o, p, input.signature, input);
+            }
+            if (!(input instanceof Uint8Array))
+                throw new SignError(`a ${key.alg} signature is a byte string`);
+            if (key.alg === "ed25519" && !(await ed25519Verify(key.publicKey, input, p.payload)))
+                throw new SignError("the signature does not verify for this payload and key");
+            return complete(text, o, p, input);
+        },
+    };
+}
+async function complete(text, o, p, sig, a) {
+    const fields = { ...p.fields };
+    if (a) {
+        fields.webauthn_authenticator_data = toBase64(a.authenticatorData);
+        fields.webauthn_client_data = toBase64(a.clientDataJSON);
+    }
+    fields.sig = "base64:" + toBase64(sig);
+    if (o.tsaUrl) {
+        fields.tsa_url = o.tsaUrl;
+        fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
+    }
+    return appendBlock(text, p.previous, fields);
+}
+async function prepare(text, o) {
     assertUtf8(text);
     const doc = parseDocument(text);
     if (doc.chain.length === 0 && doc.strayMarker && !o.force) {
@@ -119,23 +167,7 @@ export async function signDocument(text, o) {
             throw new SignError(`${k}: ${e}`);
     }
     const payload = signedPayload(fields);
-    let sig;
-    if (isWebAuthn) {
-        // SPEC 6.1: the WebAuthn challenge is SHA-256(payload)
-        const a = await o.signer.getAssertion(await sha256(payload));
-        sig = a.signature;
-        fields.webauthn_authenticator_data = toBase64(a.authenticatorData);
-        fields.webauthn_client_data = toBase64(a.clientDataJSON);
-    }
-    else {
-        sig = await o.signer.sign(payload);
-    }
-    fields.sig = "base64:" + toBase64(sig);
-    if (o.tsaUrl) {
-        fields.tsa_url = o.tsaUrl;
-        fields.tsa_token = await requestTimestamp(sig, o.tsaUrl, o.fetch, { roots: o.tsaRoots, extraRoots: o.extraTsaRoots });
-    }
-    return appendBlock(text, doc.chain.length, fields);
+    return { fields, payload, challenge: await sha256(payload), previous: doc.chain.length };
 }
 function appendBlock(text, previous, fields) {
     const block = serializeBlock(fields);

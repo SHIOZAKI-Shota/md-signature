@@ -162,7 +162,7 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-This is a draft. Releases of the CLI, the Go library, and `@mdsig/core` share one version number (currently `v0.0.4`), separate from the signature format; the current format is `0.0.4`, and `0.0.1` and `0.0.2` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.4 (format 0.0.4)`. The format and the APIs may change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases of the CLI, the Go library, and `@mdsig/core` share one version number (currently `v0.0.5`), separate from the signature format; the current format is `0.0.4`, and `0.0.1` and `0.0.2` signatures still verify. `mdsig --version` shows both: `mdsig version 0.0.5 (format 0.0.4)`. The format and the APIs may change before 1.0. Feedback is welcome in issues.
 
 This is an experimental implementation. It has had no independent security audit. Do not rely on it alone where a wrong signature verdict has serious consequences, such as contracts. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

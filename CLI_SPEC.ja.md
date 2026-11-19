@@ -4,7 +4,7 @@
 
 [English](CLI_SPEC.md) · [形式仕様](SPEC.ja.md)
 
-- **バージョン：** 0.0.4（ドラフト。形式のバージョンは 0.0.4）
+- **バージョン：** 0.0.5（ドラフト。形式のバージョンは 0.0.4）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
 - **形式仕様：** [SPEC.ja.md](SPEC.ja.md)
 
@@ -28,7 +28,7 @@
 | --- | --- |
 | `--lang <code>` | UI 言語：`en` または `ja`。7 節を参照。 |
 | `-h, --help` | ヘルプ。 |
-| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.4 (format 0.0.4)`）。CLI は SPEC が定める形式の `0.0.1`、`0.0.2`、`0.0.4` を検証し、`0.0.4` で署名する。 |
+| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.5 (format 0.0.4)`）。CLI は SPEC が定める形式の `0.0.1`、`0.0.2`、`0.0.4` を検証し、`0.0.4` で署名する。 |
 
 ## 3. コマンド
 
@@ -335,6 +335,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
+          "tofu": null,
           "webauthn": null,
           "pgp": null,
           "resources": [
@@ -355,7 +356,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 両者は `agreement.status` によって区別する。`--offline` 指定時、検査されなかったブロックは
 `status: "unresolved"` および `code: "offline"` を持ち、`ok` は false となる。
 
-- `partial`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`webauthn` は `{ "rp_id", "origin", "user_verified" }` である。`pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
+- `partial`、`tofu`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`tofu` は `{ "status", "fingerprint" }` であり、`tofu` のブロックを鍵の記録（3.9 節）と照合した場合に値を持つ。`status` は `known`（記録と一致）、`new`（初めて検出した鍵）、`replaced`（`--accept-new-key` により記録を置き換えた）のいずれか、`fingerprint` は 3.9 節の鍵のフィンガープリントである。`webauthn` は `{ "rp_id", "origin", "user_verified" }` である。`pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
 - `agreement.status` は `none`、`complete`、`pending`、`violated` のいずれか。要件に役割がない場合、`role` は省略する。
 - `required` と `missing` の各要素は、段階の番号 `step` と、その段階で必要な人数 `any` を持つ。段階行のない `require` では `step` は 1、`any` は要件行の件数となる。`missing` の各要素はさらに、その段階であと何件必要かを示す `need` を持ち、前の段階が成立していないため待機中の場合は `blocked_by`（その段階の番号）を、順番より前に署名したため数えられなかった場合は `early: true` を持つ。
 - `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "index", "method", "signer", "role", "order" }` である。`index` は違反したブロックの番号、`order` は宣言の順序行の値（`guide` または `strict`）である。`order guide` の違反も一覧に含むが、合意ステータスには影響しない。
@@ -388,7 +389,7 @@ JavaScript では `@clack/prompts` を使用する。
    ```
    $ mdsig
 
-     md-signature v0.0.4：対話モード
+     md-signature v0.0.5：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

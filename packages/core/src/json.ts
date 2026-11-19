@@ -47,6 +47,7 @@ export interface JsonSignature {
   hash_ok: boolean | null;
   partial: { sections: string[] } | null;
   key_source: string | null;
+  tofu: { status: "known" | "new" | "replaced"; fingerprint: string } | null;
   webauthn: { rp_id: string; origin: string; user_verified: boolean } | null;
   pgp: { fpr: string; uid: string | null; key_alg: string | null; key_source: string | null; created: string | null } | null;
   resources: { ref: string; status: string; detail: string | null }[] | null;
@@ -111,6 +112,7 @@ function signature(s: BlockResult): JsonSignature {
     hash_ok: s.hashOk ?? null,
     partial: s.partial ? { sections: s.partial.sections } : null,
     key_source: str(s.key?.source),
+    tofu: s.tofu ? { status: s.tofu.status, fingerprint: s.tofu.fingerprint } : null,
     webauthn: s.webauthn ? { rp_id: s.webauthn.rpId, origin: s.webauthn.origin, user_verified: s.webauthn.userVerified } : null,
     pgp: s.pgp ? { fpr: s.pgp.fpr ?? "", uid: str(s.pgp.uid), key_alg: str(s.pgp.keyAlg), key_source: str(s.pgp.keySource), created: str(s.pgp.created) } : null,
     resources: s.resources ? s.resources.map((r) => ({ ref: r.ref, status: r.status, detail: str(r.detail) })) : null,

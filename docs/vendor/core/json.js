@@ -45,6 +45,7 @@ function signature(s) {
         hash_ok: s.hashOk ?? null,
         partial: s.partial ? { sections: s.partial.sections } : null,
         key_source: str(s.key?.source),
+        tofu: s.tofu ? { status: s.tofu.status, fingerprint: s.tofu.fingerprint } : null,
         webauthn: s.webauthn ? { rp_id: s.webauthn.rpId, origin: s.webauthn.origin, user_verified: s.webauthn.userVerified } : null,
         pgp: s.pgp ? { fpr: s.pgp.fpr ?? "", uid: str(s.pgp.uid), key_alg: str(s.pgp.keyAlg), key_source: str(s.pgp.keySource), created: str(s.pgp.created) } : null,
         resources: s.resources ? s.resources.map((r) => ({ ref: r.ref, status: r.status, detail: str(r.detail) })) : null,

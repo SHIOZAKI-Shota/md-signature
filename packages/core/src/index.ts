@@ -10,6 +10,7 @@ export * from "./resources.ts";
 export * from "./agreement.ts";
 export * from "./webauthn.ts";
 export * from "./sign.ts";
+export * from "./handoff.ts";
 export * from "./verify.ts";
 export { PgpError, armor, dearmor } from "./pgp-packets.ts";
 export { parseCerts, checkCert, fprHex, keyAlgName, emailOf, readPgpPublicKey, type PgpCert, type PgpKey, type PgpPublicKeyInfo } from "./pgp-keys.ts";

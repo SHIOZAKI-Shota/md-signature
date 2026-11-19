@@ -38,7 +38,7 @@ test("server: /v1/verify answers in the CLI JSON shape", async () => {
   assert.equal(r.ok, true);
   assert.equal(r.error, null);
   assert.deepEqual(Object.keys(r), ["ok", "error", "warnings", "agreement", "signatures"]);
-  assert.deepEqual(Object.keys(r.signatures[0]!), ["index", "line", "status", "code", "message", "fields", "hash_ok", "partial", "key_source", "webauthn", "pgp", "resources", "revocation", "tsa", "warnings"]);
+  assert.deepEqual(Object.keys(r.signatures[0]!), ["index", "line", "status", "code", "message", "fields", "hash_ok", "partial", "key_source", "tofu", "webauthn", "pgp", "resources", "revocation", "tsa", "warnings"]);
   assert.equal(r.signatures[0]!.status, "valid");
   assert.equal(r.signatures[0]!.fields.signer, "alice");
 

@@ -51,6 +51,8 @@ export interface ResolveOptions {
   tofuStore?: TofuStore;
   // SPEC 4.4: replace a stored binding instead of failing with key-changed
   acceptNewTofuKey?: boolean;
+  // SPEC 4.4: leave first-seen keys unrecorded so the user can confirm them (BlockResult.tofu.status "new")
+  confirmNewTofuKeys?: boolean;
   pgpKeyring?: (fpr: string) => Promise<Uint8Array | null>;
   // SPEC 4.3: chosen by the verifier, never taken from the block
   keyserver?: string;
