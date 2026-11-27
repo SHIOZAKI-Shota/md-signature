@@ -35,7 +35,7 @@ Out of scope:
 
 ## Status
 
-md-signature (release `v0.1.1`, format `0.1`) is a draft and has had no independent security audit. See the Status section of the README.
+md-signature (release `v0.1.2`, format `0.1`) is a draft and has had no independent security audit. See the Status section of the README.
 
 ## Supported versions
 

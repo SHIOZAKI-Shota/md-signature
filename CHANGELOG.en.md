@@ -4,6 +4,18 @@
 
 Releases of the `mdsig` CLI, the Go library `mdsig.dev/mdsig`, and `@mdsig/core` share one version number. The signature format has its own version, shown in parentheses.
 
+## 0.1.2 (format 0.1), 2026-11-28
+
+### Added
+
+- A key in a key directory can now be removed at once with a signature by that key. Only the signing key is removed, without a confirmation email. Removal by email stays for cases such as a lost key.
+  - TypeScript: `createRemoval`, `verifyRemoval`, `removeWithKey`, and `removalMessage` (the signed content is `md-signature/keydir/remove/v1`, the challenge, and the address, kept apart from registration proofs), plus `discoverablePasskeySigner`, which signs with a passkey whose public key is not known.
+  - Go: `RemoveKeyWithProof`. CLI: `mdsig directory remove --email <addr> --with-key` (`--with-key=<file>` names the private key).
+
+### Changed
+
+- `mdsig directory register --label` is now described as "sent to the directory (whether it is shown depends on the directory)". keys.mdsig.dev does not show labels in confirmation emails.
+
 ## 0.1.1 (format 0.1), 2026-11-28
 
 ### Breaking changes

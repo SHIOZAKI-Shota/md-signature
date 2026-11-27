@@ -4,6 +4,18 @@
 
 `mdsig` CLI、Go ライブラリ `mdsig.dev/mdsig`、`@mdsig/core` のリリースは共通のバージョンです。署名形式は別のバージョンを持ち、括弧内に示します。
 
+## 0.1.2（形式 0.1）、2026-11-28
+
+### 追加
+
+- 鍵ディレクトリの鍵を、その鍵自身の署名で直ちに削除できるようにしました。確認メールを経ずに、署名した鍵だけが削除されます。メールでの削除は、鍵をなくした場合などのために残しています。
+  - TypeScript：`createRemoval`、`verifyRemoval`、`removeWithKey`、`removalMessage`（署名する内容は `md-signature/keydir/remove/v1`、チャレンジ、アドレス。登録の証明とは区別される）。公開鍵を持たないパスキーで署名する `discoverablePasskeySigner`。
+  - Go：`RemoveKeyWithProof`。CLI：`mdsig directory remove --email <addr> --with-key`（`--with-key=<file>` で秘密鍵を指定）。
+
+### 変更
+
+- `mdsig directory register --label` の説明を「ディレクトリに送信する（表示するかはディレクトリによる）」に改めました。keys.mdsig.dev はラベルを確認メールに表示しません。
+
 ## 0.1.1（形式 0.1）、2026-11-28
 
 ### 互換性のない変更

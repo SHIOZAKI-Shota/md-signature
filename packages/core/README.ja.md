@@ -138,6 +138,9 @@ localizeMessage(result.warnings[0], "ja"); // 英語のメッセージを日本�
 findHiddenCharacters(body).filter((h) => h.context === null); // 警告すべき見えない文字（絵文字の合成や結合文字は context 付き）
 documentLayout(text);               // 各署名の行範囲、対象範囲、署名されていない末尾
 describeRequirement(requirement, "ja"); // 要件行1行の説明
+registerWithDirectory(dir, email, signer); // 鍵ディレクトリへの登録（確認メールで確定）
+requestDirectoryRemoval(dir, email);     // 削除の依頼（確認メールで確定）
+removeWithKey(dir, email, signer);       // 手元の鍵の署名で、その鍵を直ちに削除（パスキーは discoverablePasskeySigner(rpId) でも可）
 ```
 
 テストでは、同梱のテストベクタ（`@mdsig/core/examples/*`）を `@mdsig/core/testing` の `vectorOptions(keys, readFile)` で検証できます。

@@ -40,3 +40,22 @@ func TestSignDirectoryFlags(t *testing.T) {
 		t.Fatalf("--no-embed-key with tofu: %v", err)
 	}
 }
+
+func TestRemoveWithKeyFlags(t *testing.T) {
+	isolate(t)
+	run := func(args ...string) int {
+		c := newDirectoryCmd()
+		c.SetArgs(append([]string{"remove"}, args...))
+		c.SilenceUsage, c.SilenceErrors = true, true
+		return exitCode(c.Execute())
+	}
+	if code := run("--email", "alice@mail.example", "--with-key", "--key", "AAAA"); code != exitUsage {
+		t.Errorf("--with-key with --key: exit %d", code)
+	}
+	if code := run("--with-key=/nonexistent/key"); code != exitUsage {
+		t.Errorf("--with-key without --email: exit %d", code)
+	}
+	if code := run("--email", "alice@mail.example", "--directory", "http://insecure.example", "--with-key=/nonexistent/key"); code != exitUsage {
+		t.Errorf("http directory: exit %d", code)
+	}
+}

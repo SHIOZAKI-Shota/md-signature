@@ -1,6 +1,6 @@
 # `mdsig` Command-Line Interface Specification
 
-- **Version:** 0.1.1 (draft; format version 0.1)
+- **Version:** 0.1.2 (draft; format version 0.1)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Format specification:** [SPEC.md](SPEC.md)
 - **Normative text:** [日本語 (CLI_SPEC.ja.md)](CLI_SPEC.ja.md). This English version is an informative translation. If they differ, the Japanese text prevails.
@@ -25,7 +25,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", "SHOULD NOT", and "MAY" 
 | --- | --- |
 | `--lang <code>` | UI language: `en` or `ja`. See Section 7. |
 | `-h, --help` | Help. |
-| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.1.1 (format 0.1)`). The CLI verifies only the format `0.1` defined by SPEC and signs with `0.1`. Documents in `0.0.x` are `unsupported-version`, and the CLI suggests verifying them with v0.0.5. |
+| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.1.2 (format 0.1)`). The CLI verifies only the format `0.1` defined by SPEC and signs with `0.1`. Documents in `0.0.x` are `unsupported-version`, and the CLI suggests verifying them with v0.0.5. |
 
 ## 3. Commands
 
@@ -298,8 +298,8 @@ Works with key directories (SPEC 4.7).
 | `trust add <url>` | Add a key directory to the trusted list. The list is stored in `<user config dir>/mdsig/key_directories.json`; `verify` and `serve` use it after the default list. A URL that is not `https://` gives exit code 2. |
 | `trust remove <url>` | Remove it from the list. A URL that is not in the list gives exit code 2. The default list cannot be removed. |
 | `trust list` | Print the default list and the added directories. |
-| `register --email <addr>` | Ask a key directory to publish an Ed25519 key for the email address. The key is found as in 3.1.1 (`-k` to name it), and possession is shown by signing a challenge the directory issued. The key is published only after the link in the directory's confirmation email is opened. `--label <name>` sends a name for the key, shown in the confirmation email. |
-| `remove --email <addr>` | Ask for the address's keys to be removed (only the key given with `--key <base64>`, if any). The removal is completed by a confirmation email. |
+| `register --email <addr>` | Ask a key directory to publish an Ed25519 key for the email address. The key is found as in 3.1.1 (`-k` to name it), and possession is shown by signing a challenge the directory issued. The key is published only after the link in the directory's confirmation email is opened. `--label <name>` sends a name for the key to the directory (whether it is shown, for example in the confirmation email, depends on the directory). |
+| `remove --email <addr>` | Ask for the address's keys to be removed (only the key given with `--key <base64>`, if any). The removal is completed by a confirmation email. With `--with-key`, the key found as in 3.1.1 (or the OpenSSH private key in `--with-key=<file>`) signs a challenge the directory issued, and only that key is removed at once, without a confirmation email. `--with-key` together with `--key` gives exit code 2. |
 
 `register` and `remove` go to `--directory <url>` when it is given, otherwise to the directory the address's domain names with `dir` in `_mdsig`, otherwise to `https://keys.mdsig.dev`. If the request is not accepted, the exit code is 3.
 
@@ -525,7 +525,7 @@ Reference session (Japanese UI, `LANG=ja_JP.UTF-8`). Each question is shown whil
    ```
    $ mdsig
 
-     md-signature v0.1.1：対話モード
+     md-signature v0.1.2：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

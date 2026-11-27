@@ -256,6 +256,43 @@ func RequestKeyRemoval(ctx context.Context, client *http.Client, directory, emai
 	return err
 }
 
+const keydirRemovalPrefix = "md-signature/keydir/remove/v1"
+
+// a different prefix from registrationMessage, so a registration proof cannot remove a key; the same bytes as removalMessage in the TS core
+func removalMessage(challenge, email string) []byte {
+	return []byte(keydirRemovalPrefix + "\n" + challenge + "\n" + email)
+}
+
+// RemoveKeyWithProof removes signer's key for email at once, proving possession with a signature instead of a confirmation email.
+func RemoveKeyWithProof(ctx context.Context, client *http.Client, directory, email string, signer Signer) error {
+	if !IsValidKeyDirectory(directory) {
+		return fmt.Errorf("key directory must be an https:// URL, got %q", directory)
+	}
+	if client == nil {
+		client = SafeHTTPClient(30 * time.Second)
+	}
+	email = strings.ToLower(email)
+	if !emailRe.MatchString(email) {
+		return fmt.Errorf("not an email address: %q", email)
+	}
+	base := strings.TrimRight(directory, "/")
+	c, err := postDirectory(ctx, client, base+"/v1/challenges", map[string]any{})
+	if err != nil {
+		return err
+	}
+	challenge, _ := c["challenge"].(string)
+	if challenge == "" {
+		return errors.New("the directory returned no challenge")
+	}
+	sig, err := signer.Sign(removalMessage(challenge, email))
+	if err != nil {
+		return err
+	}
+	req := map[string]any{"email": email, "challenge": challenge, "key": toBase64(signer.PublicKey()), "proof": map[string]any{"type": "ed25519", "sig": toBase64(sig)}}
+	_, err = postDirectory(ctx, client, base+"/v1/removals", req)
+	return err
+}
+
 // RegistrationDirectory is where a key for email is registered: the domain's dir= if it names exactly one, otherwise fallback.
 func RegistrationDirectory(ctx context.Context, email, fallback string, o *ResolveOptions) string {
 	if o == nil {

@@ -171,28 +171,37 @@ export async function registerPasskey(rpId, userName, rpName = "md-signature") {
         throw new Error("the authenticator did not create an ES256 key");
     return { publicKey: new Uint8Array(spki), credentialId: new Uint8Array(cred.rawId) };
 }
+async function browserAssertion(rpId, challenge, userVerification, credentialId) {
+    const cred = (await navigator.credentials.get({
+        publicKey: {
+            rpId,
+            challenge: challenge,
+            userVerification,
+            ...(credentialId ? { allowCredentials: [{ type: "public-key", id: credentialId }] } : {}),
+        },
+    }));
+    if (!cred)
+        throw new Error("passkey signing was canceled");
+    const r = cred.response;
+    return {
+        signature: new Uint8Array(r.signature),
+        authenticatorData: new Uint8Array(r.authenticatorData),
+        clientDataJSON: new Uint8Array(r.clientDataJSON),
+    };
+}
 export function passkeySigner(rpId, publicKey, credentialId, defaults = {}) {
     return {
         alg: "webauthn-es256",
         publicKey: es256Spki(publicKey),
         rpId,
-        async getAssertion(challenge, o = {}) {
-            const cred = (await navigator.credentials.get({
-                publicKey: {
-                    rpId,
-                    challenge: challenge,
-                    userVerification: o.userVerification ?? defaults.userVerification ?? "preferred",
-                    ...(credentialId ? { allowCredentials: [{ type: "public-key", id: credentialId }] } : {}),
-                },
-            }));
-            if (!cred)
-                throw new Error("passkey signing was canceled");
-            const r = cred.response;
-            return {
-                signature: new Uint8Array(r.signature),
-                authenticatorData: new Uint8Array(r.authenticatorData),
-                clientDataJSON: new Uint8Array(r.clientDataJSON),
-            };
-        },
+        getAssertion: (challenge, o = {}) => browserAssertion(rpId, challenge, o.userVerification ?? defaults.userVerification ?? "preferred", credentialId),
+    };
+}
+// the user picks any passkey for rpId on the device; its public key is not known here
+export function discoverablePasskeySigner(rpId, defaults = {}) {
+    return {
+        alg: "webauthn-es256",
+        rpId,
+        getAssertion: (challenge, o = {}) => browserAssertion(rpId, challenge, o.userVerification ?? defaults.userVerification ?? "preferred"),
     };
 }

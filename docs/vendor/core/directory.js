@@ -125,6 +125,55 @@ export async function registerWithDirectory(directory, email, signer, o = {}) {
     const challenge = await requestDirectoryChallenge(directory, f);
     await postJson(`${directory.replace(/\/+$/, "")}/v1/registrations`, await createRegistration(challenge, email, signer, o.label), f);
 }
+// --- Removal with the key itself: no confirmation email, only the key that signs is removed
+export const KEYDIR_REMOVAL_PREFIX = "md-signature/keydir/remove/v1";
+// a different prefix from registrationMessage, so a registration proof cannot remove a key
+export function removalMessage(challenge, email) {
+    return utf8(`${KEYDIR_REMOVAL_PREFIX}\n${challenge}\n${email}`);
+}
+export async function createRemoval(challenge, email, signer) {
+    const msg = removalMessage(challenge, email);
+    const key = "publicKey" in signer ? toBase64(signer.publicKey) : undefined;
+    let proof;
+    if (signer.alg === "ed25519") {
+        proof = { type: "ed25519", sig: toBase64(await signer.sign(msg)) };
+    }
+    else {
+        const a = await signer.getAssertion(await sha256(msg));
+        proof = { type: "webauthn", rp_id: signer.rpId, authenticator_data: toBase64(a.authenticatorData), client_data: toBase64(a.clientDataJSON), sig: toBase64(a.signature) };
+    }
+    return { email, challenge, proof, ...(key ? { key } : {}) };
+}
+// the directory tries each key registered for the address and removes the one this returns true for
+export async function verifyRemoval(r, candidate) {
+    let key;
+    try {
+        key = fromBase64(candidate.key);
+    }
+    catch {
+        return false;
+    }
+    const msg = removalMessage(r.challenge, r.email);
+    const p = r.proof;
+    try {
+        if (candidate.type === "ed25519" && p.type === "ed25519")
+            return await ed25519Verify(key, fromBase64(p.sig), msg);
+        if (candidate.type === "es256" && p.type === "webauthn") {
+            const check = await checkWebAuthnData({ rp_id: p.rp_id, webauthn_authenticator_data: p.authenticator_data, webauthn_client_data: p.client_data }, msg);
+            return check.ok && (await verifyWebAuthnSignature(key, fromBase64(p.sig), check.authData, check.clientData));
+        }
+    }
+    catch {
+        return false;
+    }
+    return false;
+}
+// removes the signing key at once; returns the directory's answer
+export async function removeWithKey(directory, email, signer, o = {}) {
+    const f = o.fetch ?? globalThis.fetch;
+    const challenge = await requestDirectoryChallenge(directory, f);
+    return postJson(`${directory.replace(/\/+$/, "")}/v1/removals`, await createRemoval(challenge, email, signer), f);
+}
 export async function requestDirectoryRemoval(directory, email, o = {}) {
     await postJson(`${directory.replace(/\/+$/, "")}/v1/removals`, { email, ...(o.key ? { key: o.key } : {}) }, o.fetch ?? globalThis.fetch);
 }

@@ -138,6 +138,9 @@ localizeMessage(result.warnings[0], "ja"); // English message to Japanese; text 
 findHiddenCharacters(body).filter((h) => h.context === null); // invisible characters to report (emoji sequences and joiners carry a context)
 documentLayout(text);               // line spans of the blocks, what each covers, and text no signature covers
 describeRequirement(requirement, "en"); // one requirement line in words
+registerWithDirectory(dir, email, signer); // register with a key directory (confirmed by email)
+requestDirectoryRemoval(dir, email);     // ask for removal (confirmed by email)
+removeWithKey(dir, email, signer);       // remove the signing key at once (a passkey can use discoverablePasskeySigner(rpId))
 ```
 
 In tests, the bundled vectors (`@mdsig/core/examples/*`) can be verified with `vectorOptions(keys, readFile)` from `@mdsig/core/testing`.

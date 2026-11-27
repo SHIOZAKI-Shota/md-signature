@@ -107,6 +107,43 @@ func TestRegisterKeySendsAProofTheDirectoryCanCheck(t *testing.T) {
 	}
 }
 
+func TestRemovalMessageMatchesTheTSCore(t *testing.T) {
+	if got := string(removalMessage("Y2hhbGxlbmdl", "alice@mail.example")); got != "md-signature/keydir/remove/v1\nY2hhbGxlbmdl\nalice@mail.example" {
+		t.Fatalf("removalMessage = %q", got)
+	}
+}
+
+func TestRemoveKeyWithProof(t *testing.T) {
+	seed, _ := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+	signer, _ := SignerFromSeed(seed)
+	var got map[string]any
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/challenges":
+			_, _ = w.Write([]byte(`{"challenge":"xyz"}`))
+		case "/v1/removals":
+			_ = json.NewDecoder(r.Body).Decode(&got)
+			_, _ = w.Write([]byte(`{"status":"removed"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	if err := RemoveKeyWithProof(context.Background(), srv.Client(), srv.URL, "Alice@Mail.Example", signer); err != nil {
+		t.Fatal(err)
+	}
+	if got["email"] != "alice@mail.example" || got["challenge"] != "xyz" || got["key"] != toBase64(signer.PublicKey()) {
+		t.Fatalf("request %v", got)
+	}
+	sig, _ := fromBase64(got["proof"].(map[string]any)["sig"].(string))
+	if !ed25519.Verify(signer.PublicKey(), removalMessage("xyz", "alice@mail.example"), sig) {
+		t.Fatal("the proof does not verify")
+	}
+	if ed25519.Verify(signer.PublicKey(), registrationMessage("xyz", "alice@mail.example", "ed25519", toBase64(signer.PublicKey())), sig) {
+		t.Fatal("a removal proof must not double as a registration proof")
+	}
+}
+
 func TestSignDirectory(t *testing.T) {
 	seed, _ := hex.DecodeString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
 	signer, _ := SignerFromSeed(seed)

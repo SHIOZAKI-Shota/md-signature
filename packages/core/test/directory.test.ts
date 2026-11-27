@@ -10,6 +10,10 @@ import {
   toBase64,
   createSoftwareAuthenticator,
   registrationMessage,
+  removalMessage,
+  createRemoval,
+  verifyRemoval,
+  removeWithKey,
   createRegistration,
   verifyRegistration,
   directoryKeyUrl,
@@ -98,4 +102,49 @@ test("directory signatures: snapshot by default, signer lower-cased, offline giv
   assert.equal(off.signatures[0]!.status, "unresolved");
   const bad = await verifyDocument(s.text.replace(/sig: \|\n(?:  .*\n)+/, `sig: |\n  base64:${toBase64(new Uint8Array(64))}\n`), { offline: true });
   assert.equal(bad.signatures[0]!.code, "bad-signature");
+});
+
+// --- removal with the key itself
+
+test("removalMessage is the fixed byte string shared with Go", () => {
+  assert.equal(new TextDecoder().decode(removalMessage("Y2hhbGxlbmdl", "alice@mail.example")), "md-signature/keydir/remove/v1\nY2hhbGxlbmdl\nalice@mail.example");
+});
+
+test("a removal proof verifies only for the signing key, address, and challenge", async () => {
+  const alice = await signerFromSeed(await sha256(new TextEncoder().encode("removal alice")));
+  const bob = await signerFromSeed(await sha256(new TextEncoder().encode("removal bob")));
+  const r = await createRemoval("c1", "alice@mail.example", alice);
+  const aliceKey = { type: "ed25519", key: toBase64(alice.publicKey) };
+  assert.equal(r.key, aliceKey.key);
+  assert.equal(await verifyRemoval(r, aliceKey), true);
+  assert.equal(await verifyRemoval(r, { type: "ed25519", key: toBase64(bob.publicKey) }), false);
+  assert.equal(await verifyRemoval({ ...r, email: "bob@mail.example" }, aliceKey), false);
+  assert.equal(await verifyRemoval({ ...r, challenge: "c2" }, aliceKey), false);
+  assert.equal(await verifyRemoval(r, { type: "es256", key: aliceKey.key }), false);
+  const reg = await createRegistration("c1", "alice@mail.example", alice);
+  assert.equal(await verifyRemoval({ email: reg.email, challenge: reg.challenge, proof: reg.proof }, aliceKey), false);
+});
+
+test("a passkey without a known public key can prove a removal", async () => {
+  const pk = await createSoftwareAuthenticator("mdsig.dev");
+  const anonymous = { alg: pk.alg, rpId: pk.rpId, getAssertion: pk.getAssertion };
+  const r = await createRemoval("c3", "carol@mail.example", anonymous);
+  assert.equal(r.key, undefined);
+  assert.equal(await verifyRemoval(r, { type: "es256", key: toBase64(pk.publicKey) }), true);
+  assert.equal(await verifyRemoval({ ...r, email: "dave@mail.example" }, { type: "es256", key: toBase64(pk.publicKey) }), false);
+});
+
+test("removeWithKey posts the proof to /v1/removals", async () => {
+  const signer = await signerFromSeed(await sha256(new TextEncoder().encode("removal erin")));
+  const seen: { url: string; body: unknown }[] = [];
+  const f = (async (url: string, init?: RequestInit) => {
+    seen.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null });
+    return url.endsWith("/v1/challenges") ? Response.json({ challenge: "c4" }) : Response.json({ status: "removed" });
+  }) as typeof fetch;
+  assert.deepEqual(await removeWithKey("https://keys.example/", "erin@mail.example", signer, { fetch: f }), { status: "removed" });
+  assert.deepEqual(seen.map((s) => s.url), ["https://keys.example/v1/challenges", "https://keys.example/v1/removals"]);
+  const body = seen[1]!.body as { email: string; challenge: string; key: string };
+  assert.equal(body.email, "erin@mail.example");
+  assert.equal(body.challenge, "c4");
+  assert.equal(body.key, toBase64(signer.publicKey));
 });

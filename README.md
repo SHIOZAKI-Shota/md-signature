@@ -201,7 +201,7 @@ go build -o bin/mdsig ./cmd/mdsig   # -o is needed: ./mdsig is the library direc
 
 ## Status
 
-This is a draft. Releases of the CLI, the Go library, and `@mdsig/core` share one version number (currently `v0.1.1`), separate from the signature format; the current format is `0.1`. `mdsig --version` shows both: `mdsig version 0.1.1 (format 0.1)`. The format version changes only with incompatible changes and becomes `1` when the specification is published as an RFC. The APIs may also change before 1.0. Feedback is welcome in issues.
+This is a draft. Releases of the CLI, the Go library, and `@mdsig/core` share one version number (currently `v0.1.2`), separate from the signature format; the current format is `0.1`. `mdsig --version` shows both: `mdsig version 0.1.2 (format 0.1)`. The format version changes only with incompatible changes and becomes `1` when the specification is published as an RFC. The APIs may also change before 1.0. Feedback is welcome in issues.
 
 **Migrating from 0.0.x:** v0.1.0 does not verify signatures in format `0.0.x` (they are `unsupported-version`, with a hint to use the older release), and a co-signature that v0.1.0 appends to a `0.0.x` document leaves the earlier signatures unsupported, so the document as a whole never verifies. Verify such documents with mdsig v0.0.5 or `@mdsig/core` 0.0.5. See [CHANGELOG.en.md](CHANGELOG.en.md) for the full list of changes.
 
