@@ -1,5 +1,5 @@
 import { MAX_DECODED_BYTES, bytesEqual, concat, decodePrefixedBinary, gzip, toBase64 } from "./encoding.js";
-import { sha256 } from "./crypto.js";
+import { digest, sha256 } from "./crypto.js";
 import { parseDer } from "./der.js";
 import { verifyTsaSignedData } from "./tsa-cms.js";
 export { parseDer };
@@ -57,6 +57,22 @@ function parseGeneralizedTime(s) {
         throw new Error("timestamp token: genTime is not a GeneralizedTime");
     return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] ?? ""}Z`;
 }
+const derUint = (b) => b.reduce((a, x) => a * 256 + x, 0);
+// Accuracy ::= SEQUENCE { seconds INTEGER OPTIONAL, millis [0] INTEGER OPTIONAL, micros [1] INTEGER OPTIONAL }
+function accuracyMs(acc) {
+    if (!acc?.children)
+        return 0;
+    let us = 0;
+    for (const c of acc.children) {
+        if (c.tag === 0x02)
+            us += derUint(c.content) * 1_000_000;
+        else if (c.tag === 0x80)
+            us += derUint(c.content) * 1000;
+        else if (c.tag === 0x81)
+            us += derUint(c.content);
+    }
+    return Math.ceil(us / 1000);
+}
 export function parseTimeStampResp(der) {
     const root = parseDer(der).node;
     let status = 0;
@@ -100,6 +116,7 @@ export function parseTimeStampResp(der) {
         policy: oidToString(policy.content),
         serial: Array.from(serial.content, (x) => x.toString(16).padStart(2, "0")).join(""),
         nonce: opt.find((n) => n.tag === 0x02)?.content,
+        accuracyMs: accuracyMs(opt.find((n) => n.tag === 0x30)),
         token: token.bytes,
         eContent: octets.content,
     };
@@ -130,9 +147,10 @@ async function verifyTimeStampResp(der, imprint, o, hashAlg = "sha256") {
         return { info, error: e.message };
     }
 }
-// SPEC 5.5: tsa_token covers SHA-256 of the raw signature bytes
-export async function checkTsaToken(tsaToken, sigBytes, o = {}) {
-    return checkTimestampOver(tsaToken, await sha256(sigBytes), "sha256", o, "message imprint does not match SHA-256(sig)");
+// a token whose imprint is H(data); the HTTP API (CLI_SPEC 3.6) and VerifyOptions.tsaVerifier use this form
+export async function checkTsaToken(tsaToken, data, o = {}) {
+    const h = o.hash ?? "sha256";
+    return checkTimestampOver(tsaToken, await digest(h, data), h, o, `message imprint does not match ${h.toUpperCase()}(data)`);
 }
 // a token over an imprint the caller computed, e.g. the payload of a tsa block (SPEC 4.6)
 export async function checkTimestampOver(token, imprint, hashAlg, o = {}, mismatchDetail = "message imprint does not match") {
@@ -141,7 +159,7 @@ export async function checkTimestampOver(token, imprint, hashAlg, o = {}, mismat
         const r = await verifyTimeStampResp(der, imprint, o, hashAlg);
         if (r.error !== undefined)
             return { status: "error", verified: false, detail: `imprint matched; TSA signature not verified: ${r.error}` };
-        return { status: "ok", verified: true, genTime: r.info.genTime, signer: r.signer, detail: `imprint matched; TSA signature verified (${r.signer})` };
+        return { status: "ok", verified: true, genTime: r.info.genTime, accuracyMs: r.info.accuracyMs, signer: r.signer, detail: `imprint matched; TSA signature verified (${r.signer})` };
     }
     catch (e) {
         if (e instanceof ImprintError)
@@ -160,9 +178,8 @@ function sameNonce(a, b) {
     return !!a && a.length > 0 && !(a[0] & 0x80) && bytesEqual(strip(a), strip(b));
 }
 // most TSAs send no CORS headers, so this usually fails in browsers
-export async function requestTimestamp(sigBytes, tsaUrl = DEFAULT_TSA_URL, fetchFn = globalThis.fetch, o = {}) {
-    // SPEC 5.5: the imprint is SHA-256 of the raw signature bytes
-    return requestTimestampOver(await sha256(sigBytes), "sha256", tsaUrl, fetchFn, o);
+export async function requestTimestamp(data, tsaUrl = DEFAULT_TSA_URL, fetchFn = globalThis.fetch, o = {}) {
+    return requestTimestampOver(await sha256(data), "sha256", tsaUrl, fetchFn, o);
 }
 export async function requestTimestampOver(imprint, hashAlg, tsaUrl = DEFAULT_TSA_URL, fetchFn = globalThis.fetch, o = {}) {
     const nonce = globalThis.crypto.getRandomValues(new Uint8Array(8));

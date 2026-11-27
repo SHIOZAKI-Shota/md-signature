@@ -16,6 +16,14 @@
 // treat it as valid. [ToJSON] converts a result to the JSON
 // shape of "mdsig verify --json" (CLI_SPEC.md section 5).
 //
+// VerifyResult.Agreement evaluates the require declarations of the chain
+// (SPEC 5.8 and Appendix C): complete, pending, undetermined (a roster or a
+// declaring block could not be checked), unsupported, or violated. Rosters in
+// member_of are fetched or looked up in DNS unless ResolveOptions.Offline is
+// set. [SignatureTable] turns a result into the rows of a signature table,
+// including the rows still to be signed, and [ExplainRequire] describes a
+// require value in prose.
+//
 // # What the caller decides
 //
 // The zero [VerifyOptions] verifies with network access and no stored state.
@@ -35,14 +43,15 @@
 //
 // # Timestamps
 //
-// An RFC 3161 token (tsa_token) yields a time only when the TSA's signature
-// and its certificate chain verify against the system trust store, plus the
-// roots in [TSAVerifyOptions].ExtraRoots ([LoadTSARoots] reads them from
-// files). An unverified token never makes a signature invalid; it is reported
-// without a time.
+// A timestamp is a separate tsa block (SPEC 4.6) whose RFC 3161 token covers
+// the block's payload. It yields a time only when the TSA's signature and its
+// certificate chain verify against the system trust store, plus the roots in
+// [TSAVerifyOptions].ExtraRoots ([LoadTSARoots] reads them from files). Each
+// block then gets T(k), the earliest such time after it ([BlockResult].Time).
 //
 // # Status
 //
-// This release writes format version 0.0.4 and verifies 0.0.1, 0.0.2, and 0.0.4. It is
+// This release writes and verifies format version 0.1 only; 0.0.x documents are
+// "unsupported-version" (verify them with mdsig v0.0.5). It is
 // a draft without an independent security audit. The API may change before 1.0.
 package mdsig

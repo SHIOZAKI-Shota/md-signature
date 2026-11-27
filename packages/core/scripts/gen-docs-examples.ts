@@ -159,7 +159,7 @@ async function pending(): Promise<Example> {
     ja: lines(
       "# 承認待ち（require）",
       "",
-      "作成者 `github.com/alice` は署名時に `require: dns:example.com approver` を指定しました。`example.com` が `approver` として連署するまで、署名自体は有効でも、合意は「未完了」と表示されます。",
+      "作成者 `github.com/alice` は署名時に `require: dns:example.com role=approver` を指定しました。`example.com` が `approver` として連署するまで、署名自体は有効でも、合意は「未完了」と表示されます。",
       "",
       "| 項目 | 金額 |",
       "| --- | --- |",
@@ -176,7 +176,7 @@ async function pending(): Promise<Example> {
     en: lines(
       "# Pending approval (require)",
       "",
-      "When `github.com/alice` signed, she added `require: dns:example.com approver`. Her signature is valid, but the agreement stays pending until `example.com` co-signs as `approver`.",
+      "When `github.com/alice` signed, she added `require: dns:example.com role=approver`. Her signature is valid, but the agreement stays pending until `example.com` co-signs as `approver`.",
       "",
       "| Item | Fee |",
       "| --- | --- |",
@@ -201,7 +201,7 @@ async function pending(): Promise<Example> {
         role: "author",
         reason: l === "ja" ? "example.com の承認を要求" : "Needs approval from example.com",
         ts: TS1,
-        require: ["dns:example.com approver"],
+        require: ["dns:example.com role=approver"],
       })
     ).text;
   }
@@ -227,7 +227,7 @@ async function flow(): Promise<Example> {
       "",
       "- 右側の「署名の作成・追加」で、tofu の署名者を `carol@laptop` などにして連署してください。2 人目で合意が成立します。",
       "- 同じ人が 2 回署名しても 1 人として数えます。",
-      "- `order strict` にすると、順番を守らない署名で合意が「順序違反」になります（既定の `pending` では数えないだけです）。",
+      "- `order mode=strict` にすると、順番を守らない署名で合意が「順序違反」になります（既定の `pending` では数えないだけです）。",
       "",
       "この例の鍵は RFC 8032 の公開テスト鍵（`examples/keys.json`）です。鍵はページ内で解決しており、実在の GitHub アカウントや DNS とは無関係です。",
     ),
@@ -245,7 +245,7 @@ async function flow(): Promise<Example> {
       "",
       "- Under \"Create & add signatures\" on the right, co-sign as a tofu signer such as `carol@laptop`. The second one completes the agreement.",
       "- The same person signing twice still counts once.",
-      "- With `order strict`, a signature made before its turn makes the agreement \"violated\" (the default `pending` just does not count it).",
+      "- With `order mode=strict`, a signature made before its turn makes the agreement \"violated\" (the default `pending` just does not count it).",
       "",
       "The keys here are the public RFC 8032 test keys from `examples/keys.json`. The page resolves them locally; they have nothing to do with a real GitHub account or DNS record.",
     ),
@@ -259,7 +259,7 @@ async function flow(): Promise<Example> {
       role: "author",
       reason: l === "ja" ? "承認と 2 人のレビューを要求" : "Needs an approval and two reviews",
       ts: TS1,
-      require: ["step 1", "dns:example.com approver", "step 2 any 2", "tofu:bob@laptop", "tofu:carol@laptop", "tofu:dave@laptop"],
+      require: ["step", "  dns:example.com role=approver", "step any=2", "  tofu:bob@laptop", "  tofu:carol@laptop", "  tofu:dave@laptop"],
     });
     text[l] = (await signDocument(declared.text, { signer: ex, method: "dns", signerId: "example.com", selector: "2026", role: "approver", ts: TS2 })).text;
   }
@@ -393,7 +393,7 @@ async function pgp(): Promise<Example> {
       "",
       "## 署名時刻の扱い",
       "",
-      "OpenPGP の署名パケットは独自の作成時刻を持ちます。`ts` と同様に署名者の端末が設定する値のため、検証結果では別の行に表示します。第三者による証拠となるのは、TSA のタイムスタンプ（`tsa_token`）の時刻のみです。",
+      "OpenPGP の署名パケットは独自の作成時刻を持ちます。`ts` と同様に署名者の端末が設定する値のため、検証結果では別の行に表示します。第三者による証拠となるのは、TSA のタイムスタンプ（署名の後に追記する `tsa` ブロック）の時刻のみです。",
       "",
       "## 試してみる",
       "",
@@ -412,7 +412,7 @@ async function pgp(): Promise<Example> {
       "",
       "## Signing time",
       "",
-      "An OpenPGP signature packet carries its own creation time. Like `ts`, the signer's machine sets it, so the result lists it on a separate line. Only the time in a TSA timestamp (`tsa_token`) is evidence from a third party.",
+      "An OpenPGP signature packet carries its own creation time. Like `ts`, the signer's machine sets it, so the result lists it on a separate line. Only the time from a TSA timestamp (a `tsa` block appended after the signature) is evidence from a third party.",
       "",
       "## Try it",
       "",

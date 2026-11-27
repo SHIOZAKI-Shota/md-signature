@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -16,32 +15,38 @@ import (
 )
 
 type SignOptions struct {
-	Signer        Signer
-	WebAuthn      WebAuthnSigner
-	PGP           PGPSigner
-	Method        string
-	SignerID      string
-	Selector      string
-	KeyFP         string
-	OmitKeyFP     bool
-	Role          string
-	Reason        string
-	TS            string
-	Expires       string
-	Scope         []string
+	Signer    Signer
+	WebAuthn  WebAuthnSigner
+	PGP       PGPSigner
+	Method    string
+	SignerID  string
+	Selector  string
+	KeyFP     string
+	OmitKeyFP bool
+	// SPEC 3.3: self-declared name for the signature table; the Nickname enforcement rules are applied
+	DisplayName string
+	Role        string
+	Reason      string
+	TS          string
+	Expires     string
+	Scope       []string
+	// one line each; "order mode=…" and "step [any=m]" lines included (SPEC 5.8)
 	Require       []string
 	Resources     []ResourceItem
 	RevocationURL string
 	Extra         map[string]string
-	TSAURL        string
-	TSA           TSAVerifyOptions
+	// SPEC 4.6: appends a tsa block after the signature block
+	TSAURL string
+	TSA    TSAVerifyOptions
 	// dns and git-hosting: also write the public key (SPEC 4.5), so the signature stays checkable after the key is gone
 	EmbedKey bool
 	// directory blocks carry the key snapshot unless this is set (SPEC 4.7)
 	OmitKeySnapshot bool
-	HTTPClient      *http.Client
-	Force           bool
-	Now             func() time.Time
+	// passkeys: "required" or "preferred"; empty means "required" when a require line asks for user_verified
+	UserVerification string
+	HTTPClient       *http.Client
+	Force            bool
+	Now              func() time.Time
 }
 
 type SignResult struct {
@@ -49,6 +54,7 @@ type SignResult struct {
 	Block    string
 	Fields   map[string]string
 	Previous int
+	TSABlock string
 }
 
 type SignError struct{ Msg string }
@@ -76,10 +82,12 @@ type PreparedSignature struct {
 	Payload []byte
 	// SPEC 6.1: the WebAuthn challenge, SHA-256(payload)
 	Challenge []byte
-	text      string
-	opts      SignOptions
-	key       SigningKey
-	previous  int
+	// passkeys: what to ask the authenticator for (CLI_SPEC 8.2 user_verification)
+	UserVerification string
+	text             string
+	opts             SignOptions
+	key              SigningKey
+	previous         int
 }
 
 func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult, error) {
@@ -106,9 +114,12 @@ func SignDocument(ctx context.Context, text string, o SignOptions) (*SignResult,
 	}
 	switch key.Alg {
 	case "webauthn-es256":
-		a, err := o.WebAuthn.GetAssertion(p.Challenge)
+		a, err := o.WebAuthn.GetAssertion(p.Challenge, p.UserVerification)
 		if err != nil {
 			return nil, err
+		}
+		if p.UserVerification == UserVerificationRequired && !assertionUserVerified(a) {
+			return nil, &SignError{Msg: "user verification was required, but the authenticator did not verify the user"}
 		}
 		return p.complete(ctx, a.Signature, a)
 	case "openpgp":
@@ -142,6 +153,10 @@ func (p *PreparedSignature) Finish(ctx context.Context, sig []byte, a *WebAuthnA
 		if ok, err := verifyWebAuthnSignature(p.key.PublicKey, a.Signature, a.AuthenticatorData, a.ClientDataJSON); err != nil || !ok {
 			return nil, &SignError{Msg: "the WebAuthn assertion does not verify for this payload and key"}
 		}
+		// CLI_SPEC 8.5: a tool that asked for user verification refuses an assertion without it
+		if p.UserVerification == UserVerificationRequired && !assertionUserVerified(a) {
+			return nil, &SignError{Msg: "user verification was required, but the assertion does not have the UV flag"}
+		}
 		return p.complete(ctx, a.Signature, a)
 	case "ed25519":
 		if len(p.key.PublicKey) != ed25519.PublicKeySize || !ed25519.Verify(p.key.PublicKey, p.Payload, sig) {
@@ -158,15 +173,37 @@ func (p *PreparedSignature) complete(ctx context.Context, sig []byte, a *WebAuth
 		fields["webauthn_client_data"] = toBase64(a.ClientDataJSON)
 	}
 	fields["sig"] = "base64:" + toBase64(sig)
-	if p.opts.TSAURL != "" {
-		tok, err := RequestTimestamp(ctx, sig, p.opts.TSAURL, p.opts.HTTPClient, &p.opts.TSA)
-		if err != nil {
-			return nil, fmt.Errorf("timestamp request to %s failed: %w", p.opts.TSAURL, err)
-		}
-		fields["tsa_url"] = p.opts.TSAURL
-		fields["tsa_token"] = tok
+	r, err := appendBlock(p.text, p.previous, fields)
+	if err != nil || p.opts.TSAURL == "" {
+		return r, err
 	}
-	return appendBlock(p.text, p.previous, fields)
+	t, err := TimestampDocument(ctx, r.Text, TimestampOptions{TSAURL: p.opts.TSAURL, TS: fields["ts"], HTTPClient: p.opts.HTTPClient, TSA: p.opts.TSA})
+	if err != nil {
+		return nil, err
+	}
+	r.Text, r.TSABlock = t.Text, t.Block
+	return r, nil
+}
+
+// SPEC 5.8.7: a passkey signer that some require line asks for with user_verified
+func wantsUserVerification(chain []*ParsedBlock, method, signer string) bool {
+	me := map[string]string{"method": method, "signer": signer}
+	for _, b := range chain {
+		if b.Fields["require"] == "" {
+			continue
+		}
+		p := ParseRequire(b.Fields["require"], b.Index)
+		if len(p.Errors) > 0 {
+			continue
+		}
+		self := b.Fields["method"] == method && b.Fields["signer"] == signer
+		for _, r := range p.Requirements {
+			if r.Attributes.UserVerified && targetMatches(r, me) && !(r.Pattern && self) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // PrepareSignature builds the block for key without signing; o.Signer, o.WebAuthn, and o.PGP are ignored
@@ -178,6 +215,10 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 	if len(doc.Chain) == 0 && doc.StrayMarker && !o.Force {
 		return nil, &SignError{Msg: fmt.Sprintf("line %d: found an md-signature block that is followed by unsigned content. "+
 			"Co-signing would endorse text the earlier signer never signed. Use force to sign the whole file as a new document.", doc.StrayMarkerLine)}
+	}
+	// SPEC 5.5: every appended block would render as code
+	if doc.UnclosedFence {
+		return nil, &SignError{Msg: "the body ends inside an open code fence; close the fence before signing, or every signature block would be shown as code"}
 	}
 	if !o.Force {
 		for _, b := range doc.Chain {
@@ -223,38 +264,36 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 		return nil, &ValueError{Msg: "method pgp needs an OpenPGP key"}
 	}
 	pub := key.PublicKey
-	fields := map[string]string{"v": SpecVersion, "method": o.Method, "signer": o.SignerID}
-	switch o.Method {
-	case "dns":
-		fields["signer"] = strings.TrimSuffix(strings.ToLower(o.SignerID), ".")
-		if o.Selector != "" {
-			fields["selector"] = o.Selector
+	if o.Method == "git-hosting" && isWebAuthn {
+		return nil, &ValueError{Msg: "git-hosting supports only Ed25519 SSH keys; use tofu or dns for passkeys"}
+	}
+	signerID := CanonicalSignerInput(o.Method, o.SignerID)
+	if se := CheckSignerID(o.Method, signerID); se != "" {
+		return nil, &ValueError{Msg: fmt.Sprintf("%s, got %q", se, o.SignerID)}
+	}
+	fields := map[string]string{"v": SpecVersion, "method": o.Method, "signer": signerID}
+	if o.Selector != "" {
+		if o.Method != "dns" {
+			return nil, &ValueError{Msg: "selector is only used with method dns"}
 		}
-	case "git-hosting":
-		if isWebAuthn {
-			return nil, &ValueError{Msg: "git-hosting supports only Ed25519 SSH keys; use tofu or dns for passkeys"}
+		if !isSelector(o.Selector) {
+			return nil, &ValueError{Msg: fmt.Sprintf(`selector must be lower-case LDH labels and must not start with "_", got %q`, o.Selector)}
 		}
-		if !isValidGitHostingSigner(o.SignerID) {
-			return nil, &ValueError{Msg: fmt.Sprintf("git-hosting signer must be <host>/<username> with a domain name as host, got %q", o.SignerID)}
-		}
-		if !o.OmitKeyFP {
-			if o.KeyFP != "" {
-				fields["key_fp"] = o.KeyFP
-			} else {
-				fields["key_fp"] = SSHFingerprint(pub)
-			}
+		fields["selector"] = o.Selector
+	}
+	if o.Method == "git-hosting" && !o.OmitKeyFP {
+		if o.KeyFP != "" {
+			fields["key_fp"] = o.KeyFP
+		} else {
+			fields["key_fp"] = SSHFingerprint(pub)
 		}
 	}
-	if o.Method == "directory" {
-		fields["signer"] = strings.ToLower(o.SignerID)
-		if !emailRe.MatchString(fields["signer"]) {
-			return nil, &ValueError{Msg: fmt.Sprintf("directory signer must be an email address, got %q", o.SignerID)}
-		}
-	}
+	// SPEC 4.7: directory blocks should carry a snapshot, so it is on unless turned off
+	embedKey := o.EmbedKey || (o.Method == "directory" && !o.OmitKeySnapshot)
 	if o.EmbedKey && o.Method != "dns" && o.Method != "git-hosting" && o.Method != "directory" {
 		return nil, &ValueError{Msg: "EmbedKey works with dns, git-hosting, and directory, not " + o.Method}
 	}
-	if o.Method == "tofu" || o.EmbedKey || (o.Method == "directory" && !o.OmitKeySnapshot) {
+	if o.Method == "tofu" || embedKey {
 		kt := "ed25519"
 		if isWebAuthn {
 			kt = "es256"
@@ -262,14 +301,9 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 		fields["pubkey"] = kt + ":" + toBase64(pub)
 	}
 	if isPgp {
-		email := strings.ToLower(o.SignerID)
-		if !emailRe.MatchString(email) {
-			return nil, &ValueError{Msg: fmt.Sprintf("pgp signer must be an email address, got %q", o.SignerID)}
+		if emails := key.Emails; len(emails) > 0 && !slices.Contains(emails, signerID) {
+			return nil, &ValueError{Msg: fmt.Sprintf("the OpenPGP key has no user ID with <%s> (has: %s)", signerID, strings.Join(emails, ", "))}
 		}
-		if emails := key.Emails; len(emails) > 0 && !slices.Contains(emails, email) {
-			return nil, &ValueError{Msg: fmt.Sprintf("the OpenPGP key has no user ID with <%s> (has: %s)", email, strings.Join(emails, ", "))}
-		}
-		fields["signer"] = email
 		fields["fpr"] = key.Fpr
 	}
 	if isWebAuthn {
@@ -278,7 +312,17 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 	for k, v := range o.Extra {
 		fields[k] = v
 	}
+	if o.DisplayName != "" {
+		name, err := displayNameInput(o.DisplayName)
+		if err != nil {
+			return nil, &ValueError{Msg: err.Error()}
+		}
+		fields["display_name"] = name
+	}
 	if o.Role != "" {
+		if !isRole(o.Role) {
+			return nil, &ValueError{Msg: fmt.Sprintf("role must be one word ([a-z0-9][a-z0-9._-]*), got %q", o.Role)}
+		}
 		fields["role"] = o.Role
 	}
 	if o.Reason != "" {
@@ -297,8 +341,14 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 	}
 	if len(o.Require) > 0 {
 		fields["require"] = strings.Join(o.Require, "\n")
-		if _, errs := ParseRequire(fields["require"], 0, SpecVersion); len(errs) > 0 {
-			return nil, &ValueError{Msg: strings.Join(errs, "; ")}
+		p := ParseRequire(fields["require"], 0)
+		problems := append(append([]string{}, p.Errors...), p.Unsupported...)
+		if p.OverLimit != "" {
+			problems = append(problems, p.OverLimit)
+		}
+		problems = append(problems, p.Hints...)
+		if len(problems) > 0 {
+			return nil, &ValueError{Msg: strings.Join(problems, "; ")}
 		}
 	}
 	if len(o.Resources) > 0 {
@@ -328,20 +378,21 @@ func PrepareSignature(text string, key SigningKey, o SignOptions) (*PreparedSign
 		if e := validateKey(k); e != "" {
 			return nil, &ValueError{Msg: e}
 		}
-		if e := validateValue(fields[k], k == "require" || k == "resources"); e != "" {
+		if e := validateValue(fields[k], listKeys[k]); e != "" {
 			return nil, &ValueError{Msg: k + ": " + e}
 		}
 	}
 
-	if o.TSAURL != "" {
-		if e := ValidateValue(o.TSAURL); e != "" {
-			return nil, &ValueError{Msg: "tsa_url: " + e}
+	uv := o.UserVerification
+	if uv == "" {
+		uv = UserVerificationPreferred
+		if isWebAuthn && wantsUserVerification(doc.Chain, o.Method, signerID) {
+			uv = UserVerificationRequired
 		}
 	}
-
 	payload := SignedPayload(fields)
 	challenge := sha256.Sum256(payload)
-	return &PreparedSignature{Fields: fields, Payload: payload, Challenge: challenge[:], text: text, opts: o, key: key, previous: len(doc.Chain)}, nil
+	return &PreparedSignature{Fields: fields, Payload: payload, Challenge: challenge[:], UserVerification: uv, text: text, opts: o, key: key, previous: len(doc.Chain)}, nil
 }
 
 func appendBlock(text string, previous int, fields map[string]string) (*SignResult, error) {
@@ -373,8 +424,6 @@ type TimestampOptions struct {
 	TSA        TSAVerifyOptions
 }
 
-var tsaURLRe = regexp.MustCompile(`^https?://\S+$`)
-
 // TimestampDocument appends a tsa block: a timestamp over everything before it, earlier tokens included (SPEC 4.6).
 func TimestampDocument(ctx context.Context, text string, o TimestampOptions) (*SignResult, error) {
 	if !utf8.ValidString(text) {
@@ -396,7 +445,7 @@ func TimestampDocument(ctx context.Context, text string, o TimestampOptions) (*S
 	if tsaURL == "" {
 		tsaURL = DefaultTSAURL
 	}
-	if !tsaURLRe.MatchString(tsaURL) {
+	if !tsaURLRe.MatchString(tsaURL) || strings.Contains(tsaURL, "*") {
 		return nil, &ValueError{Msg: fmt.Sprintf("TSA URL must be http(s)://, got %q", tsaURL)}
 	}
 	hashAlg := o.Hash

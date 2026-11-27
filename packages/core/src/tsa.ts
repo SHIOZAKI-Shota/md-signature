@@ -1,5 +1,5 @@
 import { MAX_DECODED_BYTES, bytesEqual, concat, decodePrefixedBinary, gzip, toBase64 } from "./encoding.ts";
-import { sha256, type HashAlg } from "./crypto.ts";
+import { digest, sha256, type HashAlg } from "./crypto.ts";
 import { parseDer, type Der } from "./der.ts";
 import { verifyTsaSignedData, type TsaRootInput, type TsaVerifyOptions } from "./tsa-cms.ts";
 
@@ -55,6 +55,8 @@ export interface TstInfo {
   policy: string;
   serial: string;
   nonce?: Uint8Array;
+  // TSTInfo accuracy in milliseconds, rounded up; 0 when absent (SPEC 4.6)
+  accuracyMs: number;
   // the ContentInfo and the TSTInfo bytes inside it, as found by this lenient reader
   token: Uint8Array;
   eContent: Uint8Array;
@@ -79,6 +81,20 @@ function parseGeneralizedTime(s: string): string {
   const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\.\d+)?Z$/.exec(s);
   if (!m) throw new Error("timestamp token: genTime is not a GeneralizedTime");
   return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] ?? ""}Z`;
+}
+
+const derUint = (b: Uint8Array) => b.reduce((a, x) => a * 256 + x, 0);
+
+// Accuracy ::= SEQUENCE { seconds INTEGER OPTIONAL, millis [0] INTEGER OPTIONAL, micros [1] INTEGER OPTIONAL }
+function accuracyMs(acc: Der | undefined): number {
+  if (!acc?.children) return 0;
+  let us = 0;
+  for (const c of acc.children) {
+    if (c.tag === 0x02) us += derUint(c.content) * 1_000_000;
+    else if (c.tag === 0x80) us += derUint(c.content) * 1000;
+    else if (c.tag === 0x81) us += derUint(c.content);
+  }
+  return Math.ceil(us / 1000);
 }
 
 export function parseTimeStampResp(der: Uint8Array): TstInfo {
@@ -119,6 +135,7 @@ export function parseTimeStampResp(der: Uint8Array): TstInfo {
     policy: oidToString(policy.content),
     serial: Array.from(serial.content, (x) => x.toString(16).padStart(2, "0")).join(""),
     nonce: opt.find((n) => n.tag === 0x02)?.content,
+    accuracyMs: accuracyMs(opt.find((n) => n.tag === 0x30)),
     token: token.bytes,
     eContent: octets.content,
   };
@@ -130,6 +147,8 @@ export interface TsaCheck {
   verified: boolean;
   // set only when verified, so an unauthenticated time is never shown as evidence
   genTime?: string;
+  // set with genTime
+  accuracyMs?: number;
   signer?: string;
   detail: string;
 }
@@ -155,9 +174,10 @@ async function verifyTimeStampResp(der: Uint8Array, imprint: Uint8Array, o: TsaV
   }
 }
 
-// SPEC 5.5: tsa_token covers SHA-256 of the raw signature bytes
-export async function checkTsaToken(tsaToken: string, sigBytes: Uint8Array, o: TsaVerifyOptions = {}): Promise<TsaCheck> {
-  return checkTimestampOver(tsaToken, await sha256(sigBytes), "sha256", o, "message imprint does not match SHA-256(sig)");
+// a token whose imprint is H(data); the HTTP API (CLI_SPEC 3.6) and VerifyOptions.tsaVerifier use this form
+export async function checkTsaToken(tsaToken: string, data: Uint8Array, o: TsaVerifyOptions & { hash?: HashAlg } = {}): Promise<TsaCheck> {
+  const h = o.hash ?? "sha256";
+  return checkTimestampOver(tsaToken, await digest(h, data), h, o, `message imprint does not match ${h.toUpperCase()}(data)`);
 }
 
 // a token over an imprint the caller computed, e.g. the payload of a tsa block (SPEC 4.6)
@@ -166,7 +186,7 @@ export async function checkTimestampOver(token: string, imprint: Uint8Array, has
     const der = await decodePrefixedBinary(token);
     const r = await verifyTimeStampResp(der, imprint, o, hashAlg);
     if (r.error !== undefined) return { status: "error", verified: false, detail: `imprint matched; TSA signature not verified: ${r.error}` };
-    return { status: "ok", verified: true, genTime: r.info.genTime, signer: r.signer, detail: `imprint matched; TSA signature verified (${r.signer})` };
+    return { status: "ok", verified: true, genTime: r.info.genTime, accuracyMs: r.info.accuracyMs, signer: r.signer, detail: `imprint matched; TSA signature verified (${r.signer})` };
   } catch (e) {
     if (e instanceof ImprintError) return { status: "mismatch", verified: false, detail: mismatchDetail };
     return { status: "error", verified: false, detail: (e as Error).message };
@@ -185,9 +205,8 @@ function sameNonce(a: Uint8Array | undefined, b: Uint8Array): boolean {
 }
 
 // most TSAs send no CORS headers, so this usually fails in browsers
-export async function requestTimestamp(sigBytes: Uint8Array, tsaUrl = DEFAULT_TSA_URL, fetchFn: typeof fetch = globalThis.fetch, o: TsaVerifyOptions = {}): Promise<string> {
-  // SPEC 5.5: the imprint is SHA-256 of the raw signature bytes
-  return requestTimestampOver(await sha256(sigBytes), "sha256", tsaUrl, fetchFn, o);
+export async function requestTimestamp(data: Uint8Array, tsaUrl = DEFAULT_TSA_URL, fetchFn: typeof fetch = globalThis.fetch, o: TsaVerifyOptions = {}): Promise<string> {
+  return requestTimestampOver(await sha256(data), "sha256", tsaUrl, fetchFn, o);
 }
 
 export async function requestTimestampOver(imprint: Uint8Array, hashAlg: HashAlg, tsaUrl = DEFAULT_TSA_URL, fetchFn: typeof fetch = globalThis.fetch, o: TsaVerifyOptions = {}): Promise<string> {

@@ -11,12 +11,9 @@ import (
 	"time"
 )
 
-// SPEC 3.2: verifiers accept every format version listed here; generators write SpecVersion (must match packages/core canonical.ts)
-var supportedVersions = map[string]bool{"0.0.1": true, "0.0.2": true, "0.0.4": true}
-
 const (
-	// must match packages/core canonical.ts
-	SpecVersion   = "0.0.4"
+	// must match packages/core canonical.ts; SPEC 3.3: other versions are unsupported (SPEC 5.4 step 1)
+	SpecVersion   = "0.1"
 	payloadDomain = "md-signature/v1"
 	openLine      = "<!-- md-signature"
 	closeLine     = "-->"
@@ -25,13 +22,18 @@ const (
 
 const bom = string(rune(0xFEFF))
 
-var unsignedKeys = map[string]bool{"sig": true, "tsa_url": true, "tsa_token": true, "webauthn_authenticator_data": true, "webauthn_client_data": true}
+var supportedVersions = map[string]bool{SpecVersion: true}
+
+var unsignedKeys = map[string]bool{"sig": true, "webauthn_authenticator_data": true, "webauthn_client_data": true}
 
 var fieldOrder = []string{
 	"v", "method", "signer", "selector", "key_fp", "fpr", "pubkey", "rp_id",
-	"role", "reason", "ts", "expires", "scope", "require", "resources", "revocation_url",
-	"alg", "hash", "sig", "webauthn_authenticator_data", "webauthn_client_data", "tsa_url", "tsa_token",
+	"display_name", "role", "reason", "ts", "expires", "scope", "require", "resources", "revocation_url",
+	"alg", "hash", "sig", "webauthn_authenticator_data", "webauthn_client_data",
 }
+
+// SPEC 3.5: values of these fields are lists, one item per line
+var listKeys = map[string]bool{"scope": true, "require": true, "resources": true}
 
 var knownKeys = func() map[string]bool {
 	m := map[string]bool{}
@@ -45,7 +47,7 @@ func isKnownKey(key string) bool { return knownKeys[key] }
 
 func isExtensionKey(key string) bool { return strings.HasPrefix(key, "x_") }
 
-var binaryKeys = map[string]bool{"sig": true, "tsa_token": true, "webauthn_authenticator_data": true, "webauthn_client_data": true}
+var binaryKeys = map[string]bool{"sig": true, "webauthn_authenticator_data": true, "webauthn_client_data": true}
 
 var tsRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
 
@@ -89,46 +91,70 @@ func SignedPayload(fields map[string]string) []byte {
 	return []byte(b.String())
 }
 
-const msgControl = "value must not contain control characters or line breaks"
+const msgControl = "value must not contain control characters, format characters, line breaks, or noncharacters"
 
-// SPEC 3.2 rule 4: C0, DEL, C1, line separators, bidi controls
+// SPEC 3.2 rule 3: CommonMark HTML block type 2 ends at "-->"; WHATWG comments also end at "--!>"; "<!--" opens a nested comment
+var forbiddenSequences = []string{"-->", "--!>", "<!--"}
+
+// SPEC 3.2 rule 4: Cc, Cf, Zl, Zp of Unicode 15.0.0, pinned to the same table as canonical.ts whatever Go's Unicode version
+var forbiddenRanges = [][2]rune{
+	{0x0000, 0x001f}, {0x007f, 0x009f}, {0x00ad, 0x00ad}, {0x0600, 0x0605}, {0x061c, 0x061c}, {0x06dd, 0x06dd},
+	{0x070f, 0x070f}, {0x0890, 0x0891}, {0x08e2, 0x08e2}, {0x180e, 0x180e}, {0x200b, 0x200f}, {0x2028, 0x202e},
+	{0x2060, 0x2064}, {0x2066, 0x206f}, {0xd800, 0xdfff}, {0xfeff, 0xfeff}, {0xfff9, 0xfffb}, {0x110bd, 0x110bd},
+	{0x110cd, 0x110cd}, {0x13430, 0x1343f}, {0x1bca0, 0x1bca3}, {0x1d173, 0x1d17a}, {0xe0001, 0xe0001}, {0xe0020, 0xe007f},
+}
+
 func isForbiddenRune(r rune) bool {
-	return r <= 0x1f || (r >= 0x7f && r <= 0x9f) || r == 0x2028 || r == 0x2029 || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069)
+	for _, g := range forbiddenRanges {
+		if r >= g[0] && r <= g[1] {
+			return true
+		}
+	}
+	// noncharacters
+	return (r >= 0xfdd0 && r <= 0xfdef) || r&0xfffe == 0xfffe
 }
 
 func validateLine(value string) string {
 	if value == "" {
 		return "value is empty"
 	}
-	if strings.Contains(value, "--") {
-		return `value must not contain "--"`
-	}
-	for _, r := range value {
-		if isForbiddenRune(r) {
-			return msgControl
+	for _, seq := range forbiddenSequences {
+		if strings.Contains(value, seq) {
+			return fmt.Sprintf("value must not contain %q", seq)
 		}
 	}
-	if strings.TrimFunc(value, isJSSpace) != value {
-		return "value must not have leading or trailing whitespace"
+	if strings.ContainsFunc(value, isForbiddenRune) {
+		return msgControl
+	}
+	if strings.HasSuffix(value, " ") {
+		return "value must not have trailing spaces"
 	}
 	return ""
 }
 
 func ValidateValue(value string) string { return validateValue(value, false) }
 
-func validateValueMultiline(value string) string { return validateValue(value, true) }
-
+// a folded line keeps its leading spaces (SPEC 3.2 cont-line); a single-line value may not start with one
 func validateValue(value string, allowMultiline bool) string {
 	if strings.Contains(value, "\n") {
 		if !allowMultiline {
 			return msgControl
 		}
 		for _, line := range strings.Split(value, "\n") {
+			if strings.TrimLeft(line, " ") == "" {
+				return "a folded line must not be empty"
+			}
 			if e := validateLine(line); e != "" {
 				return e
 			}
 		}
 		return ""
+	}
+	if strings.HasPrefix(value, " ") && !allowMultiline {
+		return "value must not have leading spaces"
+	}
+	if allowMultiline && strings.TrimLeft(value, " ") == "" {
+		return "a folded line must not be empty"
 	}
 	return validateLine(value)
 }
@@ -175,11 +201,12 @@ func serializeBlock(fields map[string]string) (string, error) {
 		if e := validateKey(k); e != "" {
 			return "", errors.New(e)
 		}
-		if e := validateValueMultiline(v); e != "" {
+		folded := strings.Contains(v, "\n") || strings.HasPrefix(v, " ")
+		if e := validateValue(v, folded); e != "" {
 			return "", fmt.Errorf("%s: %s", k, e)
 		}
 		switch {
-		case strings.Contains(v, "\n"):
+		case folded:
 			lines = append(lines, k+": |")
 			for _, l := range strings.Split(v, "\n") {
 				lines = append(lines, "  "+l)

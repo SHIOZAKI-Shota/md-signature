@@ -91,11 +91,15 @@ export async function checkWebAuthnData(fields, payload) {
         return { ok: false, code: "malformed", message: "clientDataJSON is not a JSON object" };
     const origin = typeof cd.origin === "string" ? cd.origin : "";
     // authenticatorData = rpIdHash(32) | flags (UP 0x01, UV 0x04) | signCount(4)
-    const info = { rpId, origin, userVerified: authData.length > 32 && (authData[32] & 0x04) !== 0 };
+    const flags = authData.length > 32 ? authData[32] : 0;
+    const info = { rpId, origin, userVerified: (flags & 0x05) === 0x05, backupEligible: (flags & 0x08) !== 0, backedUp: (flags & 0x10) !== 0 };
     if (cd.type !== "webauthn.get")
         return { ok: false, code: "bad-signature", message: `clientDataJSON type is ${JSON.stringify(cd.type)}, expected "webauthn.get"`, info };
     if (cd.challenge !== toBase64Url(await sha256(payload)))
         return { ok: false, code: "bad-signature", message: "challenge does not match the signed payload", info };
+    // SPEC 6.1: an assertion made inside a cross-origin iframe is refused
+    if (cd.crossOrigin === true)
+        return { ok: false, code: "bad-signature", message: "clientDataJSON crossOrigin is true", info };
     let host, scheme;
     try {
         const u = new URL(origin);
@@ -122,6 +126,7 @@ export async function verifyWebAuthnSignature(key, derSig, authData, clientData)
     const signed = concat(authData, await sha256(clientData));
     return subtle.verify({ name: "ECDSA", hash: "SHA-256" }, await importEs256(key), rs, signed);
 }
+export const assertionUserVerified = (a) => a.authenticatorData.length > 32 && (a.authenticatorData[32] & 0x05) === 0x05;
 // test-only software authenticator; never use for real signatures
 export async function createSoftwareAuthenticator(rpId, origin = `https://${rpId}`, flags = 0x05) {
     const kp = (await subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]));
@@ -166,17 +171,17 @@ export async function registerPasskey(rpId, userName, rpName = "md-signature") {
         throw new Error("the authenticator did not create an ES256 key");
     return { publicKey: new Uint8Array(spki), credentialId: new Uint8Array(cred.rawId) };
 }
-export function passkeySigner(rpId, publicKey, credentialId) {
+export function passkeySigner(rpId, publicKey, credentialId, defaults = {}) {
     return {
         alg: "webauthn-es256",
         publicKey: es256Spki(publicKey),
         rpId,
-        async getAssertion(challenge) {
+        async getAssertion(challenge, o = {}) {
             const cred = (await navigator.credentials.get({
                 publicKey: {
                     rpId,
                     challenge: challenge,
-                    userVerification: "preferred",
+                    userVerification: o.userVerification ?? defaults.userVerification ?? "preferred",
                     ...(credentialId ? { allowCredentials: [{ type: "public-key", id: credentialId }] } : {}),
                 },
             }));

@@ -1,11 +1,13 @@
 import { CLOSE_LINE, KNOWN_KEYS, OPEN_LINE, isExtensionKey, normalizeNewlines, validateValue } from "./canonical.js";
-const FIELD_LINE = /^([a-z][a-z0-9_]*): (.*)$/;
-const CONT_LINE = /^ {2}(\S.*)$/;
+// the s flag: a value with U+2028 or U+2029 is still read as one line, and then rejected by rule 4
+const FIELD_LINE = /^([a-z][a-z0-9_]*): (.*)$/s;
+// SPEC 3.2: cont-line = 2SP *SP vchar ...; spaces after the first two belong to the value
+const CONT_LINE = /^ {2}(?= *[^ ])(.*)$/s;
 const isBlank = (l) => /^[ \t]*$/.test(l);
 const isOpen = (l) => l.replace(/[ \t]+$/, "") === OPEN_LINE;
 const isClose = (l) => l.replace(/[ \t]+$/, "") === CLOSE_LINE;
 const isFieldish = (l) => FIELD_LINE.test(l) || CONT_LINE.test(l);
-export const REQUIRED_KEYS = ["v", "method", "signer", "ts", "hash", "sig"];
+export const REQUIRED_KEYS = ["v", "method", "signer", "ts", "alg", "hash", "sig"];
 export function parseFields(lines) {
     const fields = Object.create(null);
     const errors = [];
@@ -30,7 +32,7 @@ export function parseFields(lines) {
                 const c = CONT_LINE.exec(lines[i]);
                 if (!c)
                     break;
-                parts.push(c[1].replace(/[ \t]+$/, ""));
+                parts.push(c[1]);
                 i++;
             }
             if (parts.length === 0)
@@ -45,9 +47,11 @@ export function parseFields(lines) {
             unknownKeys.push(key);
             errors.push(`unknown field "${key}" (extension fields must start with "x_")`);
         }
-        const ve = validateValue(value, folded);
-        if (ve)
-            errors.push(`${key}: ${ve}`);
+        if (!folded || value !== "") {
+            const ve = validateValue(value, folded);
+            if (ve)
+                errors.push(`${key}: ${ve}`);
+        }
         fields[key] = value;
     }
     for (const k of REQUIRED_KEYS)
@@ -55,24 +59,55 @@ export function parseFields(lines) {
             errors.push(`missing required field "${k}"`);
     return { fields: { ...fields }, errors, unknownKeys };
 }
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+// SPEC 5.5 (CommonMark 4.5): a backtick fence's info string cannot contain a backtick
+function fenceOpen(l) {
+    const m = FENCE_OPEN.exec(l);
+    return m && m[1][0] === "`" && m[2].includes("`") ? null : m;
+}
+// SPEC 5.5: a line scan, not a full CommonMark parse; a fence closes with the same character at least as many times
 export function* linesWithFence(text) {
     let fence = null;
     let offset = 0;
     const lines = text.split("\n");
     for (let k = 0; k < lines.length; k++) {
         const l = lines[k];
-        const fm = /^ {0,3}(`{3,}|~{3,})/.exec(l);
-        let inFence = fence !== null;
-        if (fm) {
-            if (fence === null)
-                fence = fm[1];
-            else if (fm[1][0] === fence[0] && fm[1].length >= fence.length && /^ {0,3}[`~]+[ \t]*$/.test(l))
-                fence = null;
-            inFence = true;
+        if (fence === null) {
+            const open = fenceOpen(l);
+            if (open) {
+                fence = open[1];
+                yield { line: l, index: k, offset, inFence: true, info: open[2].trim() };
+            }
+            else {
+                yield { line: l, index: k, offset, inFence: false };
+            }
         }
-        yield { line: l, index: k, offset, inFence };
+        else {
+            const close = FENCE_CLOSE.exec(l);
+            const closes = !!close && close[1][0] === fence[0] && close[1].length >= fence.length;
+            if (closes)
+                fence = null;
+            yield { line: l, index: k, offset, inFence: true, ...(closes ? { close: true } : {}) };
+        }
         offset += l.length + 1;
     }
+}
+export function endsInOpenFence(text) {
+    let fence = null;
+    for (const l of text.split("\n")) {
+        if (fence === null) {
+            const open = fenceOpen(l);
+            if (open)
+                fence = open[1];
+        }
+        else {
+            const close = FENCE_CLOSE.exec(l);
+            if (close && close[1][0] === fence[0] && close[1].length >= fence.length)
+                fence = null;
+        }
+    }
+    return fence !== null;
 }
 export function parseDocument(input) {
     const text = normalizeNewlines(input);
@@ -114,5 +149,5 @@ export function parseDocument(input) {
         if (!inFence && isOpen(line))
             strayMarkerLine = index + 1;
     }
-    return { text, body, chain, strayMarker: strayMarkerLine !== undefined, strayMarkerLine };
+    return { text, body, chain, strayMarker: strayMarkerLine !== undefined, strayMarkerLine, unclosedFence: endsInOpenFence(body) };
 }

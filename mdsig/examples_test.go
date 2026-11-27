@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -34,9 +35,9 @@ type keysJSON struct {
 	DNS map[string]struct {
 		TXT string `json:"txt"`
 	} `json:"dns"`
-	TXT   map[string][]string `json:"txt"`
-	Now   string              `json:"now"`
-	Fetch map[string]string   `json:"fetch"`
+	DNSRecords map[string]json.RawMessage `json:"dns_records"`
+	Now        string                     `json:"now"`
+	Fetch      map[string]string          `json:"fetch"`
 }
 
 func loadKeysJSON(t *testing.T) keysJSON {
@@ -61,6 +62,11 @@ type expectedEntry struct {
 		KeySource string `json:"keySource"`
 		KeyAlg    string `json:"keyAlg"`
 	} `json:"pgp"`
+	Warnings      []string        `json:"warnings"`
+	AgreementJSON json.RawMessage `json:"agreement_json"`
+	Table         json.RawMessage `json:"table"`
+	Times         []*string       `json:"times"`
+	Marker        *int            `json:"marker"`
 }
 
 func keysJSONResolvers(t *testing.T) map[string]Resolver {
@@ -71,7 +77,7 @@ func keysJSONResolvers(t *testing.T) map[string]Resolver {
 			if !ok {
 				return ResolveResult{}, &ResolutionError{Kind: KindNotFound, Msg: "not in keys.json"}
 			}
-			return GitHostingKeysFromText(f, "keys.json", e.KeysFile)
+			return keysJSONSource(GitHostingKeysFromText(f, "keys.json", e.KeysFile))
 		}),
 		"dns": ResolverFunc(func(_ context.Context, f map[string]string, _ *ResolveOptions) (ResolveResult, error) {
 			name := DNSName(f)
@@ -79,9 +85,17 @@ func keysJSONResolvers(t *testing.T) map[string]Resolver {
 			if !ok {
 				return ResolveResult{}, &ResolutionError{Kind: KindNotFound, Msg: "not in keys.json"}
 			}
-			return DNSKeysFromRecords(f, name, []string{e.TXT})
+			return keysJSONSource(DNSKeysFromRecords(f, name, []string{e.TXT}))
 		}),
 	}
+}
+
+func keysJSONSource(r ResolveResult, err error) (ResolveResult, error) {
+	for i := range r.Keys {
+		r.Keys[i].Source = "keys.json"
+	}
+	r.Warnings = nil
+	return r, err
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -124,11 +138,17 @@ func examplesVerifyOptions(t *testing.T) *VerifyOptions {
 			PGPClient:  examplesFetchClient(t, nil),
 			HTTPClient: examplesFetchClient(t, nil),
 			LookupTXT: func(_ context.Context, name string) ([]string, error) {
-				if recs, ok := keys.TXT[name]; ok {
-					return recs, nil
+				raw, ok := keys.DNSRecords[name]
+				if !ok {
+					return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
 				}
-				return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+				var recs []string
+				if json.Unmarshal(raw, &recs) != nil {
+					return nil, &net.DNSError{Err: "server misbehaving", Name: name, IsTemporary: true}
+				}
+				return recs, nil
 			},
+			DoHEndpoints: []string{},
 		},
 		Resolvers: keysJSONResolvers(t),
 		ResourceCheckOptions: ResourceCheckOptions{
@@ -228,6 +248,31 @@ func TestExamplesCompliance(t *testing.T) {
 					}
 				}
 			}
+			for _, w := range exp.Warnings {
+				if !slices.Contains(r.Warnings, w) {
+					t.Errorf("missing warning %q in %q", w, r.Warnings)
+				}
+			}
+			sameJSON(t, "agreement_json", ToJSON(r).Agreement, exp.AgreementJSON)
+			sameJSON(t, "table", SignatureTableToJSON(SignatureTable(r)), exp.Table)
+			times := []*string{}
+			for _, s := range r.Signatures {
+				if s.Time != nil {
+					at := s.Time.At
+					times = append(times, &at)
+				} else {
+					times = append(times, nil)
+				}
+			}
+			sameJSON(t, "times", times, mustJSON(t, exp.Times))
+			line, _, _ := FindSignatureMarker(ParseDocument(readExample(t, file)).Body)
+			wantMarker := 0
+			if exp.Marker != nil {
+				wantMarker = *exp.Marker
+			}
+			if line != wantMarker {
+				t.Errorf("marker = %d, want %d", line, wantMarker)
+			}
 			if exp.Revocation != nil {
 				if len(exp.Revocation) != len(r.Signatures) {
 					t.Fatalf("revocation length mismatch")
@@ -243,6 +288,29 @@ func TestExamplesCompliance(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func sameJSON(t *testing.T, what string, got any, want []byte) {
+	t.Helper()
+	var g, w any
+	if err := json.Unmarshal(mustJSON(t, got), &g); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(want, &w); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(g, w) {
+		t.Errorf("%s differs\n--- go ---\n%s\n--- ts ---\n%s", what, mustJSON(t, g), mustJSON(t, w))
 	}
 }
 

@@ -73,7 +73,7 @@ func gzipBytes(data []byte) []byte {
 	return buf.Bytes()
 }
 
-// SPEC 5.5: the value is unsigned, so the decompressed size is capped
+// SPEC 4.6: the value is unsigned, so the decompressed size is capped
 const MaxDecodedBytes = 1024 * 1024
 
 func gunzipBytes(data []byte, maxBytes int64) ([]byte, error) {
@@ -92,7 +92,6 @@ func gunzipBytes(data []byte, maxBytes int64) ([]byte, error) {
 	return b, nil
 }
 
-// zstd+base64: is recognized but unsupported, as in the TS core
 func DecodePrefixedBinary(v string) ([]byte, error) {
 	i := strings.IndexByte(v, ':')
 	if i < 0 {
@@ -108,8 +107,6 @@ func DecodePrefixedBinary(v string) ([]byte, error) {
 			return nil, err
 		}
 		return gunzipBytes(b, MaxDecodedBytes)
-	case "zstd+base64":
-		return nil, errors.New("zstd+base64 is not supported by this implementation")
 	default:
 		return nil, fmt.Errorf("unknown encoding prefix: %s", prefix)
 	}

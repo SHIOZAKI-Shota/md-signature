@@ -67,11 +67,11 @@ func TestNormalizeDocument(t *testing.T) {
 
 func TestSignedPayload(t *testing.T) {
 	f := map[string]string{
-		"v": "0.0.1", "method": "git-hosting", "signer": "github.com/alice", "role": "author", "reason": "Initial draft",
+		"v": "0.1", "method": "git-hosting", "signer": "github.com/alice", "role": "author", "reason": "Initial draft",
 		"ts": "2026-11-16T09:00:00Z", "alg": "ed25519", "hash": "sha256:3a0d", "sig": "base64:xx",
-		"tsa_url": "http://ts.ssl.com", "tsa_token": "gzip+base64:yy", "zz_extra": "1", "a_b": "2",
+		"webauthn_client_data": "yy", "webauthn_authenticator_data": "zz", "zz_extra": "1", "a_b": "2",
 	}
-	want := "md-signature/v1\na_b=2\nalg=ed25519\nhash=sha256:3a0d\nmethod=git-hosting\nreason=Initial draft\nrole=author\nsigner=github.com/alice\nts=2026-11-16T09:00:00Z\nv=0.0.1\nzz_extra=1"
+	want := "md-signature/v1\na_b=2\nalg=ed25519\nhash=sha256:3a0d\nmethod=git-hosting\nreason=Initial draft\nrole=author\nsigner=github.com/alice\nts=2026-11-16T09:00:00Z\nv=0.1\nzz_extra=1"
 	if got := string(SignedPayload(f)); got != want {
 		t.Errorf("payload:\n%s\nwant:\n%s", got, want)
 	}
@@ -79,7 +79,7 @@ func TestSignedPayload(t *testing.T) {
 
 func TestFoldingRoundTrip(t *testing.T) {
 	long := "base64:" + strings.Repeat("ABCD", 40)
-	fields := map[string]string{"v": "0.0.1", "method": "tofu", "signer": "x", "ts": "2026-11-16T09:00:00Z", "hash": "sha256:00", "sig": long, "tsa_token": "base64:" + strings.Repeat("Q", 200), "x_custom": "c", "role": "r"}
+	fields := map[string]string{"v": "0.1", "method": "tofu", "signer": "x", "ts": "2026-11-16T09:00:00Z", "alg": "ed25519", "hash": "sha256:00", "sig": long, "webauthn_client_data": strings.Repeat("Q", 200), "x_custom": "c", "role": "r"}
 	block, err := serializeBlock(fields)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func TestFoldingRoundTrip(t *testing.T) {
 	if !strings.Contains(block, "sig: |\n  base64:") {
 		t.Errorf("sig not folded:\n%s", block)
 	}
-	if strings.Index(block, "x_custom:") < strings.Index(block, "ts:") || strings.Index(block, "x_custom:") > strings.Index(block, "hash:") {
+	if strings.Index(block, "x_custom:") < strings.Index(block, "ts:") || strings.Index(block, "x_custom:") > strings.Index(block, "alg:") {
 		t.Errorf("bad order:\n%s", block)
 	}
 	got, errs, _ := parseFields(lines[1 : len(lines)-1])
@@ -150,10 +150,11 @@ func TestTamper(t *testing.T) {
 		{"added field", strings.Replace(signed, "role: author\n", "role: author\nnote: hi\n", 1), StatusMalformed, "unknown-field"},
 		{"added x_ field", strings.Replace(signed, "role: author\n", "role: author\nx_note: hi\n", 1), StatusInvalid, "bad-signature"},
 		{"dup key", strings.Replace(signed, "role: author\n", "role: author\nrole: author\n", 1), StatusMalformed, "malformed"},
-		{"version", strings.Replace(signed, "v: 0.0.4", "v: 0.0.5", 1), StatusUnsupported, "unsupported-version"},
+		{"version", strings.Replace(signed, "v: 0.1", "v: 0.2", 1), StatusUnsupported, "unsupported-version"},
 		{"alg", strings.Replace(signed, "alg: ed25519", "alg: ml-dsa-65", 1), StatusUnsupported, "unsupported-alg"},
 		{"method", strings.Replace(signed, "method: tofu", "method: foo", 1), StatusUnsupported, "unsupported-method"},
-		{"dashdash", strings.Replace(signed, "role: author", "role: au--thor", 1), StatusMalformed, "malformed"},
+		{"comment close", strings.Replace(signed, "role: author", "role: au-->thor", 1), StatusMalformed, "malformed"},
+		{"double hyphen", strings.Replace(signed, "role: author", "role: au--thor", 1), StatusInvalid, "bad-signature"},
 		{"blank line", strings.Replace(signed, "role: author\n", "role: author\n\n", 1), "", ""},
 	}
 	for _, c := range cases {
@@ -225,7 +226,7 @@ func TestCRLFPreserved(t *testing.T) {
 }
 
 func TestRejectBadValues(t *testing.T) {
-	for _, bad := range []string{"a--b", "a\nb", "a\tb", " lead", "trail ", "x\x7f"} {
+	for _, bad := range []string{"a-->b", "a--!>b", "a<!--b", "a\nb", "a\tb", " lead", "trail ", "x\x7f", "zero\u200bwidth"} {
 		_, err := SignDocument(context.Background(), testBody, SignOptions{Signer: mustSigner(t, bobSeed), Method: "tofu", SignerID: "b", Reason: bad})
 		if _, ok := err.(*ValueError); !ok {
 			t.Errorf("reason %q: got %v, want ValueError", bad, err)

@@ -124,6 +124,8 @@ type TSAVerifyOptions struct {
 	Roots *x509.CertPool
 	// ExtraRoots are trusted in addition to Roots or, without it, to the system pool
 	ExtraRoots []*x509.Certificate
+	// CheckTSAToken only: the token's imprint is Hash(data), "sha256" (the default) or "sha512"
+	Hash string
 
 	// tests only: accept a TSA certificate without building a chain to Roots
 	skipChain bool

@@ -1,5 +1,6 @@
 import { normalizeDocument } from "./canonical.ts";
 import { linesWithFence } from "./parser.ts";
+import { parseListLine } from "./listline.ts";
 
 export interface Section {
   id: string;
@@ -11,7 +12,7 @@ export interface Section {
 const BEGIN = /^<!-- mdsig:section ([a-z0-9-]+) -->[ \t]*$/;
 const END = /^<!-- \/mdsig:section -->[ \t]*$/;
 const LOOKS_LIKE_MARKER = /^<!-- \/?mdsig:section\b/;
-const SCOPE_RE = /^section:[a-z0-9-]+(,section:[a-z0-9-]+)*$/;
+const ID_RE = /^[a-z0-9-]+$/;
 
 export function findSections(text: string): { sections: Map<string, Section>; errors: string[] } {
   const sections = new Map<string, Section>();
@@ -44,9 +45,14 @@ export function findSections(text: string): { sections: Map<string, Section>; er
   return { sections, errors };
 }
 
+// SPEC 5.6: one section id per line, leading spaces ignored, ids unique
 export function parseScope(value: string): string[] | null {
-  if (!SCOPE_RE.test(value)) return null;
-  const ids = value.split(",").map((s) => s.slice("section:".length));
+  const ids: string[] = [];
+  for (const raw of value.split("\n")) {
+    const { line } = parseListLine(raw, {});
+    if (!line || line.attrs.size || !ID_RE.test(line.target)) return null;
+    ids.push(line.target);
+  }
   return new Set(ids).size === ids.length ? ids : null;
 }
 
@@ -57,7 +63,7 @@ export type ScopeInput =
 // SPEC 5.6: hash input = normalized sections concatenated in scope order
 export function scopedHashInput(slice: string, scope: string): ScopeInput {
   const ids = parseScope(scope);
-  if (!ids) return { ok: false, code: "malformed", message: `invalid scope "${scope}" (expected section:<id>[,section:<id>...] with unique ids)` };
+  if (!ids) return { ok: false, code: "malformed", message: `invalid scope "${scope}" (expected one section id per line, each id unique)` };
   const { sections, errors } = findSections(slice);
   if (errors.length) return { ok: false, code: "malformed", message: `section markers: ${errors.join("; ")}` };
   let input = "";

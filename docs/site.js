@@ -1,7 +1,6 @@
 import { t } from "./i18n.js";
 import GUIDE from "./strings-guide.js";
 import DOCS from "./strings-docs.js";
-import { EXAMPLES } from "./examples.js";
 import { initChrome } from "./site-common.js";
 import { decorateCode } from "./code-view.js";
 
@@ -77,20 +76,6 @@ for (const a of dots) {
   if (el) {
     targetFor.set(el, id);
     io.observe(el);
-  }
-}
-
-// ------------------------------------------------------------------ hero texture
-const texture = document.querySelector(".hero-texture");
-if (texture) {
-  const { ja, en } = EXAMPLES.basic.text;
-  const sources = [ja, en, ja, en];
-  for (let i = 0; i < 4; i++) {
-    const pre = document.createElement("pre");
-    const lines = sources[i].split("\n");
-    const k = (i * 9) % lines.length;
-    pre.textContent = [...lines.slice(k), ...lines.slice(0, k)].join("\n");
-    texture.append(pre);
   }
 }
 

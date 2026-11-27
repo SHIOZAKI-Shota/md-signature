@@ -21,8 +21,6 @@ if (gsap && ScrollTrigger && SplitText) {
     }
     intro.from(".hero .lede", { autoAlpha: 0, y: 18, duration: 0.9 }, 0.55);
     intro.from(".cta-row", { autoAlpha: 0, x: -14, duration: 0.7, stagger: 0.07 }, 0.7);
-
-    intro.from(".cf-win", { autoAlpha: 0, y: 48, rotateX: 10, transformPerspective: 1400, transformOrigin: "50% 100%", duration: 1.1 }, 0.4);
     intro.from(".cf-lines li.b, .cf-lines li.e", { autoAlpha: 0, x: -6, duration: 0.3, stagger: 0.05 }, 0.75);
     intro.from(".cf-lines li.s1", { autoAlpha: 0, x: -6, duration: 0.25, stagger: 0.04 }, 1.1);
     intro.from(".br1", { scaleY: 0, transformOrigin: "50% 0%", duration: 0.5, ease: "power2.out" }, 1.3);

@@ -64,6 +64,9 @@ export function createHandoffRequest(page, o) {
         u.searchParams.set("credential", o.credential);
     if (o.name)
         u.searchParams.set("name", o.name);
+    // CLI_SPEC 8.2: the page asks the authenticator for user verification and refuses an assertion without UV
+    if (o.op === "sign" && o.userVerification === "required")
+        u.searchParams.set("user_verification", "required");
     return { url: u.toString(), state };
 }
 const b64u = (v) => {
@@ -126,7 +129,7 @@ export async function signViaPage(text, o) {
         throw new HandoffError("invalid-request", `passkeys sign with method tofu, dns, or directory, not ${o.method}`);
     const { passkey, returnUrl, transport, name, ...rest } = o;
     const p = await prepareSignature(text, { ...rest, signer: { alg: "webauthn-es256", publicKey: passkey.key, rpId: passkey.rpId } });
-    const res = await exchange(passkey.page, transport, "sign", { returnUrl, payload: p.payload, credential: passkey.credential, name });
+    const res = await exchange(passkey.page, transport, "sign", { returnUrl, payload: p.payload, credential: passkey.credential, name, userVerification: p.userVerification });
     if (!("assertion" in res))
         throw new HandoffError("bad-response", "the signing page answered with the wrong operation");
     return p.finish(res.assertion);
@@ -193,7 +196,11 @@ export function checkHandoffRequest(url, rpId) {
         return { ok: false, error: "invalid-request", message: `rp_id ${fields.rp_id} is not ${rpId}`, ...back };
     const credential = q.get("credential") ?? undefined;
     const name = q.get("name") ?? undefined;
-    return { ok: true, op, returnUrl, state, payload, fields, ...(credential ? { credential } : {}), ...(name ? { name } : {}) };
+    const uv = q.get("user_verification");
+    if (uv !== null && uv !== "required")
+        return { ok: false, error: "invalid-request", message: `unknown user_verification ${uv}`, ...back };
+    const userVerification = uv === "required" ? "required" : "preferred";
+    return { ok: true, op, returnUrl, state, payload, fields, userVerification, ...(credential ? { credential } : {}), ...(name ? { name } : {}) };
 }
 // CLI_SPEC 8.3 check 3: a payload that names a key must name the passkey in use
 export function payloadMatchesKey(fields, publicKey) {

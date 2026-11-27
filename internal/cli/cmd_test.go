@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -57,8 +58,9 @@ func examplesOptions(t *testing.T) *verifyOptions {
 		DNS map[string]struct {
 			TXT string `json:"txt"`
 		} `json:"dns"`
-		Now   string            `json:"now"`
-		Fetch map[string]string `json:"fetch"`
+		DNSRecords map[string]json.RawMessage `json:"dns_records"`
+		Now        string                     `json:"now"`
+		Fetch      map[string]string          `json:"fetch"`
 	}
 	b, err := os.ReadFile(filepath.Join(examplesDir, "keys.json"))
 	if err != nil {
@@ -79,6 +81,18 @@ func examplesOptions(t *testing.T) *verifyOptions {
 				return mdsig.DNSKeysFromRecords(f, mdsig.DNSName(f), []string{keys.DNS[mdsig.DNSName(f)].TXT})
 			}),
 		},
+		lookupTXT: func(_ context.Context, name string) ([]string, error) {
+			raw, ok := keys.DNSRecords[name]
+			if !ok {
+				return nil, &net.DNSError{Err: "no such host", Name: name, IsNotFound: true}
+			}
+			var recs []string
+			if json.Unmarshal(raw, &recs) != nil {
+				return nil, &net.DNSError{Err: "server misbehaving", Name: name, IsTemporary: true}
+			}
+			return recs, nil
+		},
+		dohEndpoints: []string{},
 		fetchClient: serveClient(func(u string) ([]byte, bool) {
 			f, ok := keys.Fetch[u]
 			if !ok {
@@ -117,24 +131,30 @@ func TestSeverity(t *testing.T) {
 
 func TestVerifyExitCodes(t *testing.T) {
 	cases := map[string]int{
-		"pending-require.md":         exitPending,
-		"complete-require.md":        exitOK,
-		"require-serial-complete.md": exitOK,
-		"require-serial-pending.md":  exitPending,
-		"require-serial-guide.md":    exitOK,
-		"require-serial-strict.md":   exitFail,
-		"require-any-pending.md":     exitPending,
-		"require-any-complete.md":    exitOK,
-		"malformed-require-steps.md": exitFail,
-		"mixed-versions.md":          exitOK,
-		"revoked.md":                 exitFail,
-		"not-revoked.md":             exitOK,
-		"unknown-field.md":           exitFail,
-		"valid-resources.md":         exitOK,
-		"tampered-resource.md":       exitFail,
-		"valid-scoped-edited.md":     exitOK,
-		"expired.md":                 exitFail,
-		"valid-webauthn.md":          exitOK,
+		"pending-require.md":               exitPending,
+		"complete-require.md":              exitOK,
+		"require-serial-complete.md":       exitOK,
+		"require-serial-pending.md":        exitPending,
+		"require-serial-guide.md":          exitOK,
+		"require-serial-strict.md":         exitFail,
+		"require-any-pending.md":           exitPending,
+		"require-any-complete.md":          exitOK,
+		"malformed-require-steps.md":       exitFail,
+		"agent-accepted.md":                exitPending,
+		"agent-approved.md":                exitOK,
+		"require-member-dns.md":            exitOK,
+		"require-member-unreachable.md":    exitNetwork,
+		"require-declarer-unresolved.md":   exitNetwork,
+		"unsupported-require-attribute.md": exitFail,
+		"unsupported-version-v004.md":      exitFail,
+		"revoked.md":                       exitFail,
+		"not-revoked.md":                   exitOK,
+		"unknown-field.md":                 exitFail,
+		"valid-resources.md":               exitOK,
+		"tampered-resource.md":             exitFail,
+		"valid-scoped-edited.md":           exitOK,
+		"expired.md":                       exitFail,
+		"valid-webauthn.md":                exitOK,
 	}
 	for file, want := range cases {
 		isolate(t)
@@ -184,7 +204,7 @@ func TestVerifyJSON(t *testing.T) {
 		_ = json.Unmarshal(res.Files[i]["signatures"], &sigs)
 		return sigs[0]
 	}
-	want := []string{"index", "line", "status", "code", "message", "fields", "hash_ok", "partial", "key_source", "webauthn", "resources", "revocation", "tsa", "warnings"}
+	want := []string{"index", "line", "status", "code", "message", "fields", "display_name", "hash_ok", "partial", "key_source", "tofu", "webauthn", "pgp", "resources", "revocation", "tsa", "warnings"}
 	for _, k := range want {
 		if _, ok := sig(0)[k]; !ok {
 			t.Errorf("signature JSON lacks %q", k)
@@ -206,26 +226,29 @@ func TestVerifyJSON(t *testing.T) {
 			t.Errorf("got %s\nwant %s", ga, gb)
 		}
 	}
-	check(sig(0)["resources"], `[{"ref":"./assets/diagram.svg","status":"ok","detail":null},{"ref":"https://example.com/chart.png","status":"not-checked","detail":"remote resources are fetched only on request"}]`)
+	check(sig(0)["resources"], `[{"ref":"assets/diagram.svg","status":"ok","detail":null},{"ref":"https://example.com/chart.png","status":"not-checked","detail":"remote resources are fetched only on request"}]`)
 	check(sig(0)["partial"], `null`)
 	check(res.Files[1]["ok"], `true`)
-	check(res.Files[1]["agreement"], `{"status":"pending","required":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1,"step":1,"any":1}],"missing":[{"method":"dns","signer":"example.com","role":"approver","declared_by":1,"step":1,"any":1,"need":1}],"violations":[]}`)
-	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[],"violations":[]}`)
+	req := `{"declared_by":1,"step":1,"any":null,"line":1,"method":"dns","signer":"example.com","pattern":false,"attributes":{"role":"approver"}}`
+	check(res.Files[1]["agreement"], `{"status":"pending","required":[`+req+`],"missing":[{"declared_by":1,"step":1,"any":null,"line":1,"method":"dns","signer":"example.com","pattern":false,"attributes":{"role":"approver"},"need":1,"rejected":[]}],"violations":[],"next":[{"declared_by":1,"step":1,"need":1,"candidates":[`+req+`],"later":[]}],"satisfied":[],"declarations":[{"declared_by":1,"order":"pending","status":"pending","detail":null}]}`)
+	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[],"violations":[],"next":[],"satisfied":[],"declarations":[]}`)
 	check(sig(2)["partial"], `{"sections":["terms","fees"]}`)
-	check(sig(3)["webauthn"], `{"rp_id":"mdsig.dev","origin":"https://mdsig.dev","user_verified":true}`)
+	check(sig(3)["webauthn"], `{"rp_id":"mdsig.dev","origin":"https://mdsig.dev","user_verified":true,"backup_eligible":false,"backed_up":false}`)
 	check(sig(4)["revocation"], `{"status":"not-revoked","detail":null}`)
 }
 
 func TestHumanOutputRequireSteps(t *testing.T) {
 	out, _ := isolate(t)
 	o := examplesOptions(t)
-	_ = runVerify(o, []string{ex("require-serial-pending.md"), ex("require-serial-guide.md"), ex("require-serial-strict.md"), ex("require-any-pending.md")})
+	_ = runVerify(o, []string{ex("require-serial-pending.md"), ex("require-serial-guide.md"), ex("require-serial-strict.md"), ex("require-any-pending.md"), ex("require-member-unreachable.md")})
 	s := out.String()
 	for _, want := range []string{
-		"Agreement: pending (step 2 needs 1 more of: tofu:bob@laptop reviewer [signed before the previous step, sign again])",
-		"! order not followed: #2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete",
-		"Agreement: violated (#2 tofu:bob@laptop reviewer signed for step 2 before step 1 was complete)",
-		"Agreement: pending (step 1 needs 1 more of: tofu:carol@laptop, tofu:dave@laptop)",
+		"Agreement: pending\n    next: step 2 needs 1 more\n      tofu:bob@laptop role=reviewer",
+		"not counted: #2 tofu:bob@laptop (early: signed before step 1 was complete)",
+		"! order not followed: #2 tofu:bob@laptop role=reviewer signed for step 2 before step 1 was complete",
+		"Agreement: violated (#2 tofu:bob@laptop role=reviewer signed for step 2 before step 1 was complete)",
+		"next: step 1 needs 1 more (any 2 of 3)\n      tofu:carol@laptop\n      tofu:dave@laptop",
+		"Agreement: undetermined (a roster cannot be obtained)",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in\n%s", want, s)
@@ -236,17 +259,85 @@ func TestHumanOutputRequireSteps(t *testing.T) {
 func TestHumanOutput(t *testing.T) {
 	out, _ := isolate(t)
 	o := examplesOptions(t)
-	_ = runVerify(o, []string{ex("valid-resources.md"), ex("pending-require.md"), ex("valid-scoped-edited.md"), ex("valid-webauthn.md")})
+	_ = runVerify(o, []string{ex("valid-resources.md"), ex("pending-require.md"), ex("valid-scoped-edited.md"), ex("valid-webauthn.md"), ex("valid-display-name.md"), ex("valid-cosigned.md")})
 	s := out.String()
 	for _, want := range []string{
-		"resources: ✓ ./assets/diagram.svg  - https://example.com/chart.png (not checked)",
-		"Agreement: pending (missing dns:example.com approver)",
+		"resources: ✓ assets/diagram.svg  - https://example.com/chart.png (not checked)",
+		"Agreement: pending\n    next: step 1 needs 1 more\n      dns:example.com role=approver",
 		"partial: terms, fees",
-		"passkey (rp_id mdsig.dev)",
+		"passkey (rp_id mdsig.dev, user verified)",
+		"\"Bob Example (営業部)\" (declared)",
+		"⏱ by ",
+		"#3 tsa       http://ts.ssl.com    TSA ",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in\n%s", want, s)
 		}
+	}
+}
+
+func TestRenderAndExplain(t *testing.T) {
+	out, _ := isolate(t)
+	o := &renderOptions{verifyOptions: *examplesOptions(t)}
+	if c := exitCode(runRender(o, ex("table-marker.md"))); c != exitPending {
+		t.Fatalf("render exit %d", c)
+	}
+	page := out.String()
+	for _, want := range []string{"<table class=\"mdsig-signatures\">", "class=\"mdsig-unsigned\"", "<header class=\"mdsig-summary ok\">"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Count(page, "<article class=\"mdsig-body\">") != 2 || strings.Index(page, "mdsig-table") > strings.LastIndex(page, "mdsig-body") {
+		t.Errorf("the table is not placed at the marker:\n%s", page)
+	}
+	if strings.Contains(page, "<script") {
+		t.Error("script in the page")
+	}
+	out.Reset()
+	if err := runRequireExplain("step\n  dns:example.com role=approver\nstep any=2\n  dns:*.example.com member_of=dns:example.com", false); err != nil {
+		t.Fatal(err)
+	}
+	if want := "order: pending (signatures before their turn are not counted)\nstep 1: all of\n  dns:example.com with role approver\nstep 2: any 2 different signers of\n  any subdomain of example.com (not example.com itself), on the DNS roster of example.com, not the declaring signer\n"; out.String() != want {
+		t.Errorf("explain:\n%s", out.String())
+	}
+	if c := exitCode(runRequireExplain("dns:Example.com role=approver", false)); c != exitUsage {
+		t.Errorf("explain bad value: %d", c)
+	}
+	if c := exitCode(runRequireExplain("dns:example.com x_budget=1", false)); c != exitOK {
+		t.Errorf("explain unknown attribute: %d", c)
+	}
+	out.Reset()
+	if err := runRequireExplain("step any=1\n  tofu:bob\n  dns:a.example", true); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `"any": 1`) || !strings.Contains(out.String(), `tofu:bob has no pubkey=`) {
+		t.Errorf("explain json:\n%s", out.String())
+	}
+}
+
+func TestMemberRecord(t *testing.T) {
+	out, _ := isolate(t)
+	if err := runMemberRecord("dns:A.example.com", "corp.example", false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if want := "zyjnbt5iuukqrpbqryna3zkgv3n5zpgouvyzfud5cx2odbzcbrdq._member._mdsig.corp.example. IN TXT \"v=mdsig1; m=dns:a.example.com\"\n"; out.String() != want {
+		t.Errorf("got %q", out.String())
+	}
+	for _, bad := range [][2]string{{"dns:*.example.com", "corp.example"}, {"dns:a.example.com", "Corp.example"}, {"nocolon", "corp.example"}, {"tofu:a b", "corp.example"}} {
+		if c := exitCode(runMemberRecord(bad[0], bad[1], false, nil)); c != exitUsage {
+			t.Errorf("%v: %d", bad, c)
+		}
+	}
+	o := examplesOptions(t)
+	ro := &mdsig.ResolveOptions{LookupTXT: o.lookupTXT, DoHEndpoints: []string{}}
+	for id, want := range map[string]int{"dns:a.example.com": exitOK, "dns:b.example.com": exitFail, "dns:someone.example": exitFail} {
+		if c := exitCode(runMemberRecord(id, "corp.example", true, ro)); c != want {
+			t.Errorf("%s: %d, want %d", id, c, want)
+		}
+	}
+	if c := exitCode(runMemberRecord("dns:a.example.com", "broken.example", true, ro)); c != exitNetwork {
+		t.Errorf("SERVFAIL: %d", c)
 	}
 }
 
@@ -266,17 +357,21 @@ func TestExtensionFlags(t *testing.T) {
 	if e := ok(&signOptions{expires: "12h"}); e.expires != "2026-11-16T21:00:00Z" {
 		t.Error(e.expires)
 	}
-	if _, err := parseExtensionFlags(&signOptions{require: []string{"order guide", "step 1", "dns:a.com approver", "step 2 any 1", "tofu:b", "tofu:c"}}, now); err != nil {
-		t.Error(err)
+	if e := ok(&signOptions{require: []string{"order mode=guide", "step", "dns:a.com role=approver", "  step any=1", "tofu:b", "tofu:c"}}); strings.Join(e.require, "|") != "order mode=guide|step|  dns:a.com role=approver|step any=1|  tofu:b|  tofu:c" {
+		t.Error(e.require)
 	}
-	if e := ok(&signOptions{expires: "2027-01-01T00:00:00Z", scope: "terms, section:fees"}); e.expires != "2027-01-01T00:00:00Z" || strings.Join(e.scope, ",") != "terms,fees" {
+	if e := ok(&signOptions{expires: "2027-01-01T00:00:00Z", scope: []string{"terms, fees", "notes"}}); e.expires != "2027-01-01T00:00:00Z" || strings.Join(e.scope, ",") != "terms,fees,notes" {
 		t.Error(e)
+	}
+	if e := ok(&signOptions{resources: []string{"./assets/meeting notes.txt"}}); e == nil || encodeLocalRef(trimDotSlash("./assets/meeting notes.txt")) != "assets/meeting%20notes.txt" {
+		t.Error("percent-encoding")
 	}
 	for _, bad := range []*signOptions{
 		{expires: "tomorrow"}, {expires: "0d"}, {expires: "2027-02-30T00:00:00Z"}, {expires: "30m"},
-		{scope: "Terms"}, {scope: "a,a"}, {scope: ","},
-		{require: []string{"nope"}}, {require: []string{"dns:a.com approver extra"}}, {require: []string{"dns:a--b"}},
-		{require: []string{"step 1"}}, {require: []string{"step 2", "dns:a.com"}}, {require: []string{"dns:a.com", "order strict"}}, {require: []string{"step 1 any 2", "dns:a.com"}},
+		{scope: []string{"Terms"}}, {scope: []string{"a,a"}}, {scope: []string{","}}, {scope: []string{"section:terms"}},
+		{require: []string{"nope"}}, {require: []string{"dns:a.com approver"}}, {require: []string{"dns:a-->b"}},
+		{require: []string{"step"}}, {require: []string{"step 2", "dns:a.com"}}, {require: []string{"dns:a.com", "order mode=strict"}}, {require: []string{"step any=2", "dns:a.com"}},
+		{require: []string{"order mode=strict", "dns:*"}}, {require: []string{"dns:a.com x_budget=1"}},
 		{resources: []string{"../x.png"}}, {resources: []string{"/etc/passwd"}}, {resources: []string{"http://example.com/x"}},
 		{revocationURL: "http://example.com/r.md"}, {revocationURL: "https://example.com/a b"},
 	} {
@@ -306,13 +401,13 @@ func TestSignRevokeFlow(t *testing.T) {
 	write("data.csv", "x,1\n")
 
 	revURL := "https://lists.example/alice.md"
-	sign := &signOptions{method: "tofu", signer: "alice@laptop", keyPath: p("alice"), scope: "terms", require: []string{"tofu:bob@laptop approver"},
+	sign := &signOptions{method: "tofu", signer: "alice@laptop", keyPath: p("alice"), scope: []string{"terms"}, require: []string{"tofu:bob@laptop role=approver"},
 		resources: []string{"data.csv"}, autoResources: true, expires: "30d", revocationURL: revURL}
 	if err := runSign(sign, p("doc.md")); err != nil {
 		t.Fatal(err, errb.String())
 	}
 	signed, _ := os.ReadFile(p("doc.md"))
-	for _, want := range []string{"scope: section:terms\n", "require: tofu:bob@laptop approver\n", " data.csv\n", " img/a.png\n", "revocation_url: " + revURL + "\n", "expires: "} {
+	for _, want := range []string{"scope: terms\n", "require: tofu:bob@laptop role=approver\n", " data.csv hash=sha256:", " img/a.png hash=sha256:", "revocation_url: " + revURL + "\n", "expires: "} {
 		if !strings.Contains(string(signed), want) {
 			t.Errorf("missing %q:\n%s", want, signed)
 		}
@@ -320,7 +415,7 @@ func TestSignRevokeFlow(t *testing.T) {
 	if c := exitCode(runSign(&signOptions{method: "tofu", signer: "x", keyPath: p("alice"), resources: []string{"nope.png"}}, p("doc.md"))); c != exitIO {
 		t.Errorf("missing resource: %d", c)
 	}
-	if c := exitCode(runSign(&signOptions{method: "tofu", signer: "x", keyPath: p("alice"), scope: "nope"}, p("doc.md"))); c != exitUsage {
+	if c := exitCode(runSign(&signOptions{method: "tofu", signer: "x", keyPath: p("alice"), scope: []string{"nope"}}, p("doc.md"))); c != exitUsage {
 		t.Errorf("unknown section: %d", c)
 	}
 

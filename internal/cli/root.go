@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -133,7 +135,8 @@ func newRootCmd() *cobra.Command {
 	}
 	root.PersistentFlags().StringVar(&langFlag, "lang", "", "UI language: en or ja")
 	root.SetFlagErrorFunc(func(c *cobra.Command, err error) error { return err })
-	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd(), newTimestampCmd(), newDirectoryCmd(), newKnownCmd())
+	root.AddCommand(newSignCmd(), newVerifyCmd(), newInspectCmd(), newKeygenCmd(), newRevokeCmd(), newServeCmd(), newTimestampCmd(), newDirectoryCmd(), newKnownCmd(),
+		newRenderCmd(), newRequireCmd(), newMemberRecordCmd())
 	root.CompletionOptions.DisableDefaultCmd = true
 	return root
 }
@@ -287,6 +290,20 @@ func chooseFile(showCosign bool) (string, error) {
 	return file, nil
 }
 
+func validDisplayName(s string) error {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if e := optionalValue(s); e != nil {
+		return e
+	}
+	if utf8.RuneCountInString(s) > 64 {
+		return errors.New(i18n.T("launcher.long_display_name"))
+	}
+	return nil
+}
+
 func nonEmpty(s string) error {
 	if strings.TrimSpace(s) == "" {
 		return errors.New(i18n.T("launcher.required"))
@@ -304,11 +321,43 @@ func optionalValue(s string) error {
 	return nil
 }
 
+// CLI_SPEC 6: an unsatisfied require shows the candidates from next before the questions
+func showNextCandidates(file string) {
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return
+	}
+	r := mdsig.VerifyDocument(context.Background(), string(b), &mdsig.VerifyOptions{ResolveOptions: mdsig.ResolveOptions{Offline: true}})
+	for _, n := range r.Agreement.Next {
+		fmt.Fprintf(stderr, "  %s\n", i18n.T("launcher.next", n.Step, n.Need))
+		for _, c := range n.Candidates {
+			fmt.Fprintf(stderr, "    %s\n", safeText(c.String()))
+		}
+		fmt.Fprintln(stderr)
+	}
+}
+
+func validRole(s string) error {
+	if s == "" {
+		return nil
+	}
+	if e := optionalValue(s); e != nil {
+		return e
+	}
+	if !roleWord.MatchString(s) {
+		return errors.New(i18n.T("launcher.bad_role"))
+	}
+	return nil
+}
+
+var roleWord = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+
 func launchSign() error {
 	file, err := chooseFile(true)
 	if err != nil {
 		return err
 	}
+	showNextCandidates(file)
 	o := &signOptions{method: "git-hosting", interactive: true}
 	if err := runForm(huh.NewSelect[string]().Title(i18n.T("launcher.method")).Options(
 		huh.NewOption(i18n.T("launcher.method.git-hosting"), "git-hosting"),
@@ -333,6 +382,11 @@ func launchSign() error {
 		}
 		answered(i18n.T("launcher.selector"), o.selector)
 	}
+	if err := runForm(huh.NewInput().Title(i18n.T("launcher.display_name")).Prompt("> ").Value(&o.displayName).Validate(validDisplayName)); err != nil {
+		return err
+	}
+	o.displayName = strings.TrimSpace(o.displayName)
+	answered(i18n.T("launcher.display_name"), o.displayName)
 	var role string
 	if err := runForm(huh.NewSelect[string]().Title(i18n.T("launcher.role")).Options(
 		huh.NewOption(i18n.T("launcher.role.author"), "author"),
@@ -346,7 +400,7 @@ func launchSign() error {
 	}
 	if role == typePath {
 		role = ""
-		if err := runForm(huh.NewInput().Title(i18n.T("launcher.role")).Prompt("> ").Value(&role).Validate(optionalValue)); err != nil {
+		if err := runForm(huh.NewInput().Title(i18n.T("launcher.role")).Prompt("> ").Value(&role).Validate(func(s string) error { return validRole(strings.TrimSpace(s)) })); err != nil {
 			return err
 		}
 	}
@@ -382,6 +436,9 @@ func launchSign() error {
 	}
 	if o.pgpKey != "" {
 		argv = append(argv, "--pgp-key", o.pgpKey)
+	}
+	if o.displayName != "" {
+		argv = append(argv, "--display-name", o.displayName)
 	}
 	if o.role != "" {
 		argv = append(argv, "-r", o.role)
@@ -423,12 +480,20 @@ func launchKeygen() error {
 }
 
 func askSigner(o *signOptions) error {
-	placeholder := map[string]string{"git-hosting": "github.com/alice", "dns": "example.com", "tofu": "bob@laptop"}[o.method]
+	placeholder := map[string]string{"git-hosting": "github.com/alice", "dns": "example.com", "tofu": "bob@laptop", "directory": "alice@example.com"}[o.method]
 	if err := runForm(huh.NewInput().Title(i18n.T("launcher.signer")).Prompt("> ").Placeholder(placeholder).Value(&o.signer).Validate(func(s string) error {
 		if err := nonEmpty(s); err != nil {
 			return err
 		}
-		return optionalValue(strings.TrimSpace(s))
+		s = strings.TrimSpace(s)
+		if err := optionalValue(s); err != nil {
+			return err
+		}
+		// SPEC 3.4: checked as the block will carry it
+		if e := mdsig.CheckSignerID(o.method, mdsig.CanonicalSignerInput(o.method, s)); e != "" {
+			return errors.New(e)
+		}
+		return nil
 	})); err != nil {
 		return err
 	}

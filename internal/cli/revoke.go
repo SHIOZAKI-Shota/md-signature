@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -37,7 +36,7 @@ func newRevokeCmd() *cobra.Command {
 	}
 	f := c.Flags()
 	f.StringVar(&o.list, "list", "", "the revocation list file (created if it does not exist; required)")
-	f.StringVarP(&o.method, "method", "m", "git-hosting", "git-hosting, dns, tofu, or pgp")
+	f.StringVarP(&o.method, "method", "m", "git-hosting", "git-hosting, dns, tofu, pgp, or directory")
 	f.StringVarP(&o.signer, "signer", "s", "", "signer ID whose signatures are revoked (required; pgp: defaults to the key's email)")
 	f.StringVarP(&o.keyPath, "key", "k", "", "OpenSSH Ed25519 private key file (default: ssh-agent, then ~/.ssh/id_ed25519)")
 	f.StringVar(&o.selector, "selector", "", "dns only: DNS selector")
@@ -46,15 +45,6 @@ func newRevokeCmd() *cobra.Command {
 	f.IntVar(&o.index, "index", 0, "revoke only signature #n of <file> (default: every signature by the signer)")
 	_ = c.MarkFlagRequired("list")
 	return c
-}
-
-var revokedLine = regexp.MustCompile(`(?m)^revoked: sha256:([0-9a-f]{64})[ \t]*$`)
-
-func sameRevokeSigner(method, a, b string) bool {
-	if method == "dns" {
-		return strings.TrimSuffix(strings.ToLower(a), ".") == strings.TrimSuffix(strings.ToLower(b), ".")
-	}
-	return a == b
 }
 
 func readTextFile(path string) (text string, ok bool, err error) {
@@ -73,7 +63,7 @@ func readTextFile(path string) (text string, ok bool, err error) {
 
 func runRevoke(o *revokeOptions, file string) error {
 	switch o.method {
-	case "git-hosting", "dns", "tofu", "pgp":
+	case "git-hosting", "dns", "tofu", "pgp", "directory":
 	default:
 		return exitf(exitUsage, "%s", i18n.T("sign.bad_method", o.method))
 	}
@@ -121,6 +111,9 @@ func runRevoke(o *revokeOptions, file string) error {
 			so.signer = o.signer
 		}
 	}
+	// SPEC 3.4: signers compare exactly, in the canonical form generators write
+	o.signer = mdsig.CanonicalSignerInput(o.method, o.signer)
+	so.signer = o.signer
 	if o.index < 0 || o.index > len(doc.Chain) {
 		return exitf(exitUsage, "%s", i18n.T("revoke.bad_index", o.index, len(doc.Chain)))
 	}
@@ -133,7 +126,7 @@ func runRevoke(o *revokeOptions, file string) error {
 		if o.index != 0 && b.Index != o.index {
 			continue
 		}
-		mine := b.Fields["method"] == o.method && sameRevokeSigner(o.method, b.Fields["signer"], o.signer)
+		mine := b.Fields["method"] == o.method && b.Fields["signer"] == o.signer
 		if !mine {
 			if o.index != 0 {
 				return exitf(exitUsage, "%s", i18n.T("revoke.not_yours", o.index, safeText(b.Fields["method"]), safeText(b.Fields["signer"])))
@@ -158,33 +151,14 @@ func runRevoke(o *revokeOptions, file string) error {
 	}
 	var body string
 	if exists {
-		body = strings.TrimRight(mdsig.ParseDocument(listText).Body, "\n \t")
+		body = mdsig.ParseDocument(listText).Body
 	}
-	if strings.TrimSpace(body) == "" {
-		body = "# Revoked md-signature signatures: " + o.signer
+	// SPEC 5.10: entries live in the list's mdsig-list fence; a list that does not follow the format is left alone
+	body, added, err := mdsig.AddToRevocationList(body, "# Revoked md-signature signatures: "+o.signer, ids)
+	if err != nil {
+		return exitf(exitFail, "%s: %v", safeText(o.list), err)
 	}
-	present := map[string]bool{}
-	for _, m := range revokedLine.FindAllStringSubmatch(body, -1) {
-		present[m[1]] = true
-	}
-	added := 0
-	var newLines []string
-	for _, id := range ids {
-		if present[id] {
-			continue
-		}
-		present[id] = true
-		newLines = append(newLines, "revoked: sha256:"+id)
-		added++
-	}
-	if len(newLines) > 0 {
-		sep := "\n"
-		if !revokedLine.MatchString(body) {
-			sep = "\n\n"
-		}
-		body += sep + strings.Join(newLines, "\n")
-	}
-	body += "\n"
+	body = strings.TrimRight(body, "\n \t") + "\n"
 
 	if isPgp {
 		return signPgpRevocation(o, so, pgpKey, file, body, keyHints, indexes, urls, added)
@@ -194,7 +168,7 @@ func runRevoke(o *revokeOptions, file string) error {
 		return err
 	}
 	pub := signer.PublicKey()
-	// SPEC 5.9: tofu lists are trusted only with the same pubkey, git-hosting/dns by method + signer
+	// SPEC 5.9: tofu lists are trusted only with the same pubkey, the other methods by method + signer
 	for _, f := range keyHints {
 		if o.method == "tofu" && f["pubkey"] != "ed25519:"+base64.StdEncoding.EncodeToString(pub) {
 			return exitf(exitUsage, "%s", i18n.T("revoke.tofu_key_mismatch", safeText(f["pubkey"])))

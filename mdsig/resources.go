@@ -10,12 +10,14 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -27,9 +29,12 @@ const (
 )
 
 type resourceEntry struct {
-	Hash   string
+	Hash string
+	// as written in the block
 	Ref    string
 	Remote bool
+	// local references: the percent-decoded path handed to LoadResource
+	Path string
 }
 
 type ResourceResult struct {
@@ -44,73 +49,131 @@ type ResourceItem struct {
 }
 
 var (
-	resourceLineRe = regexp.MustCompile(`^sha256:([0-9a-f]{64}) (.+)$`)
-	schemeRe       = regexp.MustCompile(`(?i)^[a-z][a-z0-9+.-]*:`)
-	httpsPrefixRe  = regexp.MustCompile(`(?i)^https://`)
+	resourceHashRe  = regexp.MustCompile(`^sha256:([0-9a-f]{64})$`)
+	hashPrefixRe    = regexp.MustCompile(`^([a-z0-9-]+):`)
+	schemeRe        = regexp.MustCompile(`(?i)^[a-z][a-z0-9+.-]*:`)
+	driveLetterRe   = regexp.MustCompile(`^[A-Za-z]:`)
+	httpsPrefixRe   = regexp.MustCompile(`(?i)^https://`)
+	httpsRefRe      = regexp.MustCompile(`^https://`)
+	forbiddenEscRe  = regexp.MustCompile(`(?i)%2f|%5c|%00`)
+	localRefCharsRe = regexp.MustCompile(`^(?:[A-Za-z0-9\-._~!$&'()*+,;=:@/]|%[0-9A-Fa-f]{2}|[^\x00-\x7f])*$`)
 )
 
 func isHTTPSRef(ref string) bool {
-	if !httpsPrefixRe.MatchString(ref) || len(ref) <= len("https://") {
+	if !httpsRefRe.MatchString(ref) || len(ref) <= len("https://") {
 		return false
 	}
 	c := []rune(ref[len("https://"):])[0]
 	return c != '/' && !isJSSpace(c)
 }
 
-func ValidateResourceRef(ref string) string {
-	if isHTTPSRef(ref) {
-		return ""
+// SPEC 5.7: percent-decoding of a local reference, or an error message
+func decodeLocalRef(ref string) (string, string) {
+	if !utf8.ValidString(ref) || !localRefCharsRe.MatchString(ref) {
+		return "", jsonString(ref) + ": characters outside RFC 3986 must be percent-encoded"
 	}
-	if schemeRe.MatchString(ref) {
-		return fmt.Sprintf("%s: only https:// URLs and relative paths are allowed", jsonString(ref))
+	// security: an encoded separator or NUL would change the path after the checks below
+	if forbiddenEscRe.MatchString(ref) {
+		return "", jsonString(ref) + ": %2F, %5C, and %00 are not allowed"
 	}
-	if strings.HasPrefix(ref, "/") {
-		return fmt.Sprintf("%s: absolute paths are not allowed", jsonString(ref))
+	path, err := url.PathUnescape(ref)
+	if err != nil || !utf8.ValidString(path) {
+		return "", jsonString(ref) + ": the decoded path is not valid UTF-8"
 	}
-	if strings.Contains(ref, `\`) {
-		return fmt.Sprintf("%s: use \"/\" as the path separator", jsonString(ref))
+	if e := checkDecodedPath(path); e != "" {
+		return "", jsonString(ref) + ": " + e
 	}
-	for _, seg := range strings.Split(ref, "/") {
-		if seg == ".." {
-			return fmt.Sprintf("%s: \"..\" is not allowed", jsonString(ref))
+	return path, ""
+}
+
+func checkDecodedPath(path string) string {
+	if strings.HasPrefix(path, "/") || driveLetterRe.MatchString(path) || strings.Contains(path, `\`) {
+		return `absolute paths, drive letters, and "\" are not allowed`
+	}
+	// SPEC 5.7: ".", "..", and empty segments are checked after decoding
+	for _, seg := range strings.Split(path, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return `".", "..", and empty path segments are not allowed`
 		}
 	}
 	return ""
 }
 
-func parseResources(value string) ([]resourceEntry, []string) {
-	var entries []resourceEntry
-	var errs []string
-	for _, line := range strings.Split(value, "\n") {
-		m := resourceLineRe.FindStringSubmatch(line)
-		if m == nil {
-			errs = append(errs, fmt.Sprintf("resources: expected \"sha256:<hex> <ref>\", got %s", jsonString(line)))
+func ValidateResourceRef(ref string) string {
+	if isHTTPSRef(ref) {
+		return ""
+	}
+	if schemeRe.MatchString(ref) && !driveLetterRe.MatchString(ref) {
+		return fmt.Sprintf("%s: only https:// URLs and relative paths are allowed", jsonString(ref))
+	}
+	_, e := decodeLocalRef(ref)
+	return e
+}
+
+// SPEC 5.7: each line is "<ref> hash=sha256:<hex>"; another hash prefix is unsupported, not malformed
+func parseResources(value string) (entries []resourceEntry, errs []string, unsupportedHash string) {
+	for _, raw := range strings.Split(value, "\n") {
+		l, e := parseListLine(raw, map[string]string{"hash": listAttrValue})
+		if l == nil {
+			errs = append(errs, "resources: "+e)
 			continue
 		}
-		ref := m[2]
+		if len(l.unknown) > 0 {
+			errs = append(errs, fmt.Sprintf("resources: unknown attribute %q", l.unknown[0]))
+			continue
+		}
+		hv, ok := l.get("hash")
+		if !ok {
+			errs = append(errs, fmt.Sprintf("resources: expected \"<ref> hash=sha256:<hex>\", got %s", jsonString(raw)))
+			continue
+		}
+		if pm := hashPrefixRe.FindStringSubmatch(hv.value); pm != nil && pm[1] != "sha256" {
+			if unsupportedHash == "" {
+				unsupportedHash = hv.value
+			}
+			continue
+		}
+		h := resourceHashRe.FindStringSubmatch(hv.value)
+		if h == nil {
+			errs = append(errs, fmt.Sprintf("resources: expected \"<ref> hash=sha256:<lowercase hex>\", got %s", jsonString(raw)))
+			continue
+		}
+		ref := l.target
 		if e := ValidateResourceRef(ref); e != "" {
 			errs = append(errs, "resources: "+e)
+			continue
 		}
-		entries = append(entries, resourceEntry{Hash: m[1], Ref: ref, Remote: httpsPrefixRe.MatchString(ref)})
+		entry := resourceEntry{Hash: h[1], Ref: ref, Remote: httpsRefRe.MatchString(ref)}
+		if !entry.Remote {
+			entry.Path, _ = decodeLocalRef(ref)
+		}
+		entries = append(entries, entry)
 	}
-	return entries, errs
+	return entries, errs, unsupportedHash
 }
+
+var dotSlashRe = regexp.MustCompile(`^(?:\./)+`)
+
+// SPEC 5.7: generators drop a leading "./", because a "." segment is malformed
+func stripDotSlash(ref string) string { return dotSlashRe.ReplaceAllString(ref, "") }
 
 func formatResources(items []ResourceItem) (string, error) {
 	lines := make([]string, 0, len(items))
 	for _, it := range items {
-		if e := ValidateResourceRef(it.Ref); e != "" {
+		ref := stripDotSlash(it.Ref)
+		if e := ValidateResourceRef(ref); e != "" {
 			return "", errors.New(e)
 		}
 		sum := sha256.Sum256(it.Bytes)
-		lines = append(lines, "sha256:"+toHex(sum[:])+" "+it.Ref)
+		lines = append(lines, ref+" hash=sha256:"+toHex(sum[:]))
 	}
 	return strings.Join(lines, "\n"), nil
 }
 
 const MaxResourceBytes = 50 * 1024 * 1024
 
-const maxRevocationListBytes = 5 * 1024 * 1024
+// SPEC 5.10: signed lists (revocation lists, rosters)
+const maxSignedListBytes = 10 * 1024 * 1024
 
 type httpStatusError struct{ Status int }
 
@@ -238,7 +301,8 @@ func SafeHTTPClient(timeout time.Duration) *http.Client {
 	}
 }
 
-type ResourceLoader func(ref string) ([]byte, error)
+// ResourceLoader receives the percent-decoded path of a local reference
+type ResourceLoader func(path string) ([]byte, error)
 
 type ResourceCheckOptions struct {
 	LoadResource     ResourceLoader
@@ -267,7 +331,7 @@ func checkResources(ctx context.Context, entries []resourceEntry, o *ResourceChe
 				out = append(out, ResourceResult{Ref: e.Ref, Status: ResourceNotChecked, Detail: "the document's directory is not available"})
 				continue
 			}
-			b, err := o.LoadResource(e.Ref)
+			b, err := o.LoadResource(e.Path)
 			if err != nil {
 				out = append(out, ResourceResult{Ref: e.Ref, Status: ResourceMissing, Detail: "could not be read: " + err.Error()})
 				continue
@@ -319,10 +383,13 @@ func FindLocalImages(markdown string) []string {
 		}
 	}
 	var out []string
+	kept := map[string]bool{}
 	for _, r := range refs {
-		if schemeRe.MatchString(r) || strings.HasPrefix(r, "#") || ValidateResourceRef(r) != "" {
+		r = stripDotSlash(r)
+		if kept[r] || schemeRe.MatchString(r) || strings.HasPrefix(r, "#") || ValidateResourceRef(r) != "" {
 			continue
 		}
+		kept[r] = true
 		out = append(out, r)
 	}
 	return out
@@ -331,7 +398,7 @@ func FindLocalImages(markdown string) []string {
 // SSRF/DoS: a ref must stay inside dir after symlinks and be a regular file (no FIFO, device, or Windows device name)
 func DirResourceLoader(dir string) ResourceLoader {
 	return func(ref string) ([]byte, error) {
-		if e := ValidateResourceRef(ref); e != "" {
+		if e := checkDecodedPath(ref); e != "" {
 			return nil, errors.New(e)
 		}
 		root, err := os.OpenRoot(dir)

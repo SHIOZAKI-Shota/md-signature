@@ -131,3 +131,17 @@
 
 #doc-warnings.doc-warnings { position: relative; padding-left: 16px; color: var(--ink-2); font-size: 0.8rem; }
 #doc-warnings.doc-warnings::before { content: "!"; position: absolute; left: 2px; font-family: var(--mono); font-weight: 700; color: var(--warn); }
+
+/* ------------------------------------------------------------------ format 0.1: display name, hints, next co-signers */
+.blk-dname { font-size: 0.8rem; color: var(--ink-2); overflow-wrap: anywhere; }
+.blk-hints { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 0.78rem; line-height: 1.55; color: var(--ink-2); }
+.blk-hints li { position: relative; padding-left: 16px; overflow-wrap: anywhere; }
+.blk-hints li::before { content: "i"; position: absolute; left: 3px; font-family: var(--mono); font-weight: 700; color: var(--ruri-text); }
+.agree-next { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 12px 14px; background: var(--paper); font-size: 0.84rem; display: grid; gap: 8px; }
+.agree-next[hidden] { display: none; }
+.agree-next h4 { margin: 0; font-size: 0.86rem; font-weight: 700; }
+.agree-next > ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.agree-next-head { margin: 0; color: var(--ink); }
+.agree-next-lines { list-style: none; margin: 4px 0 0; padding: 0 0 0 12px; display: grid; gap: 2px; border-left: 2px solid var(--line-strong); }
+.agree-next-lines code { font-family: var(--mono); font-size: 0.76rem; overflow-wrap: anywhere; }
+.agree-next-rejected, .agree-next-later { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }

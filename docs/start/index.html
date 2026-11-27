@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../color-scheme.js?v=20261118b"></script>
+    <script src="../color-scheme.js?v=20261127"></script>
     <title>導入 | md-signature</title>
     <meta name="description"
         content="署名と検証には、コマンドライン（mdsig）、TypeScript ライブラリ、Go ライブラリ、HTTP の検証サーバを使用できます。いずれも同じ仕様とテストベクタに基づいて実装しています。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../style.css?v=20261118b">
-    <link rel="stylesheet" href="../guide.css?v=20261118b">
-    <link rel="stylesheet" href="../docs.css?v=20261118b">
+    <link rel="stylesheet" href="../style.css?v=20261127">
+    <link rel="stylesheet" href="../guide.css?v=20261127">
+    <link rel="stylesheet" href="../docs.css?v=20261127">
     <script src="../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../site.js?v=20261118b"></script>
+    <script type="module" src="../site.js?v=20261127"></script>
 </head>
 
 <body>
@@ -135,7 +135,7 @@
                             </div>
                             <div class="tblock">
                                 <pre><code><span class="cmt" data-i18n="start.c5"># 承認者を指定し、画像を固定して連署を要求</span>
-<span class="cmd">mdsig sign quote.md -m git-hosting -s github.com/alice --require "dns:example.com approver" --auto-resources</span></code></pre>
+<span class="cmd">mdsig sign quote.md -m git-hosting -s github.com/alice --require "dns:example.com role=approver" --auto-resources</span></code></pre>
                                 <button type="button" class="tcopy icon-copy"
                                     data-i18n-attr="aria-label:kg.copy;title:kg.copy" aria-label="コピー" title="コピー"><i
                                         data-lucide="copy" aria-hidden="true"></i><i data-lucide="check"
@@ -190,6 +190,18 @@
                         <tr>
                             <th scope="row"><code>mdsig timestamp &lt;file&gt;</code></th>
                             <td data-i18n-html="st.cmd.timestamp">タイムスタンプ専用ブロックを追記する。重ねて実行すると更新になる。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig render &lt;file&gt;</code></th>
+                            <td data-i18n-html="st.cmd.render">検証結果と署名欄を、本文と合わせて1つの HTML として出力する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig require explain &lt;value&gt;</code></th>
+                            <td data-i18n-html="st.cmd.explain"><code>require</code> の値を検査し、段階ごとの意味を文章で表示する。</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><code>mdsig member-record &lt;id&gt; &lt;domain&gt;</code></th>
+                            <td data-i18n-html="st.cmd.member">DNS の名簿に設定する TXT レコードを表示する。<code>--check</code> で設定を確認する。</td>
                         </tr>
                         <tr>
                             <th scope="row"><code>mdsig serve</code></th>
@@ -282,7 +294,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                 <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "npm:@mdsig/core@0.0.5";
+                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "npm:@mdsig/core@0.1.0";
 
 const markdown = await Deno.readTextFile("contract.md");
 const { ok, signatures } = await verifyDocument(markdown);
@@ -300,7 +312,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                             </div>
                             <div class="tblock code">
                                 <pre data-lang="html" data-file="index.html"><code>&lt;script type="module"&gt;
-  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.0.5";
+  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.1.0";
 
   const markdown = await (await fetch("contract.md")).text();
   const { ok, signatures } = await verifyDocument(markdown);
@@ -349,13 +361,15 @@ const { text } = await signDocument(markdown, {
   method: "tofu",
   signerId: "bob@laptop",
   role: "reviewer",
-  require: ["dns:example.com approver"],
+  displayName: "Bob",
+  require: ["dns:example.com role=approver"],
 });</code></pre>
                     </figure>
                     <h3 class="guide-label" data-i18n="st.ts.optT">主なオプション</h3>
                     <ul class="guide-list plain">
                         <li data-i18n-html="st.ts.o1"><code>fetch</code>、<code>resolvers</code>、<code>loadResource</code>：鍵、撤回リスト、リソースの取得方法を差し替える。</li>
                         <li data-i18n-html="st.ts.o2"><code>tsaRoots</code>、<code>extraTsaRoots</code>：TSA のルート証明書を置換、追加する。</li>
+                        <li data-i18n-html="st.ts.o4"><code>explainRequire</code>、<code>signatureTable</code>、<code>renderSignatureTableHtml</code>：宣言の説明、署名欄の行データと HTML。</li>
                         <li data-i18n-html="st.ts.o3"><code>tsaVerifier</code>：トークンの検証をサーバに委ねる（<code>remoteTsaVerifier(url)</code>）。</li>
                     </ul>
                 </div>
@@ -427,7 +441,7 @@ for _, s := range res.Signatures {
                             </tr>
                             <tr>
                                 <th scope="row"><code>POST /v1/tsa</code></th>
-                                <td data-i18n-html="st.srv.tsa"><code>tsa_token</code> と署名のバイト列を受け取り、<code>tsa</code> オブジェクトで応答する。</td>
+                                <td data-i18n-html="st.srv.tsa"><code>tsa</code> ブロックの <code>sig</code> の値（<code>token</code>）と署名対象ペイロードを受け取り、<code>tsa</code> オブジェクトで応答する。</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>GET /v1/health</code></th>
@@ -480,7 +494,7 @@ const diff = compareResults(local, remote);</code></pre>
       - run: go install mdsig.dev/cmd/mdsig@latest
       - run: mdsig verify docs/*.md</code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="st.auto.ciNote">承認の順序と人数を規定する場合は「連署ワークフロー」を参照してください。</p>
+                    <p class="guide-note" data-i18n-html="st.auto.ciNote">承認の順序と人数を規定する場合は「連署ワークフロー」、エージェントどうしの取引は「エージェント間の合意記録」を参照してください。</p>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">

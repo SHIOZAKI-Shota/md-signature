@@ -25,14 +25,14 @@ const doc = [
 ].join(NL);
 writeFileSync(out + "features-input.md", doc);
 const s = await signDocument(doc, {
-  signer: bob, method: "tofu", signerId: "bob@laptop", role: "author", reason: "Scoped draft", ts: "2026-11-16T09:00:00Z",
+  signer: bob, method: "tofu", signerId: "bob@laptop", displayName: "Bob Example", role: "author", reason: "Scoped draft", ts: "2026-11-16T09:00:00Z",
   scope: ["terms", "fees"], expires: "2027-11-16T00:00:00Z",
-  require: ["dns:example.com approver", "git-hosting:github.com/alice", "tofu:carol@passkey witness"],
+  require: ["order mode=guide", "step", "  dns:example.com role=approver", "  git-hosting:github.com/alice", "step any=1", "  tofu:carol@passkey role=witness", "  dns:*.example.com member_of=dns:example.com"],
   resources: [{ ref: "./img/diagram.png", bytes: utf8("PNG-BYTES" + NL) }, { ref: "https://example.com/chart.png", bytes: utf8("REMOTE") }],
   revocationUrl: "https://example.com/.well-known/mdsig-revoked.md",
   extra: { x_ref: "PO-123", x_dept: "legal" },
 });
 writeFileSync(out + "features-ts.md", s.text);
-const p = signedPayload({ v: "0.0.1", require: "dns:a.com approver" + NL + "git-hosting:github.com/b" + NL + "v=9", x_note: "n", sig: "base64:AA", webauthn_client_data: "AA" });
+const p = signedPayload({ v: "0.1", require: "dns:a.com role=approver" + NL + "git-hosting:github.com/b" + NL + "v=9", x_note: "n", sig: "base64:AA", webauthn_client_data: "AA" });
 writeFileSync(out + "require-payload-ts.txt", p);
 console.log("wrote", out);

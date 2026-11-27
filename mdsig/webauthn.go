@@ -116,9 +116,13 @@ func parseES256(key []byte) (*ecdsa.PublicKey, error) {
 }
 
 type WebAuthnInfo struct {
-	RPID         string
-	Origin       string
+	RPID   string
+	Origin string
+	// SPEC 5.8.7: UP (bit 0) and UV (bit 2) both set
 	UserVerified bool
+	// BE (bit 3) and BS (bit 4): the credential may be, or is, synced
+	BackupEligible bool
+	BackedUp       bool
 }
 
 type webAuthnCheck struct {
@@ -160,7 +164,11 @@ func checkWebAuthnData(fields map[string]string, payload []byte) webAuthnCheck {
 		return webAuthnCheck{code: "malformed", msg: "clientDataJSON is not a JSON object"}
 	}
 	origin, _ := cd["origin"].(string)
-	info := &WebAuthnInfo{RPID: rpID, Origin: origin, UserVerified: len(authData) > 32 && authData[32]&0x04 != 0}
+	var flags byte
+	if len(authData) > 32 {
+		flags = authData[32]
+	}
+	info := &WebAuthnInfo{RPID: rpID, Origin: origin, UserVerified: flags&0x05 == 0x05, BackupEligible: flags&0x08 != 0, BackedUp: flags&0x10 != 0}
 	bad := func(code, msg string) webAuthnCheck { return webAuthnCheck{code: code, msg: msg, info: info} }
 	if t, _ := cd["type"].(string); t != "webauthn.get" {
 		return bad("bad-signature", fmt.Sprintf("clientDataJSON type is %s, expected \"webauthn.get\"", jsJSON(cd["type"])))
@@ -168,6 +176,10 @@ func checkWebAuthnData(fields map[string]string, payload []byte) webAuthnCheck {
 	sum := sha256.Sum256(payload)
 	if ch, ok := cd["challenge"].(string); !ok || ch != toBase64URL(sum[:]) {
 		return bad("bad-signature", "challenge does not match the signed payload")
+	}
+	// SPEC 6.1: an assertion made inside a cross-origin iframe is refused
+	if co, ok := cd["crossOrigin"].(bool); ok && co {
+		return bad("bad-signature", "clientDataJSON crossOrigin is true")
 	}
 	host, scheme, ok := jsHostname(origin)
 	if !ok {
@@ -226,8 +238,18 @@ type WebAuthnAssertion struct {
 	ClientDataJSON    []byte
 }
 
+const (
+	UserVerificationRequired  = "required"
+	UserVerificationPreferred = "preferred"
+)
+
 type WebAuthnSigner interface {
 	PublicKeySPKI() []byte
 	RPID() string
-	GetAssertion(challenge []byte) (*WebAuthnAssertion, error)
+	// userVerification is "required" when a require line asks for user_verified (SPEC 5.8), otherwise "preferred"
+	GetAssertion(challenge []byte, userVerification string) (*WebAuthnAssertion, error)
+}
+
+func assertionUserVerified(a *WebAuthnAssertion) bool {
+	return len(a.AuthenticatorData) > 32 && a.AuthenticatorData[32]&0x05 == 0x05
 }

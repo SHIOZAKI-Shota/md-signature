@@ -85,7 +85,7 @@ export function gzip(data) {
 export function gunzip(data, maxBytes = Infinity) {
     return pipe(data, new DecompressionStream("gzip"), maxBytes);
 }
-// SPEC 5.5: the value is unsigned, so the decompressed size is capped
+// SPEC 4.6: the value is unsigned, so the decompressed size is capped
 export const MAX_DECODED_BYTES = 1024 * 1024;
 export async function decodePrefixedBinary(v, maxBytes = MAX_DECODED_BYTES) {
     const i = v.indexOf(":");
@@ -98,8 +98,6 @@ export async function decodePrefixedBinary(v, maxBytes = MAX_DECODED_BYTES) {
             return fromBase64(body);
         case "gzip+base64":
             return gunzip(fromBase64(body), maxBytes);
-        case "zstd+base64":
-            throw new Error("zstd+base64 is not supported by this implementation");
         default:
             throw new Error(`unknown encoding prefix: ${prefix}`);
     }

@@ -93,12 +93,19 @@ func TestPayloadEscapesLF(t *testing.T) {
 }
 
 func TestFoldedValuesJoinWithLF(t *testing.T) {
-	f, errs, _ := parseFields([]string{"require: |", "  dns:a.com", "  dns:b.com  ", "v: 0.0.1"})
-	if f["require"] != "dns:a.com\ndns:b.com" {
-		t.Fatalf("%q %v", f["require"], errs)
+	f, _, _ := parseFields([]string{"require: |", "  step", "    dns:a.com", "v: 0.1"})
+	if f["require"] != "step\n  dns:a.com" {
+		t.Fatalf("%q", f["require"])
 	}
-	_, errs, _ = parseFields([]string{"reason: |", "  a--b"})
-	if !strings.Contains(strings.Join(errs, ";"), `"--"`) {
+	_, errs, _ := parseFields([]string{"require: |", "  dns:a.com", "  dns:b.com  "})
+	if !strings.Contains(strings.Join(errs, ";"), "trailing spaces") {
+		t.Fatal(errs)
+	}
+	_, errs, _ = parseFields([]string{"reason: |", "  a-->b"})
+	if !strings.Contains(strings.Join(errs, ";"), `"-->"`) {
+		t.Fatal(errs)
+	}
+	if _, errs, _ = parseFields([]string{"reason: a--b"}); slices.ContainsFunc(errs, func(e string) bool { return strings.HasPrefix(e, "reason") }) {
 		t.Fatal(errs)
 	}
 }
@@ -131,10 +138,10 @@ func TestResources(t *testing.T) {
 	remote := []byte("REMOTE-CHART")
 	s := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "a", TS: fTS,
 		Resources: []ResourceItem{{Ref: "./diagram.png", Bytes: png}, {Ref: "https://example.com/chart.png", Bytes: remote}}})
-	if !regexp.MustCompile(`resources: \|\n {2}sha256:[0-9a-f]{64} \./diagram\.png\n {2}sha256:[0-9a-f]{64} https://example\.com/chart\.png`).MatchString(s.Block) {
+	if !regexp.MustCompile(`resources: \|\n {2}diagram\.png hash=sha256:[0-9a-f]{64}\n {2}https://example\.com/chart\.png hash=sha256:[0-9a-f]{64}`).MatchString(s.Block) {
 		t.Fatal(s.Block)
 	}
-	files := map[string][]byte{"./diagram.png": png}
+	files := map[string][]byte{"diagram.png": png}
 	load := func(ref string) ([]byte, error) { return files[ref], nil }
 	stub := staticFetch(200, remote)
 	opts := func(fetch bool, c *http.Client) *VerifyOptions {
@@ -156,15 +163,15 @@ func TestResources(t *testing.T) {
 	if !reflect.DeepEqual(statuses(v2), []string{"ok", "ok"}) || stub.calls != 1 {
 		t.Fatalf("fetch: %v", statuses(v2))
 	}
-	files["./diagram.png"] = []byte("EVIL")
+	files["diagram.png"] = []byte("EVIL")
 	if c := verify(s.Text, opts(false, nil)).Signatures[0].Code; c != "resource-mismatch" {
 		t.Fatal(c)
 	}
-	delete(files, "./diagram.png")
+	delete(files, "diagram.png")
 	if c := verify(s.Text, opts(false, nil)).Signatures[0].Code; c != "resource-missing" {
 		t.Fatal(c)
 	}
-	files["./diagram.png"] = png
+	files["diagram.png"] = png
 	if c := verify(s.Text, opts(true, staticFetch(200, []byte("CHANGED")).client())).Signatures[0].Code; c != "resource-mismatch" {
 		t.Fatal(c)
 	}
@@ -245,10 +252,10 @@ func TestForbiddenIPs(t *testing.T) {
 
 func TestFindLocalImages(t *testing.T) {
 	md := "![a](./a.png)\n<img src=\"img/b.jpg\">\n![r](https://x.com/r.png)\n```\n![c](./c.png)\n```\n![d](../d.png)\n"
-	if got := FindLocalImages(md); !reflect.DeepEqual(got, []string{"./a.png", "img/b.jpg"}) {
+	if got := FindLocalImages(md); !reflect.DeepEqual(got, []string{"a.png", "img/b.jpg"}) {
 		t.Fatal(got)
 	}
-	if got := FindLocalImages("![t](<x y.png> \"title\") ![u](./u.png \"T\") ![a](./a.png) <IMG SRC='i.gif'> ![h](#frag) ![m](mailto:x)"); !reflect.DeepEqual(got, []string{"./u.png", "./a.png", "i.gif"}) {
+	if got := FindLocalImages("![t](<x y.png> \"title\") ![u](./u.png \"T\") ![a](./a.png) <IMG SRC='i.gif'> ![h](#frag) ![m](mailto:x)"); !reflect.DeepEqual(got, []string{"u.png", "a.png", "i.gif"}) {
 		t.Fatal(got)
 	}
 }
@@ -260,16 +267,16 @@ func TestRequire(t *testing.T) {
 	b := mustSigner(t, seedB)
 	o := &VerifyOptions{Resolvers: map[string]Resolver{"dns": fixedKeys(map[string][]byte{"example.com": b.PublicKey()}, "ed25519")}}
 	s1 := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "alice", Role: "author", TS: fTS,
-		Require: []string{"dns:example.com approver", Requirement{Method: "tofu", Signer: "carol"}.String()}})
+		Require: []string{"dns:example.com role=approver", Requirement{Method: "tofu", Signer: "carol"}.String()}})
 	v1 := verify(s1.Text, o)
 	if !v1.OK || v1.Agreement.Status != AgreementPending || len(v1.Agreement.Missing) != 2 {
 		t.Fatal(dump(v1))
 	}
-	s2bad := mustSign(t, s1.Text, SignOptions{Signer: b, Method: "dns", SignerID: "Example.com", Role: "witness", TS: fTS})
+	s2bad := mustSign(t, s1.Text, SignOptions{Signer: b, Method: "dns", SignerID: "example.com", Role: "witness", TS: fTS})
 	if n := len(verify(s2bad.Text, o).Agreement.Missing); n != 2 {
 		t.Fatalf("wrong role satisfied a requirement: %d", n)
 	}
-	s2 := mustSign(t, s1.Text, SignOptions{Signer: b, Method: "dns", SignerID: "Example.com", Role: "approver", TS: fTS})
+	s2 := mustSign(t, s1.Text, SignOptions{Signer: b, Method: "dns", SignerID: "Example.COM.", Role: "approver", TS: fTS})
 	if n := len(verify(s2.Text, o).Agreement.Missing); n != 1 {
 		t.Fatal(n)
 	}
@@ -303,12 +310,13 @@ func TestRequireSteps(t *testing.T) {
 		return mustSign(t, text, o).Text
 	}
 	offline := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}
+	pk := func(k int) string { return " pubkey=ed25519:" + toBase64(keys[k].PublicKey()) }
 	steps := func(order string) []string {
 		out := []string{}
 		if order != "" {
-			out = append(out, "order "+order)
+			out = append(out, "order mode="+order)
 		}
-		return append(out, "step 1", "tofu:bob", "step 2 any 2", "tofu:carol", "tofu:dave", "tofu:erin")
+		return append(out, "step", "  tofu:bob"+pk(1), "step any=2", "  tofu:carol"+pk(2), "  tofu:dave"+pk(3), "  tofu:erin"+pk(4))
 	}
 	declare := func(order string) string {
 		return sign(fDoc, 0, "alice", func(o *SignOptions) { o.Require = steps(order) })
@@ -325,34 +333,33 @@ func TestRequireSteps(t *testing.T) {
 	if st := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 3, "dave", nil), offline).Agreement.Status; st != AgreementComplete {
 		t.Fatal(st)
 	}
-	if a := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 2, "carol", nil), offline).Agreement; a.Status != AgreementPending || a.Missing[0].Need != 1 {
+	if st := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 3, "dave", nil), nil).Agreement.Status; st != AgreementComplete {
+		t.Fatal(st)
+	}
+	if a := verify(sign(sign(sign(decl, 1, "bob", nil), 2, "carol", nil), 2, "carol", nil), nil).Agreement; a.Status != AgreementPending || a.Missing[0].Need != 1 {
 		t.Fatalf("one signer counted twice: %+v", a)
 	}
 	early := sign(sign(decl, 2, "carol", nil), 1, "bob", nil)
-	a = verify(early, offline).Agreement
-	if a.Status != AgreementPending || !slices.ContainsFunc(a.Missing, func(m MissingRequirement) bool { return m.Signer == "carol" && m.Early }) {
+	a = verify(early, nil).Agreement
+	if a.Status != AgreementPending || !slices.ContainsFunc(a.Missing, func(m MissingRequirement) bool {
+		return m.Signer == "carol" && slices.Contains(m.Rejected, Rejection{Index: 2, Reason: RejectEarly})
+	}) {
 		t.Fatalf("%+v", a)
 	}
-	if st := verify(sign(sign(early, 2, "carol", nil), 3, "dave", nil), offline).Agreement.Status; st != AgreementComplete {
+	if st := verify(sign(sign(early, 2, "carol", nil), 3, "dave", nil), nil).Agreement.Status; st != AgreementComplete {
 		t.Fatal(st)
 	}
 	for order, want := range map[string]string{OrderGuide: AgreementComplete, OrderStrict: AgreementViolated} {
 		text := sign(sign(sign(declare(order), 2, "carol", nil), 1, "bob", nil), 3, "dave", nil)
-		v := verify(text, offline)
+		v := verify(text, nil)
 		if v.Agreement.Status != want || len(v.Agreement.Violations) != 1 || v.Agreement.Violations[0].Index != 2 || v.Agreement.Violations[0].Order != order || v.OK != (order == OrderGuide) {
 			t.Fatalf("%s: %s ok=%v %+v", order, v.Agreement.Status, v.OK, v.Agreement.Violations)
 		}
 	}
-	for _, bad := range [][]string{{"step 1 any 3", "tofu:bob", "tofu:carol"}, {"step 2", "tofu:bob"}, {"tofu:bob", "order strict"}, {"tofu:bob", "tofu:bob"}, {"step 1", "step 2", "tofu:bob"}} {
+	for _, bad := range [][]string{{"step any=3", "tofu:bob", "tofu:carol"}, {"step 2", "tofu:bob"}, {"tofu:bob", "order mode=strict"}, {"tofu:bob", "tofu:bob"}, {"step", "step", "tofu:bob"}} {
 		if _, err := SignDocument(context.Background(), fDoc, SignOptions{Signer: keys[0], Method: "tofu", SignerID: "x", TS: fTS, Require: bad}); err == nil {
 			t.Errorf("%q accepted", bad)
 		}
-	}
-	if _, errs := ParseRequire("step 1\ntofu:bob", 1, "0.0.1"); len(errs) == 0 {
-		t.Error("format 0.0.1 accepted a step line")
-	}
-	if spec, errs := ParseRequire("tofu:bob\ntofu:bob", 1, "0.0.1"); len(errs) != 0 || !spec.Legacy {
-		t.Errorf("format 0.0.1 duplicate lines: %v", errs)
 	}
 }
 
@@ -417,10 +424,10 @@ func TestVersionBeforeUnknownFields(t *testing.T) {
 	signed := mustSign(t, fDoc, SignOptions{Signer: mustSigner(t, seedA), Method: "tofu", SignerID: "alice", TS: fTS}).Text
 	offline := &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}
 	for _, c := range []struct{ name, from, to, status, code string }{
-		{"later format with a new field", "v: 0.0.4\n", "v: 0.0.5\nnew_field: 1\n", StatusUnsupported, "unsupported-version"},
-		{"supported format with an unknown field", "v: 0.0.4\n", "v: 0.0.4\nnew_field: 1\n", StatusMalformed, "unknown-field"},
-		{"duplicate v", "v: 0.0.4\n", "v: 0.0.4\nv: 0.0.5\n", StatusMalformed, "malformed"},
-		{"missing v", "v: 0.0.4\n", "", StatusMalformed, "malformed"},
+		{"later format with a new field", "v: 0.1\n", "v: 0.2\nnew_field: 1\n", StatusUnsupported, "unsupported-version"},
+		{"supported format with an unknown field", "v: 0.1\n", "v: 0.1\nnew_field: 1\n", StatusMalformed, "unknown-field"},
+		{"duplicate v", "v: 0.1\n", "v: 0.1\nv: 0.2\n", StatusMalformed, "malformed"},
+		{"missing v", "v: 0.1\n", "", StatusMalformed, "malformed"},
 	} {
 		s := verify(strings.Replace(signed, c.from, c.to, 1), offline).Signatures[0]
 		if s.Status != c.status || s.Code != c.code {
@@ -496,19 +503,16 @@ func TestHardening(t *testing.T) {
 
 	req := mustSign(t, fDoc, SignOptions{Signer: a, Method: "dns", SignerID: "example.com", TS: fTS, Require: []string{"tofu:bob"}})
 	off := verify(req.Text, &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}})
-	if off.Signatures[0].Status != StatusUnresolved || off.Agreement.Status != AgreementPending {
+	if off.Signatures[0].Status != StatusUnresolved || off.Agreement.Status != AgreementUndetermined {
 		t.Fatal(dump(off))
 	}
 	b := mustSigner(t, seedB)
 	declared := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "a", TS: fTS, Require: []string{"dns:example.com"}})
 	cos := mustSign(t, declared.Text, SignOptions{Signer: b, Method: "dns", SignerID: "example.com", TS: fTS})
-	if v := verify(cos.Text, &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}); v.Agreement.Status != AgreementPending {
+	if v := verify(cos.Text, &VerifyOptions{ResolveOptions: ResolveOptions{Offline: true}}); v.Agreement.Status != AgreementUndetermined {
 		t.Fatal(dump(v))
 	}
 
-	if !sameSigner("dns", "Example.COM.", "example.com") || sameSigner("tofu", "Bob", "bob") {
-		t.Fatal("SameSigner")
-	}
 	rv := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "a", TS: fTS, RevocationURL: revURL})
 	if d := verify(rv.Text, &VerifyOptions{NoRevocation: true}).Signatures[0].Revocation.Detail; d != "revocation check disabled" {
 		t.Error(d)
@@ -521,16 +525,25 @@ func TestHardening(t *testing.T) {
 	resolvers := map[string]Resolver{"dns": ResolverFunc(func(_ context.Context, f map[string]string, _ *ResolveOptions) (ResolveResult, error) {
 		return ResolveResult{Keys: []CandidateKey{{Alg: "ed25519", Key: a.PublicKey(), Source: "test"}}}, nil
 	})}
-	stub := staticFetch(200, []byte(dnsListWithSigner(t, a, id, "Example.COM.")))
+	stub := staticFetch(200, []byte(dnsListWithSigner(t, a, id, "example.com")))
 	o := &VerifyOptions{Resolvers: resolvers, ResourceCheckOptions: ResourceCheckOptions{FetchClient: stub.client()}}
 	if c := verify(dnsDoc.Text, o).Signatures[0].Code; c != "revoked" {
 		t.Fatal(c)
 	}
+	stub = staticFetch(200, []byte(dnsListWithSigner(t, a, id, "Example.COM.")))
+	o = &VerifyOptions{Resolvers: resolvers, ResourceCheckOptions: ResourceCheckOptions{FetchClient: stub.client()}}
+	if c := verify(dnsDoc.Text, o).Signatures[0].Code; c != KindNotFound {
+		t.Fatal(c)
+	}
+}
+
+func revocationList(title string, lines ...string) string {
+	return strings.Join(append(append([]string{title, "", "```mdsig-list", "type: revocation"}, lines...), "```", ""), "\n")
 }
 
 func dnsListWithSigner(t *testing.T, s KeySigner, id, signer string) string {
 	t.Helper()
-	body := "revoked: sha256:" + id + "\n"
+	body := revocationList("# Revoked", "revoked: sha256:"+id)
 	fields := map[string]string{"v": SpecVersion, "method": "dns", "signer": signer, "ts": fTS, "alg": "ed25519", "hash": normalizedHash(body)}
 	sig, _ := s.Sign(SignedPayload(fields))
 	fields["sig"] = "base64:" + toBase64(sig)
@@ -562,7 +575,7 @@ func TestRevocation(t *testing.T) {
 		for _, i := range ids {
 			lines = append(lines, "revoked: sha256:"+i)
 		}
-		return mustSign(t, "# Revoked\n\n"+strings.Join(lines, "\n")+"\n", SignOptions{Signer: signer, Method: "dns", SignerID: signerID, TS: fTS, RevocationURL: revURL}).Text
+		return mustSign(t, revocationList("# Revoked", lines...), SignOptions{Signer: signer, Method: "dns", SignerID: signerID, TS: fTS, RevocationURL: revURL}).Text
 	}
 	opts := func() *VerifyOptions {
 		return &VerifyOptions{Resolvers: resolvers, ResourceCheckOptions: ResourceCheckOptions{FetchClient: stub.client()}}
@@ -591,7 +604,7 @@ func TestRevocation(t *testing.T) {
 		t.Fatal(dump(v2))
 	}
 	listText = strings.Replace(makeList(a, "example.com", id), "# Revoked", "# Revoked!", 1)
-	if v := verify(doc.Text, opts()); v.OK || v.Signatures[0].Status != StatusUnresolved || v.Signatures[0].Code != KindNetwork {
+	if v := verify(doc.Text, opts()); v.OK || v.Signatures[0].Status != StatusUnresolved || v.Signatures[0].Code != KindNotFound {
 		t.Fatal(dump(v))
 	}
 
@@ -610,11 +623,11 @@ func TestRevocation(t *testing.T) {
 
 	td := mustSign(t, fDoc, SignOptions{Signer: a, Method: "tofu", SignerID: "bob", TS: fTS, RevocationURL: revURL})
 	tid := RevocationID(td.Fields)
-	listText = mustSign(t, "revoked: sha256:"+tid+"\n", SignOptions{Signer: b, Method: "tofu", SignerID: "bob", TS: fTS}).Text
+	listText = mustSign(t, revocationList("# Revoked", "revoked: sha256:"+tid), SignOptions{Signer: b, Method: "tofu", SignerID: "bob", TS: fTS}).Text
 	if v := verify(td.Text, opts()); v.OK || v.Signatures[0].Code != KindNotFound {
 		t.Fatal(dump(v))
 	}
-	listText = mustSign(t, "revoked: sha256:"+tid+"\n", SignOptions{Signer: a, Method: "tofu", SignerID: "bob", TS: fTS}).Text
+	listText = mustSign(t, revocationList("# Revoked", "revoked: sha256:"+tid), SignOptions{Signer: a, Method: "tofu", SignerID: "bob", TS: fTS}).Text
 	if c := verify(td.Text, opts()).Signatures[0].Code; c != "revoked" {
 		t.Fatal(c)
 	}
@@ -761,6 +774,7 @@ type softAuth struct {
 	flags              byte
 	counter            int
 	overrideClientData func(map[string]any) map[string]any
+	asked              string
 }
 
 func newSoftAuth(t *testing.T, rpID, origin string, flags byte) *softAuth {
@@ -781,7 +795,8 @@ func (a *softAuth) PublicKeySPKI() []byte {
 
 func (a *softAuth) RPID() string { return a.rpID }
 
-func (a *softAuth) GetAssertion(challenge []byte) (*WebAuthnAssertion, error) {
+func (a *softAuth) GetAssertion(challenge []byte, userVerification string) (*WebAuthnAssertion, error) {
+	a.asked = userVerification
 	cd := map[string]any{"type": "webauthn.get", "challenge": toBase64URL(challenge), "origin": a.origin, "crossOrigin": false}
 	if a.overrideClientData != nil {
 		cd = a.overrideClientData(cd)

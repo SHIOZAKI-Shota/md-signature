@@ -17,17 +17,21 @@ export interface ParsedDocument {
   chain: ParsedBlock[];
   strayMarker: boolean;
   strayMarkerLine?: number;
+  // SPEC 5.5: the body ends inside an open code fence, so a renderer shows every block as code
+  unclosedFence: boolean;
 }
 
-const FIELD_LINE = /^([a-z][a-z0-9_]*): (.*)$/;
-const CONT_LINE = /^ {2}(\S.*)$/;
+// the s flag: a value with U+2028 or U+2029 is still read as one line, and then rejected by rule 4
+const FIELD_LINE = /^([a-z][a-z0-9_]*): (.*)$/s;
+// SPEC 3.2: cont-line = 2SP *SP vchar ...; spaces after the first two belong to the value
+const CONT_LINE = /^ {2}(?= *[^ ])(.*)$/s;
 
 const isBlank = (l: string) => /^[ \t]*$/.test(l);
 const isOpen = (l: string) => l.replace(/[ \t]+$/, "") === OPEN_LINE;
 const isClose = (l: string) => l.replace(/[ \t]+$/, "") === CLOSE_LINE;
 const isFieldish = (l: string) => FIELD_LINE.test(l) || CONT_LINE.test(l);
 
-export const REQUIRED_KEYS = ["v", "method", "signer", "ts", "hash", "sig"] as const;
+export const REQUIRED_KEYS = ["v", "method", "signer", "ts", "alg", "hash", "sig"] as const;
 
 export function parseFields(lines: string[]): { fields: Record<string, string>; errors: string[]; unknownKeys: string[] } {
   const fields: Record<string, string> = Object.create(null);
@@ -52,7 +56,7 @@ export function parseFields(lines: string[]): { fields: Record<string, string>; 
       while (i < lines.length) {
         const c = CONT_LINE.exec(lines[i]!);
         if (!c) break;
-        parts.push(c[1]!.replace(/[ \t]+$/, ""));
+        parts.push(c[1]!);
         i++;
       }
       if (parts.length === 0) errors.push(`${key}: folded value has no continuation lines`);
@@ -66,30 +70,72 @@ export function parseFields(lines: string[]): { fields: Record<string, string>; 
       unknownKeys.push(key);
       errors.push(`unknown field "${key}" (extension fields must start with "x_")`);
     }
-    const ve = validateValue(value, folded);
-    if (ve) errors.push(`${key}: ${ve}`);
+    if (!folded || value !== "") {
+      const ve = validateValue(value, folded);
+      if (ve) errors.push(`${key}: ${ve}`);
+    }
     fields[key] = value;
   }
   for (const k of REQUIRED_KEYS) if (!(k in fields)) errors.push(`missing required field "${k}"`);
   return { fields: { ...fields }, errors, unknownKeys };
 }
 
-export function* linesWithFence(text: string): Generator<{ line: string; index: number; offset: number; inFence: boolean }> {
+export interface FenceLine {
+  line: string;
+  index: number;
+  offset: number;
+  inFence: boolean;
+  // set on the opening line of a fence: its info string, trimmed
+  info?: string;
+  close?: true;
+}
+
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+
+// SPEC 5.5 (CommonMark 4.5): a backtick fence's info string cannot contain a backtick
+function fenceOpen(l: string): RegExpExecArray | null {
+  const m = FENCE_OPEN.exec(l);
+  return m && m[1]![0] === "`" && m[2]!.includes("`") ? null : m;
+}
+
+// SPEC 5.5: a line scan, not a full CommonMark parse; a fence closes with the same character at least as many times
+export function* linesWithFence(text: string): Generator<FenceLine> {
   let fence: string | null = null;
   let offset = 0;
   const lines = text.split("\n");
   for (let k = 0; k < lines.length; k++) {
     const l = lines[k]!;
-    const fm = /^ {0,3}(`{3,}|~{3,})/.exec(l);
-    let inFence = fence !== null;
-    if (fm) {
-      if (fence === null) fence = fm[1]!;
-      else if (fm[1]![0] === fence[0] && fm[1]!.length >= fence.length && /^ {0,3}[`~]+[ \t]*$/.test(l)) fence = null;
-      inFence = true;
+    if (fence === null) {
+      const open = fenceOpen(l);
+      if (open) {
+        fence = open[1]!;
+        yield { line: l, index: k, offset, inFence: true, info: open[2]!.trim() };
+      } else {
+        yield { line: l, index: k, offset, inFence: false };
+      }
+    } else {
+      const close = FENCE_CLOSE.exec(l);
+      const closes = !!close && close[1]![0] === fence[0] && close[1]!.length >= fence.length;
+      if (closes) fence = null;
+      yield { line: l, index: k, offset, inFence: true, ...(closes ? { close: true } : {}) };
     }
-    yield { line: l, index: k, offset, inFence };
     offset += l.length + 1;
   }
+}
+
+export function endsInOpenFence(text: string): boolean {
+  let fence: string | null = null;
+  for (const l of text.split("\n")) {
+    if (fence === null) {
+      const open = fenceOpen(l);
+      if (open) fence = open[1]!;
+    } else {
+      const close = FENCE_CLOSE.exec(l);
+      if (close && close[1]![0] === fence[0] && close[1]!.length >= fence.length) fence = null;
+    }
+  }
+  return fence !== null;
 }
 
 export function parseDocument(input: string): ParsedDocument {
@@ -129,5 +175,5 @@ export function parseDocument(input: string): ParsedDocument {
   for (const { line, index, inFence } of linesWithFence(body)) {
     if (!inFence && isOpen(line)) strayMarkerLine = index + 1;
   }
-  return { text, body, chain, strayMarker: strayMarkerLine !== undefined, strayMarkerLine };
+  return { text, body, chain, strayMarker: strayMarkerLine !== undefined, strayMarkerLine, unclosedFence: endsInOpenFence(body) };
 }

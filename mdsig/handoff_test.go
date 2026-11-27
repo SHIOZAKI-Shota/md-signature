@@ -33,7 +33,7 @@ func hoPageTransport(t *testing.T, auth *softAuth, tamper func(*url.URL), refuse
 				t.Fatal("payload names another key")
 			}
 			sum := sha256.Sum256(r.Payload)
-			as, err := auth.GetAssertion(sum[:])
+			as, err := auth.GetAssertion(sum[:], r.UserVerification)
 			if err != nil {
 				return "", err
 			}

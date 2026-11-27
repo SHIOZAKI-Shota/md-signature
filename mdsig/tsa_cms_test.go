@@ -40,14 +40,10 @@ func sslcomRoots(t *testing.T) *x509.CertPool {
 	return pool
 }
 
-func exampleToken(t *testing.T) (token string, sig []byte) {
+func exampleToken(t *testing.T) (token string, payload []byte) {
 	t.Helper()
-	b := ParseDocument(readExample(t, "valid-cosigned.md")).Chain[1]
-	sig, err := fromBase64(UnfoldBinary(b.Fields["sig"])[7:])
-	if err != nil {
-		t.Fatal(err)
-	}
-	return UnfoldBinary(b.Fields["tsa_token"]), sig
+	b := ParseDocument(readExample(t, "valid-cosigned.md")).Chain[2]
+	return UnfoldBinary(b.Fields["sig"]), SignedPayload(b.Fields)
 }
 
 func wantTSAError(t *testing.T, name string, c TSACheck, substr string) {
@@ -479,7 +475,7 @@ func TestTsaBlock(t *testing.T) {
 	if st := VerifyDocument(ctx, stamp(declared.Text, ""), offline(trusted)).Agreement.Status; st != AgreementPending {
 		t.Errorf("a tsa block satisfied a requirement: %s", st)
 	}
-	if _, errs := ParseRequire("tsa:"+srv.URL, 1, "0.0.2"); len(errs) == 0 {
+	if p := ParseRequire("tsa:"+srv.URL, 1); len(p.Errors) == 0 {
 		t.Error("a tsa requirement was accepted")
 	}
 }

@@ -19,10 +19,12 @@ export function remoteVerify(baseUrl, document, o = {}) {
     return post(endpoint(baseUrl, "/v1/verify"), { document }, o);
 }
 // for VerifyOptions.tsaVerifier: the server's trust store decides, this side reports its verdict
+// the token's imprint is H(data), H = opts.hash (sha256 when absent); the server receives data as "sig" and the hash as "hash"
 export function remoteTsaVerifier(baseUrl, o = {}) {
-    return async (tsaToken, sigBytes) => {
+    return async (tsaToken, data, opts = {}) => {
         try {
-            return tsaFromJson(await post(endpoint(baseUrl, "/v1/tsa"), { tsa_token: tsaToken, sig: toBase64(sigBytes) }, o));
+            const body = { token: tsaToken, sig: toBase64(data), ...(opts.hash && opts.hash !== "sha256" ? { hash: opts.hash } : {}) };
+            return tsaFromJson(await post(endpoint(baseUrl, "/v1/tsa"), body, o));
         }
         catch (e) {
             return { status: "error", verified: false, detail: e.message };

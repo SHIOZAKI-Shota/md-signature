@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../color-scheme.js?v=20261118b"></script>
+    <script src="../color-scheme.js?v=20261127"></script>
     <title>ドキュメント | md-signature</title>
     <meta name="description"
         content="md-signature の形式と検証の規則を、主題ごとに1ページずつ解説します。規範となるのは仕様書で、本ページの解説と仕様書が異なる場合は仕様書が優先します。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../style.css?v=20261118b">
-    <link rel="stylesheet" href="../guide.css?v=20261118b">
-    <link rel="stylesheet" href="../docs.css?v=20261118b">
+    <link rel="stylesheet" href="../style.css?v=20261127">
+    <link rel="stylesheet" href="../guide.css?v=20261127">
+    <link rel="stylesheet" href="../docs.css?v=20261127">
     <script src="../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../site.js?v=20261118b"></script>
+    <script type="module" src="../site.js?v=20261127"></script>
 </head>
 
 <body>
@@ -75,6 +75,8 @@
                     <li><a href="../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
                     <li><a href="../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
                     <li><a href="../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                    <li><a href="../docs/agents/" data-i18n="docs.nav.agents">エージェント間の合意記録</a></li>
+                    <li><a href="../docs/syntax/" data-i18n="docs.nav.syntax">記法の早見表</a></li>
                 </ol>
                 <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
                 <ul>
@@ -125,24 +127,46 @@
                     <a href="../docs/workflow/">
                         <i data-lucide="workflow" aria-hidden="true"></i>
                         <h3 data-i18n="docs.nav.workflow">連署ワークフロー</h3>
-                        <p data-i18n="docs.card.workflow">最初の署名者が必要な連署を宣言する require。承認の段階（step）、M of N（any）、順番より前の署名の扱い（order）。</p>
-                        <span class="doc-card-tags"><code>require</code> <code>step</code> <code>any</code> <code>order</code></span>
+                        <p data-i18n="docs.card.workflow">署名者が必要な連署を宣言する require。段階（step）と人数（any=）、属性（role=、user_verified、member_of=）、組織の名簿、順序（order）、次の連署（next）。</p>
+                        <span class="doc-card-tags"><code>require</code> <code>step any=</code> <code>member_of</code> <code>user_verified</code></span>
                     </a>
                 </li>
                 <li>
                     <a href="../docs/archive/">
                         <i data-lucide="archive" aria-hidden="true"></i>
                         <h3 data-i18n="docs.nav.archive">長期保存</h3>
-                        <p data-i18n="docs.card.archive">鍵の削除や乗っ取りの後も証拠を保持するための、RFC 3161 タイムスタンプ、タイムスタンプ専用ブロック、公開鍵のスナップショット。</p>
-                        <span class="doc-card-tags"><code>tsa_token</code> <code>method: tsa</code> <code>pubkey</code></span>
+                        <p data-i18n="docs.card.archive">鍵の削除や乗っ取りの後も証拠を保持するための、タイムスタンプブロック、ブロックの時刻 T(k)、公開鍵のスナップショット。</p>
+                        <span class="doc-card-tags"><code>method: tsa</code> <code>T(k)</code> <code>pubkey</code></span>
                     </a>
                 </li>
                 <li>
                     <a href="../docs/fields/">
                         <i data-lucide="list-plus" aria-hidden="true"></i>
                         <h3 data-i18n="docs.nav.fields">拡張フィールド</h3>
-                        <p data-i18n="docs.card.fields">文書の一部への署名（scope）、添付ファイルの固定（resources）、有効期限（expires）、撤回リスト（revocation_url）。</p>
-                        <span class="doc-card-tags"><code>scope</code> <code>resources</code> <code>expires</code> <code>revocation_url</code></span>
+                        <p data-i18n="docs.card.fields">部分署名（scope）、添付ファイルの固定（resources）、有効期限、撤回リストと名簿に共通の署名済みリスト、表示名と署名欄。</p>
+                        <span class="doc-card-tags"><code>scope</code> <code>resources</code> <code>mdsig-list</code> <code>display_name</code></span>
+                    </a>
+                </li>
+            </ul>
+        </section>
+
+        <section class="doc-sec docs-group" aria-labelledby="g-ref">
+            <h2 class="docs-group-title" id="g-ref" data-i18n="docs.g.ref">応用と早見表</h2>
+            <ul class="doc-cards">
+                <li>
+                    <a href="../docs/agents/">
+                        <i data-lucide="handshake" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.agents">エージェント間の合意記録</h3>
+                        <p data-i18n="docs.card.agents">AI エージェントどうしの取引で、取引条件の Markdown 文書への署名と連署を記録する方法。LCP、x402、AP2、PACT との役割分担と、最終確認の型。</p>
+                        <span class="doc-card-tags"><code>dns:*</code> <code>atrHash</code> <code>x402</code> <code>LCP</code></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../docs/syntax/">
+                        <i data-lucide="list-checks" aria-hidden="true"></i>
+                        <h3 data-i18n="docs.nav.syntax">記法の早見表</h3>
+                        <p data-i18n="docs.card.syntax">ブロックのフィールド、値の規則、リスト形式の行、require の属性とパターン、本文のマーカーを1ページにまとめた早見表。</p>
+                        <span class="doc-card-tags"><code>v: 0.1</code> <code>role=</code> <code>*@domain</code> <code>mdsig:signatures</code></span>
                     </a>
                 </li>
             </ul>
@@ -159,6 +183,14 @@
                     <tr>
                         <th scope="row" data-i18n="docs.goal.approve">承認の順序と人数を規定したい</th>
                         <td><a href="../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.org">組織や団体の誰かの承認を求めたい</th>
+                        <td><a href="../docs/workflow/#org" data-i18n="wf.org.title">組織の指定</a> · <a href="../docs/syntax/#examples" data-i18n="sx.ex.title">require の例</a></td>
+                    </tr>
+                    <tr>
+                        <th scope="row" data-i18n="docs.goal.agents">エージェントどうしで取引条件に合意したい</th>
+                        <td><a href="../docs/agents/" data-i18n="docs.nav.agents">エージェント間の合意記録</a></td>
                     </tr>
                     <tr>
                         <th scope="row" data-i18n="docs.goal.long">数年後も検証できる状態で保管したい</th>
@@ -188,7 +220,7 @@
                 <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md"><b>CLI_SPEC.ja.md</b><span data-i18n="docs.spec.cliJa">CLI の仕様（日本語、規範）</span></a></li>
                 <li><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.md"><b>CLI_SPEC.md</b><span data-i18n="docs.spec.cliEn">CLI の仕様（英語、参考訳）</span></a></li>
             </ul>
-            <p class="guide-note" data-i18n-html="docs.versions">本ドキュメントは形式 <code>0.0.4</code>（CLI v0.0.5）に対応します。検証者は <code>0.0.1</code>、<code>0.0.2</code>、<code>0.0.4</code> のブロックを検証でき、これらが同じチェーンに混在してもかまいません。</p>
+            <p class="guide-note" data-i18n-html="docs.versions">本ドキュメントは形式 <code>0.1</code> に対応します。<code>0.1</code> は 0.0.x と互換性のない改訂で、検証者は <code>0.1</code> のブロックだけを受け付けます。0.0.x の文書は署名し直せないため、CLI v0.0.5 で検証してください。</p>
         </section>
 
                 <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">

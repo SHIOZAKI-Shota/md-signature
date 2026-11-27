@@ -1,14 +1,17 @@
 import { SUPPORTED_VERSIONS, TS_RE, isValidTimestamp, normalizedBytes, signedPayload, unfoldBinary } from "./canonical.ts";
-import { digest, ed25519Verify, isSupportedHash, keyFingerprint, sha256, sshFingerprint } from "./crypto.ts";
+import { digest, ed25519Verify, isSupportedHash, keyFingerprint, sha256, sshFingerprint, type HashAlg } from "./crypto.ts";
 import { bytesEqual, decodePrefixedBinary, fromBase64, toHex, utf8 } from "./encoding.ts";
 import { parseDocument, type ParsedBlock } from "./parser.ts";
-import { DEFAULT_RESOLVERS, GIT_HOSTING_SIGNER_RE, ResolutionError, decodePublicKey, keyTypeFor, type CandidateKey, type Resolver, type ResolveOptions } from "./resolvers.ts";
-import { checkTimestampOver, checkTsaToken, type TsaCheck, type TsaRootInput, type TsaVerifyOptions } from "./tsa.ts";
-import { scopedHashInput } from "./scope.ts";
-import { checkResources, parseResources, fetchResource, type ResourceCheckOptions, type ResourceResult } from "./resources.ts";
-import { evaluateAgreement, parseRequire, sameSigner, type Agreement } from "./agreement.ts";
+import { DEFAULT_RESOLVERS, ResolutionError, decodePublicKey, keyTypeFor, type CandidateKey, type Resolver, type ResolveOptions } from "./resolvers.ts";
+import { checkTimestampOver, type TsaCheck, type TsaRootInput, type TsaVerifyOptions } from "./tsa.ts";
+import { parseScope, scopedHashInput } from "./scope.ts";
+import { checkResources, parseResources, type ResourceCheckOptions, type ResourceResult } from "./resources.ts";
+import { evaluateAgreement, membershipQueries, parseRequire, parseRosterRef, type Agreement, type Membership } from "./agreement.ts";
 import { checkWebAuthnData, verifyWebAuthnSignature, type WebAuthnInfo } from "./webauthn.ts";
-import { EMAIL_RE, FPR_RE, checkSignaturePacket, verifyPgpSignature, type PgpAttempt, type PgpInfo } from "./pgp-verify.ts";
+import { FPR_RE, checkSignaturePacket, verifyPgpSignature, type PgpAttempt, type PgpInfo } from "./pgp-verify.ts";
+import { ROLE_RE, checkDisplayNameLength, checkSignerId, isRpId, isSelector, sameKeyValue } from "./identity.ts";
+import { fetchSignedList, lookupDnsMember, parseSignedList, type FetchedList, type SignedListType } from "./signed-list.ts";
+import { findSignatureMarker } from "./signature-table.ts";
 
 export type BlockStatus = "valid" | "invalid" | "malformed" | "unresolved" | "unsupported";
 
@@ -41,6 +44,15 @@ export interface RevocationCheck {
 
 export type TofuStatus = "known" | "new" | "replaced";
 
+// SPEC 4.6: T(k), the earliest genTime + accuracy of a valid tsa block after this one
+export interface BlockTime {
+  at: string;
+  block: number;
+  genTime: string;
+  accuracyMs: number;
+  signer?: string;
+}
+
 export interface BlockResult {
   index: number;
   line: number;
@@ -58,7 +70,9 @@ export interface BlockResult {
   pgp?: Partial<PgpInfo>;
   resources?: ResourceResult[];
   revocation?: RevocationCheck;
+  // a tsa block: the check of its own token
   tsa?: TsaCheck;
+  time?: BlockTime;
   warnings: string[];
 }
 
@@ -70,19 +84,29 @@ export interface VerifyResult {
   error?: string;
 }
 
+export interface LoadedList {
+  ok: boolean;
+  error?: string;
+  // SPEC 5.10: fetched, but not a signed document with nothing after its last block
+  untrusted?: string;
+  body?: string;
+  signatures?: BlockResult[];
+}
+
 export interface VerifyOptions extends ResolveOptions, ResourceCheckOptions {
   resolvers?: Record<string, Resolver>;
   checkTsa?: boolean;
-  // SPEC 5.5: trust anchors for TSA certificates (DER or PEM); replaces the built-in DEFAULT_TSA_ROOTS
+  // SPEC 4.6: trust anchors for TSA certificates (DER or PEM); replaces the built-in DEFAULT_TSA_ROOTS
   tsaRoots?: TsaRootInput[];
   // trusted in addition to tsaRoots or, without it, to DEFAULT_TSA_ROOTS
   extraTsaRoots?: TsaRootInput[];
-  // replaces the built-in token check, e.g. remoteTsaVerifier(); a mismatch still invalidates the block
-  tsaVerifier?: (tsaToken: string, sigBytes: Uint8Array, opts: TsaVerifyOptions) => Promise<TsaCheck>;
+  // replaces the built-in token check, e.g. remoteTsaVerifier(); the imprint is H(data) with opts.hash
+  tsaVerifier?: (token: string, data: Uint8Array, opts: TsaVerifyOptions & { hash?: HashAlg }) => Promise<TsaCheck>;
   checkRevocation?: boolean;
   now?: Date;
   skipAgreement?: boolean;
-  revocationCache?: Map<string, Promise<RevocationList>>;
+  // SPEC 5.10: signed lists (revocation lists, rosters) fetched during one call, by URL
+  signedListCache?: Map<string, Promise<LoadedList>>;
 }
 
 const SUPPORTED_ALGS = new Set(["ed25519", "webauthn-es256", "openpgp"]);
@@ -92,31 +116,41 @@ const WEBAUTHN_KEYS = ["rp_id", "webauthn_authenticator_data", "webauthn_client_
 const TSA_BLOCK_KEYS = new Set(["v", "method", "signer", "ts", "alg", "hash", "sig", "reason"]);
 // SPEC 4.5: methods whose block may carry a snapshot of the public key
 const KEY_SNAPSHOT_METHODS = new Set(["dns", "git-hosting", "directory"]);
+const KNOWN_METHODS = new Set(["dns", "git-hosting", "tofu", "pgp", "directory", "tsa"]);
 
 function validateSemantics(f: Record<string, string>): string | null {
   // SPEC 4.6: method tsa and alg rfc3161 only go together
   const isTsa = f.method === "tsa";
   if (isTsa !== (f.alg === "rfc3161")) return isTsa ? "method tsa requires alg rfc3161" : "alg rfc3161 requires method tsa";
+  // SPEC 3.4: signers are compared exactly, so they must already be in canonical form
+  if (KNOWN_METHODS.has(f.method!)) {
+    const se = checkSignerId(f.method!, f.signer!);
+    if (se) return se;
+  }
   if (isTsa) {
-    if (f.v === "0.0.1") return "method tsa needs format 0.0.2";
     const extra = Object.keys(f).find((k) => !TSA_BLOCK_KEYS.has(k) && !k.startsWith("x_"));
     if (extra) return `field "${extra}" is not allowed with method tsa`;
-    if (!/^https?:\/\/\S+$/.test(f.signer!)) return "tsa signer must be the http(s) URL of the time-stamping authority";
     return null;
+  }
+  if (f.selector !== undefined && (f.method !== "dns" || !isSelector(f.selector))) return f.method !== "dns" ? "selector is only allowed with method dns" : "selector must be lower-case LDH labels and must not start with \"_\"";
+  if (f.role !== undefined && !ROLE_RE.test(f.role)) return "role must be one word: [a-z0-9][a-z0-9._-]*";
+  if (f.display_name !== undefined) {
+    const e = checkDisplayNameLength(f.display_name);
+    if (e) return e;
   }
   // an unknown method is reported as unsupported later, not as a misplaced pubkey
   if (f.pubkey !== undefined && f.method === "pgp") return "pubkey is not allowed with method pgp";
   if (f.pubkey !== undefined && (f.method === "tofu" || KEY_SNAPSHOT_METHODS.has(f.method!))) {
     const kalg = f.pubkey.includes(":") ? f.pubkey.slice(0, f.pubkey.indexOf(":")) : "";
-    const want = keyTypeFor(f.alg ?? "ed25519");
+    const want = keyTypeFor(f.alg!);
     // an unknown alg is reported as unsupported later
-    if (want && kalg !== want) return `pubkey key type "${kalg}" does not match alg "${f.alg ?? "ed25519"}"`;
+    if (want && kalg !== want) return `pubkey key type "${kalg}" does not match alg "${f.alg}"`;
   }
-  if (f.pubkey !== undefined && KEY_SNAPSHOT_METHODS.has(f.method!) && f.v === "0.0.1") return `pubkey with method ${f.method} needs format 0.0.2`;
   if (f.expires !== undefined && !isValidTimestamp(f.expires)) return `expires "${f.expires}" is not a valid YYYY-MM-DDTHH:MM:SSZ date-time`;
   if (f.revocation_url !== undefined && !/^https:\/\/\S+$/.test(f.revocation_url)) return "revocation_url must be an https:// URL";
+  if (f.scope !== undefined && !parseScope(f.scope)) return "scope must list one section id per line, each id unique";
   if (f.require !== undefined) {
-    const { errors } = parseRequire(f.require, 0, f.v);
+    const { errors } = parseRequire(f.require, 0);
     if (errors.length) return errors.join("; ");
   }
   if (f.resources !== undefined) {
@@ -125,46 +159,60 @@ function validateSemantics(f: Record<string, string>): string | null {
   }
   // SPEC 4.3: method pgp and alg openpgp only go together
   const isPgp = f.method === "pgp";
-  if (isPgp !== ((f.alg ?? "ed25519") === "openpgp")) return isPgp ? "method pgp requires alg openpgp" : "alg openpgp requires method pgp";
-  if (isPgp) {
-    if (!f.fpr || !FPR_RE.test(f.fpr)) return "pgp requires fpr: 40 or 64 upper-case hex digits";
-    if (!EMAIL_RE.test(f.signer!)) return "pgp signer must be a lower-case email address";
-  }
-  if (f.method === "git-hosting" && !GIT_HOSTING_SIGNER_RE.test(f.signer!)) return "git-hosting signer must be <host>/<username> with a domain name as host";
-  if (f.method === "directory" && !EMAIL_RE.test(f.signer!)) return "directory signer must be a lower-case email address";
-  const isWebAuthn = (f.alg ?? "ed25519") === "webauthn-es256";
+  if (isPgp !== (f.alg === "openpgp")) return isPgp ? "method pgp requires alg openpgp" : "alg openpgp requires method pgp";
+  if (isPgp && (!f.fpr || !FPR_RE.test(f.fpr))) return "pgp requires fpr: 40 or 64 upper-case hex digits";
+  const isWebAuthn = f.alg === "webauthn-es256";
   for (const k of WEBAUTHN_KEYS) {
     if (isWebAuthn && f[k] === undefined) return `alg webauthn-es256 requires "${k}"`;
     if (!isWebAuthn && f[k] !== undefined) return `"${k}" is only allowed with alg webauthn-es256`;
   }
+  if (isWebAuthn && !isRpId(f.rp_id!)) return "rp_id must be a lower-case domain name";
   return null;
 }
 
-export interface RevocationList {
-  ok: boolean;
-  signers: { method: string; signer: string; pubkey?: string }[];
-  revoked: Set<string>;
-  error?: string;
+// advice for blocks written in an older format; verdicts do not change (CLI_SPEC, hints)
+export function legacyHints(block: Pick<ParsedBlock, "fields" | "raw">): string[] {
+  const f = block.fields;
+  const out: string[] = [];
+  if (f.v !== undefined && /^0\.0\.[0-9]+$/.test(f.v)) out.push(`format ${f.v} is not supported by format 0.1 verifiers; verify this document with mdsig v0.0.5`);
+  if (f.tsa_token !== undefined || f.tsa_url !== undefined) out.push("tsa_token and tsa_url were removed in format 0.1; a timestamp is a separate tsa block (mdsig timestamp)");
+  if (f.scope !== undefined && /section:|,/.test(f.scope)) out.push('scope lists one section id per line without "section:" (format 0.1)');
+  if (f.resources !== undefined && /^ *sha256:[0-9a-f]{64} /m.test(f.resources)) out.push('resources lines are "<ref> hash=sha256:<hex>" (format 0.1)');
+  if (f.require !== undefined) out.push(...parseRequire(f.require).hints);
+  if (block.raw.includes("\t")) out.push("tabs are not allowed in a signature block; use spaces");
+  return [...new Set(out)].map((h) => `hint: ${h}`);
 }
 
-async function loadRevocationList(url: string, opts: VerifyOptions): Promise<RevocationList> {
-  let text: string;
-  try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(await fetchResource(url, opts.fetch ?? globalThis.fetch, 5 * 1024 * 1024));
-  } catch (e) {
-    return { ok: false, signers: [], revoked: new Set(), error: `could not fetch revocation list: ${(e as Error).message}` };
+// --- signed lists (SPEC 5.10)
+
+async function loadList(url: string, opts: VerifyOptions): Promise<LoadedList> {
+  const cache = opts.signedListCache ?? new Map<string, Promise<LoadedList>>();
+  let p = cache.get(url);
+  if (!p) {
+    p = (async () => {
+      const fetched: FetchedList = await fetchSignedList(url, opts.fetch ?? globalThis.fetch, new Map());
+      if (!fetched.ok) return { ok: false, error: fetched.error };
+      // SPEC 5.10: no revocation, no resources, no agreement, so a list never leads to another list
+      const r = await verifyDocument(fetched.text!, { ...opts, checkRevocation: false, fetchResources: false, loadResource: undefined, tofuStore: undefined, skipAgreement: true });
+      if (r.error) return { ok: true, untrusted: `the list does not verify: ${r.error}` };
+      return { ok: true, body: parseDocument(fetched.text!).body, signatures: r.signatures };
+    })();
+    cache.set(url, p);
   }
-  // SPEC 5.9 step 3: no recursion, no remote resources, no require evaluation.
-  const r = await verifyDocument(text, { ...opts, checkRevocation: false, fetchResources: false, loadResource: undefined, revocationCache: undefined, tofuStore: undefined, skipAgreement: true });
-  if (!r.ok) return { ok: false, signers: [], revoked: new Set(), error: `revocation list does not verify: ${r.error ?? r.signatures.find((s) => s.status !== "valid")?.message ?? "invalid"}` };
-  const revoked = new Set<string>();
-  const body = parseDocument(text).body;
-  for (const m of body.matchAll(/^revoked: sha256:([0-9a-f]{64})[ \t]*$/gm)) revoked.add(m[1]!);
-  return {
-    ok: true,
-    signers: r.signatures.map((s) => ({ method: s.fields.method!, signer: s.fields.signer!, pubkey: s.fields.pubkey })),
-    revoked,
-  };
+  return p;
+}
+
+type TrustedList = { ok: true; entries: Set<string> } | { ok: false; failure: "network" | "not-found"; error: string };
+
+// SPEC 5.10: trusted only with a valid unscoped block from the expected issuer
+async function trustedList(url: string, type: SignedListType, isIssuer: (s: BlockResult) => boolean, opts: VerifyOptions): Promise<TrustedList> {
+  const l = await loadList(url, opts);
+  if (!l.ok) return { ok: false, failure: "network", error: l.error! };
+  if (l.untrusted) return { ok: false, failure: "not-found", error: `${url}: ${l.untrusted}` };
+  if (!l.signatures!.some((s) => s.status === "valid" && s.fields.scope === undefined && isIssuer(s))) return { ok: false, failure: "not-found", error: `${url} is not signed by the expected issuer` };
+  const p = parseSignedList(l.body!, type);
+  if (!p.ok) return { ok: false, failure: "not-found", error: `${url}: ${p.error}` };
+  return { ok: true, entries: new Set(p.entries) };
 }
 
 // SPEC 5.9: computed from the payload, because sig bytes can be changed without the key
@@ -176,26 +224,59 @@ async function checkRevocation(f: Record<string, string>, opts: VerifyOptions): 
   const url = f.revocation_url!;
   if (opts.offline) return { status: "not-checked", detail: "revocation list not fetched (offline)" };
   if (opts.checkRevocation === false) return { status: "not-checked", detail: "revocation check disabled" };
-  const cache = opts.revocationCache ?? new Map<string, Promise<RevocationList>>();
-  if (!cache.has(url)) cache.set(url, loadRevocationList(url, opts));
-  const list = await cache.get(url)!;
-  if (!list.ok) return { status: "not-checked", detail: list.error, failure: "network" };
-  // SPEC 5.9: tofu ids are self-asserted, so the list must come from the same pubkey
-  const trusted = list.signers.some(
-    (s) =>
-      s.method === f.method &&
-      sameSigner(f.method!, s.signer, f.signer!) &&
-      (f.method !== "tofu" || s.pubkey === f.pubkey),
-  );
-  if (!trusted) return { status: "not-checked", detail: "revocation list is not signed by this signer", failure: "not-found" };
+  // SPEC 5.9: same method:signer; tofu ids are self-asserted, so also the same key
+  const list = await trustedList(url, "revocation", (s) => s.fields.method === f.method && s.fields.signer === f.signer && (f.method !== "tofu" || (!!s.fields.pubkey && sameKeyValue(s.fields.pubkey, f.pubkey ?? ""))), opts);
+  if (!list.ok) return { status: "not-checked", detail: list.error, failure: list.failure };
   const id = await revocationId(f);
-  return list.revoked.has(id) ? { status: "revoked", detail: `sha256:${id} is on the signer's revocation list` } : { status: "not-revoked" };
+  return list.entries.has(id) ? { status: "revoked", detail: `sha256:${id} is on the signer's revocation list` } : { status: "not-revoked" };
 }
+
+// --- rosters (SPEC 5.8 member_of)
+
+export const MAX_ROSTERS = 8;
+export const MAX_ROSTER_QUERIES = 256;
+
+async function lookupMemberships(queries: { roster: string; id: string }[], opts: VerifyOptions, warnings: string[]): Promise<Map<string, Membership>> {
+  const out = new Map<string, Membership>();
+  const key = (roster: string, id: string) => `${roster}\n${id}`;
+  const rosters = [...new Set(queries.map((q) => q.roster))];
+  if (opts.offline) {
+    for (const q of queries) out.set(key(q.roster, q.id), "unavailable");
+    if (queries.length) warnings.push("member_of: rosters not consulted (offline)");
+    return out;
+  }
+  // SPEC 5.8.10: 8 https roster URLs and 256 lookups (URL fetches and DNS queries together); beyond that the agreement is undetermined
+  const httpsRosters = rosters.filter((r) => r.startsWith("https:")).length;
+  const lookups = httpsRosters + queries.filter((q) => q.roster.startsWith("dns:")).length;
+  if (httpsRosters > MAX_ROSTERS || lookups > MAX_ROSTER_QUERIES) {
+    warnings.push(`member_of: ${httpsRosters} roster URLs and ${lookups} lookups exceed the limits (${MAX_ROSTERS} URLs, ${MAX_ROSTER_QUERIES} lookups)`);
+    for (const q of queries) out.set(key(q.roster, q.id), "unavailable");
+    return out;
+  }
+  for (const roster of rosters) {
+    const ref = parseRosterRef(roster)!;
+    const ids = queries.filter((q) => q.roster === roster).map((q) => q.id);
+    if (ref.kind === "dns") {
+      for (const id of ids) out.set(key(roster, id), await lookupDnsMember(id, ref.domain, opts));
+      continue;
+    }
+    // SPEC 5.8.8: the issuer is the host of the URL as written, not of a redirect target
+    const list = await trustedList(ref.url, "members", (s) => s.fields.method === "dns" && s.fields.signer === ref.host, opts);
+    if (!list.ok) warnings.push(`member_of: roster ${roster} cannot be used: ${list.error}`);
+    for (const id of ids) out.set(key(roster, id), list.ok ? (list.entries.has(id) ? "member" : "not-member") : "unavailable");
+  }
+  return out;
+}
+
+// --- blocks
 
 export async function verifyBlock(text: string, block: ParsedBlock, opts: VerifyOptions = {}): Promise<BlockResult> {
   const f = block.fields;
   const r: BlockResult = { index: block.index, line: block.line, status: "valid", fields: f, warnings: [] };
-  const fail = (status: BlockStatus, code: BlockCode, message: string) => Object.assign(r, { status, code, message });
+  const fail = (status: BlockStatus, code: BlockCode, message: string) => {
+    if (status === "malformed" || status === "unsupported") r.warnings.push(...legacyHints(block));
+    return Object.assign(r, { status, code, message });
+  };
 
   // SPEC 5.4 step 1: an unknown version comes first, so fields added by later formats read as "unsupported", not "malformed"
   if (f.v !== undefined && !block.errors.includes(`duplicate key "v"`) && !SUPPORTED_VERSIONS.has(f.v)) return fail("unsupported", "unsupported-version", `unsupported version "${f.v}"`);
@@ -204,6 +285,9 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
   if (!TS_RE.test(f.ts!)) r.warnings.push(`ts "${f.ts}" is not in YYYY-MM-DDTHH:MM:SSZ form`);
   const sem = validateSemantics(f);
   if (sem) return fail("malformed", "malformed", sem);
+  // SPEC 5.7: a resource hash prefix this version does not define
+  const resHash = f.resources !== undefined ? parseResources(f.resources).unsupportedHash : undefined;
+  if (resHash) return fail("unsupported", "unsupported-hash", `unsupported resource hash "${resHash}"`);
 
   // 1. document hash
   const hi = f.hash!.indexOf(":");
@@ -228,7 +312,7 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
   if (f.method === "tsa") return verifyTsaBlock(r, f, hashAlg, opts, fail);
 
   // 2. alg and sig encoding
-  const alg = f.alg ?? "ed25519";
+  const alg = f.alg!;
   if (!SUPPORTED_ALGS.has(alg)) return fail("unsupported", "unsupported-alg", `unsupported alg "${alg}"`);
   const sigText = unfoldBinary(f.sig!);
   if (!sigText.startsWith("base64:")) return fail("malformed", "malformed", 'sig must start with "base64:"');
@@ -351,30 +435,14 @@ export async function verifyBlock(text: string, block: ParsedBlock, opts: Verify
   if (f.revocation_url) {
     r.revocation = await checkRevocation(f, opts);
     if (r.revocation.status === "revoked") return fail("invalid", "revoked", `signature was revoked by its signer (${f.revocation_url})`);
-    // SPEC 5.9 step 5: blocking the fetch must not hide a revocation
+    // SPEC 5.9 step 4: blocking the fetch must not hide a revocation
     if (r.revocation.failure) return fail("unresolved", r.revocation.failure, `revocation list could not be checked: ${r.revocation.detail}`);
     if (r.revocation.status === "not-checked") r.warnings.push(`revocation not checked: ${r.revocation.detail}`);
   }
 
-  // 8. timestamp
-  if (f.tsa_token && opts.checkTsa !== false) {
-    const tsaOpts = { roots: opts.tsaRoots, extraRoots: opts.extraTsaRoots };
-    try {
-      r.tsa = await (opts.tsaVerifier ?? checkTsaToken)(unfoldBinary(f.tsa_token), sig, tsaOpts);
-    } catch (e) {
-      r.tsa = { status: "error", verified: false, detail: (e as Error).message };
-    }
-    // SPEC 5.5: a time is evidence only when the token was verified
-    if (!r.tsa.verified) delete r.tsa.genTime;
-    if (r.tsa.status === "mismatch") return fail("invalid", "bad-signature", `timestamp token does not match this signature: ${r.tsa.detail}`);
-    if (r.tsa.status === "error") r.warnings.push(`timestamp could not be checked: ${r.tsa.detail}`);
-  }
   if (r.partial) r.warnings.push(`partial signature: covers only section(s) ${r.partial.sections.join(", ")}`);
-  // SPEC 4.5: the signature holds with the embedded key, but nobody vouches for that key now
-  if (notPublished) {
-    const when = r.tsa?.verified ? `; the signature existed at ${r.tsa.genTime} (TSA)` : "";
-    return fail("unresolved", "key-not-published", `the signature verifies with the embedded key, which ${f.signer} does not publish now (${notPublished})${when}`);
-  }
+  // SPEC 4.5: the signature holds with the embedded key, but nobody vouches for that key now; verifyDocument adds T(k)
+  if (notPublished) return fail("unresolved", "key-not-published", `the signature verifies with the embedded key, which ${f.signer} does not publish now (${notPublished})`);
   if (tofuStatus) {
     r.tofu = { status: tofuStatus, fingerprint: await keyFingerprint(f.pubkey!) };
     if (tofuStatus === "new" && opts.confirmNewTofuKeys) pending?.set(f.signer!, f.pubkey!);
@@ -399,7 +467,7 @@ async function keySnapshot(f: Record<string, string>, alg: string): Promise<Cand
   return { alg: kalg, key, source: "embedded pubkey" };
 }
 
-async function verifyTsaBlock(r: BlockResult, f: Record<string, string>, hashAlg: "sha256" | "sha512", opts: VerifyOptions, fail: (status: BlockStatus, code: BlockCode, message: string) => BlockResult): Promise<BlockResult> {
+async function verifyTsaBlock(r: BlockResult, f: Record<string, string>, hashAlg: HashAlg, opts: VerifyOptions, fail: (status: BlockStatus, code: BlockCode, message: string) => BlockResult): Promise<BlockResult> {
   let token: string;
   try {
     await decodePrefixedBinary(unfoldBinary(f.sig!));
@@ -407,18 +475,65 @@ async function verifyTsaBlock(r: BlockResult, f: Record<string, string>, hashAlg
   } catch (e) {
     return fail("malformed", "malformed", `sig is not a timestamp token: ${(e as Error).message}`);
   }
+  const tsaOpts = { roots: opts.tsaRoots, extraRoots: opts.extraTsaRoots };
+  const payload = signedPayload(f);
   // SPEC 4.6: the token's imprint is the digest of the signed payload, with the block's hash algorithm
-  const imprint = await digest(hashAlg, signedPayload(f));
-  r.tsa = await checkTimestampOver(token, imprint, hashAlg, { roots: opts.tsaRoots, extraRoots: opts.extraTsaRoots }, `message imprint does not match ${hashAlg.toUpperCase()}(payload)`);
-  if (!r.tsa.verified) delete r.tsa.genTime;
+  try {
+    r.tsa = opts.tsaVerifier
+      ? await opts.tsaVerifier(token, payload, { ...tsaOpts, hash: hashAlg })
+      : await checkTimestampOver(token, await digest(hashAlg, payload), hashAlg, tsaOpts, `message imprint does not match ${hashAlg.toUpperCase()}(payload)`);
+  } catch (e) {
+    r.tsa = { status: "error", verified: false, detail: (e as Error).message };
+  }
+  // SPEC 4.6: a time is evidence only when the token was verified
+  if (!r.tsa.verified) {
+    delete r.tsa.genTime;
+    delete r.tsa.accuracyMs;
+  }
   if (r.tsa.status === "mismatch") return fail("invalid", "bad-signature", `timestamp token does not cover this block: ${r.tsa.detail}`);
-  if (r.tsa.status === "error") {
+  if (r.tsa.status === "error" || !r.tsa.verified) {
     // a token whose imprint matched but whose TSA cannot be trusted is unresolved, like a key that was not found
-    if (r.tsa.detail.startsWith("imprint matched")) return fail("unresolved", "not-found", `timestamp could not be verified: ${r.tsa.detail}`);
+    if (r.tsa.detail.startsWith("imprint matched") || r.tsa.status === "ok") return fail("unresolved", "not-found", `timestamp could not be verified: ${r.tsa.detail}`);
+    // an outside verifier that fails says nothing about the token
+    if (opts.tsaVerifier) return fail("unresolved", "network", `timestamp could not be verified: ${r.tsa.detail}`);
     return fail("invalid", "bad-signature", `timestamp token is unusable: ${r.tsa.detail}`);
   }
   r.key = { source: `TSA ${r.tsa.signer}` };
   return r;
+}
+
+// --- T(k) (SPEC 4.6)
+
+// milliseconds since the epoch; a fraction finer than 1 ms is rounded up, so the bound stays an upper bound
+export function genTimeMs(genTime: string): number {
+  const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$/.exec(genTime);
+  if (!m) return NaN;
+  const base = Date.parse(m[1]! + "Z");
+  const frac = m[2] ?? "";
+  const ms = Number((frac + "000").slice(0, 3));
+  const rest = /[1-9]/.test(frac.slice(3)) ? 1 : 0;
+  return base + ms + rest;
+}
+
+export function formatTimeMs(ms: number): string {
+  const s = new Date(ms).toISOString();
+  return s.endsWith(".000Z") ? s.replace(/\.000Z$/, "Z") : s;
+}
+
+function blockTimes(sigs: BlockResult[]): void {
+  for (const k of sigs) {
+    let best: BlockTime | undefined;
+    let bestMs = Infinity;
+    for (const j of sigs) {
+      if (j.index <= k.index || j.fields.method !== "tsa" || j.status !== "valid" || !j.tsa?.verified || !j.tsa.genTime) continue;
+      const t = genTimeMs(j.tsa.genTime) + (j.tsa.accuracyMs ?? 0);
+      if (t < bestMs) {
+        bestMs = t;
+        best = { at: formatTimeMs(t), block: j.index, genTime: j.tsa.genTime, accuracyMs: j.tsa.accuracyMs ?? 0, ...(j.tsa.signer ? { signer: j.tsa.signer } : {}) };
+      }
+    }
+    if (best) k.time = best;
+  }
 }
 
 // SPEC 5.2: every block hashes the document from the start, so the chain length is bounded
@@ -429,7 +544,7 @@ const PENDING_TOFU = new WeakMap<VerifyOptions, Map<string, string>>();
 export async function verifyDocument(text: string, opts: VerifyOptions = {}): Promise<VerifyResult> {
   const doc = parseDocument(text);
   const warnings: string[] = [];
-  const none: Agreement = { status: "none", required: [], missing: [], violations: [] };
+  const none: Agreement = { status: "none", required: [], missing: [], violations: [], next: [], satisfied: [], declarations: [] };
   if (doc.chain.length > MAX_CHAIN_BLOCKS) return { ok: false, signatures: [], agreement: none, warnings, error: `too many signature blocks (${doc.chain.length}; the limit is ${MAX_CHAIN_BLOCKS})` };
   if (doc.chain.length === 0) {
     return {
@@ -443,13 +558,26 @@ export async function verifyDocument(text: string, opts: VerifyOptions = {}): Pr
     };
   }
   if (doc.strayMarker) warnings.push(`line ${doc.strayMarkerLine}: an md-signature marker inside the body is treated as document content, not as a signature`);
-  const o: VerifyOptions = { ...opts, revocationCache: opts.revocationCache ?? new Map() };
+  // SPEC 5.5: a renderer shows every block of such a document as code
+  if (doc.unclosedFence) warnings.push("the body ends inside an open code fence, so Markdown renderers show the signature blocks as code");
+  warnings.push(...findSignatureMarker(doc.body).warnings);
+  const o: VerifyOptions = { ...opts, signedListCache: opts.signedListCache ?? new Map() };
   if (o.tofuStore && o.confirmNewTofuKeys) PENDING_TOFU.set(o, new Map());
   const signatures: BlockResult[] = [];
   for (const b of doc.chain) signatures.push(await verifyBlock(doc.text, b, o));
-  const agreement = opts.skipAgreement
-    ? none
-    : evaluateAgreement(signatures.map((s) => ({ index: s.index, valid: s.status === "valid", declares: s.status === "valid" || s.status === "unresolved", fields: s.fields })));
-  // SPEC 5.8: an order violation under "order strict" fails the document
-  return { ok: signatures.every((s) => s.status === "valid") && agreement.status !== "violated", signatures, agreement, warnings };
+
+  if (o.checkTsa !== false) blockTimes(signatures);
+  for (const s of signatures) {
+    if (s.code === "key-not-published" && s.time) s.message += `; the signature existed at ${s.time.at} (TSA, block #${s.time.block})`;
+  }
+
+  let agreement = none;
+  if (!opts.skipAgreement) {
+    const blocks = signatures.map((s) => ({ index: s.index, status: s.status, code: s.code, fields: s.fields, userVerified: s.webauthn?.userVerified }));
+    const memberships = await lookupMemberships(membershipQueries(blocks), o, warnings);
+    agreement = evaluateAgreement(blocks, (roster, id) => memberships.get(`${roster}\n${id}`) ?? "unavailable");
+  }
+  // SPEC 5.4, 5.8.9: a violated, undetermined, or unsupported agreement is not a success
+  const ok = signatures.every((s) => s.status === "valid") && !["violated", "undetermined", "unsupported"].includes(agreement.status);
+  return { ok, signatures, agreement, warnings };
 }

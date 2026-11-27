@@ -17,6 +17,7 @@ import {
   type JsonResult,
   type VerifyHandlerOptions,
 } from "../src/index.ts";
+import { exampleOptions } from "./harness.ts";
 
 const SEED_A = fromHex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
 const SEED_B = fromHex("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb");
@@ -38,7 +39,7 @@ test("server: /v1/verify answers in the CLI JSON shape", async () => {
   assert.equal(r.ok, true);
   assert.equal(r.error, null);
   assert.deepEqual(Object.keys(r), ["ok", "error", "warnings", "agreement", "signatures"]);
-  assert.deepEqual(Object.keys(r.signatures[0]!), ["index", "line", "status", "code", "message", "fields", "hash_ok", "partial", "key_source", "tofu", "webauthn", "pgp", "resources", "revocation", "tsa", "warnings"]);
+  assert.deepEqual(Object.keys(r.signatures[0]!), ["index", "line", "status", "code", "message", "fields", "display_name", "hash_ok", "partial", "key_source", "tofu", "webauthn", "pgp", "resources", "revocation", "tsa", "warnings"]);
   assert.equal(r.signatures[0]!.status, "valid");
   assert.equal(r.signatures[0]!.fields.signer, "alice");
 
@@ -73,8 +74,8 @@ test("server: origin, method, content type and size rules", async () => {
     ["not JSON", "POST", "/v1/verify", JSON_CT, "document=x", 400],
     ["no document", "POST", "/v1/verify", JSON_CT, '{"doc":"x"}', 400],
     ["too large", "POST", "/v1/verify", JSON_CT, JSON.stringify({ document: "a".repeat(4096) }), 413],
-    ["tsa without sig", "POST", "/v1/tsa", JSON_CT, '{"tsa_token":"base64:AA=="}', 400],
-    ["tsa bad sig", "POST", "/v1/tsa", JSON_CT, '{"tsa_token":"base64:AA==","sig":"***"}', 400],
+    ["tsa without sig", "POST", "/v1/tsa", JSON_CT, '{"token":"base64:AA=="}', 400],
+    ["tsa bad sig", "POST", "/v1/tsa", JSON_CT, '{"token":"base64:AA==","sig":"***"}', 400],
   ];
   for (const [name, method, path, headers, body, want] of cases) {
     const res = await call(h, method, path, headers, body);
@@ -136,59 +137,51 @@ test("server: outbound requests to private or internal hosts are refused", async
 // --- TSA through the server, and comparing both sides
 
 const example = () => readFileSync(new URL("../../../examples/valid-cosigned.md", import.meta.url), "utf8");
-const exampleDns = () => {
-  const keys = JSON.parse(readFileSync(new URL("../../../examples/keys.json", import.meta.url), "utf8"));
-  const dns: Record<string, string> = Object.fromEntries(Object.entries(keys.dns as Record<string, { txt: string }>).map(([k, v]) => [k, v.txt]));
-  const fetch = (async (url: string) => {
-    const n = new URL(url).searchParams.get("name")!;
-    return new Response(JSON.stringify({ Status: 0, Answer: dns[n] ? [{ type: 16, data: `"${dns[n]}"` }] : [] }));
-  }) as typeof globalThis.fetch;
-  return { fetch, now: new Date(keys.now) };
-};
+const tsaBlock = (r: { signatures: { fields: Record<string, string> }[] }) => r.signatures.find((s) => s.fields.method === "tsa") as Awaited<ReturnType<typeof verifyDocument>>["signatures"][number];
 
 test("server: tsaVerifier sends the token check to the server", async () => {
   const text = example();
-  if (!/^tsa_token:/m.test(text)) return;
-  const { fetch, now } = exampleDns();
+  if (!/^method: tsa$/m.test(text)) return;
+  const o = exampleOptions();
   const trusting = remoteTsaVerifier(BASE, { fetch: viaHandler() });
   const strict = remoteTsaVerifier(BASE, { fetch: viaHandler({ verify: { tsaRoots: [] } }) });
 
-  const local = await verifyDocument(text, { fetch, now, tsaRoots: [], tsaVerifier: trusting });
-  const tsa = local.signatures.find((s) => s.tsa)!.tsa!;
+  const local = await verifyDocument(text, { ...o, tsaRoots: [], tsaVerifier: trusting });
+  const tsa = tsaBlock(local).tsa!;
   assert.equal(tsa.verified, true, tsa.detail);
   assert.match(tsa.signer!, /SSL\.com/);
   assert.ok(tsa.genTime);
+  assert.ok(local.signatures[1]!.time?.at);
 
-  const refused = (await verifyDocument(text, { fetch, now, tsaVerifier: strict })).signatures.find((s) => s.tsa)!;
-  assert.equal(refused.status, "valid");
-  assert.equal(refused.tsa!.verified, false);
-  assert.equal(refused.tsa!.genTime, undefined);
+  const refused = await verifyDocument(text, { ...o, tsaVerifier: strict });
+  assert.deepEqual([tsaBlock(refused).status, tsaBlock(refused).code], ["unresolved", "not-found"]);
+  assert.equal(tsaBlock(refused).tsa!.genTime, undefined);
+  assert.equal(refused.signatures[1]!.time, undefined);
 
   const down = remoteTsaVerifier(BASE, { fetch: (async () => new Response("oops", { status: 502 })) as typeof globalThis.fetch });
-  const unreachable = (await verifyDocument(text, { fetch, now, tsaVerifier: down })).signatures.find((s) => s.tsa)!;
-  assert.equal(unreachable.status, "valid");
-  assert.equal(unreachable.tsa!.status, "error");
+  const unreachable = tsaBlock(await verifyDocument(text, { ...o, tsaVerifier: down }));
+  assert.deepEqual([unreachable.status, unreachable.code], ["unresolved", "network"]);
   assert.match(unreachable.tsa!.detail, /verification server/);
 
   const lying = async () => ({ status: "error" as const, verified: false, genTime: "2019-01-01T00:00:00Z", detail: "x" });
-  assert.equal((await verifyDocument(text, { fetch, now, tsaVerifier: lying })).signatures.find((s) => s.tsa)!.tsa!.genTime, undefined);
+  assert.equal(tsaBlock(await verifyDocument(text, { ...o, tsaVerifier: lying })).tsa!.genTime, undefined);
 });
 
 test("server: compareResults reports where two verifications differ", async () => {
   const text = example();
-  if (!/^tsa_token:/m.test(text)) return;
-  const { fetch, now } = exampleDns();
-  const local = await verifyDocument(text, { fetch, now });
-  const same = compareResults(local, toJsonResult(await verifyDocument(text, { fetch, now })));
-  assert.deepEqual({ agree: same.agree, tsaAgree: same.tsaAgree, n: same.blocks.length }, { agree: true, tsaAgree: true, n: 2 });
+  if (!/^method: tsa$/m.test(text)) return;
+  const o = exampleOptions();
+  const local = await verifyDocument(text, o);
+  const same = compareResults(local, toJsonResult(await verifyDocument(text, o)));
+  assert.deepEqual({ agree: same.agree, tsaAgree: same.tsaAgree, n: same.blocks.length }, { agree: true, tsaAgree: true, n: 3 });
 
-  const noRoots = compareResults(local, toJsonResult(await verifyDocument(text, { fetch, now, tsaRoots: [] })));
-  assert.equal(noRoots.agree, true);
+  const noRoots = compareResults(local, toJsonResult(await verifyDocument(text, { ...o, tsaRoots: [] })));
+  assert.equal(noRoots.agree, false);
   assert.equal(noRoots.tsaAgree, false);
-  const tsBlock = noRoots.blocks.find((b) => b.local!.tsaVerified !== null)!;
-  assert.deepEqual([tsBlock.local!.tsaVerified, tsBlock.remote!.tsaVerified, tsBlock.tsaAgree], [true, false, false]);
+  assert.deepEqual([noRoots.blocks[2]!.local!.tsaVerified, noRoots.blocks[2]!.remote!.tsaVerified], [true, false]);
+  assert.deepEqual([noRoots.blocks[1]!.local!.tsaVerified, noRoots.blocks[1]!.remote!.tsaVerified], [true, null]);
 
-  const offline: JsonResult = toJsonResult(await verifyDocument(text, { offline: true, now, tofuStore: new MemoryTofuStore() }));
+  const offline: JsonResult = toJsonResult(await verifyDocument(text, { offline: true, now: o.now, tofuStore: new MemoryTofuStore() }));
   const differs = compareResults(toJsonResult(local), offline);
   assert.equal(differs.agree, false);
   assert.ok(differs.blocks.some((b) => !b.agree && b.local!.status === "valid" && b.remote!.status === "unresolved"));
@@ -197,5 +190,5 @@ test("server: compareResults reports where two verifications differ", async () =
   const missing = compareResults(local, shorter);
   assert.equal(missing.agree, false);
   assert.equal(missing.blocks[1]!.remote, null);
-  assert.equal(parseDocument(text).chain.length, 2);
+  assert.equal(parseDocument(text).chain.length, 3);
 });
