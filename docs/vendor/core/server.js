@@ -126,8 +126,8 @@ export function createVerifyHandler(o = {}) {
                 const r = await verifyDocument(body.document, { ...o.verify, fetch: outbound, tofuStore: new MemoryTofuStore(), loadResource: undefined, pgpKeyring: undefined });
                 return reply(200, toJsonResult(r));
             }
-            if (typeof body?.tsa_token !== "string" || typeof body?.sig !== "string")
-                return fail(400, 'body must be {"tsa_token": "<value>", "sig": "<base64>"}');
+            if (typeof body?.token !== "string" || typeof body?.sig !== "string")
+                return fail(400, 'body must be {"token": "<value>", "sig": "<base64>"}');
             let sig;
             try {
                 sig = fromBase64(body.sig);
@@ -137,7 +137,10 @@ export function createVerifyHandler(o = {}) {
             }
             if (!sig.length || sig.length > MAX_SIG_BYTES)
                 return fail(400, "sig must be the base64 of the signature bytes");
-            return reply(200, tsaToJson(await checkTsaToken(unfoldBinary(body.tsa_token), sig, { roots: o.verify?.tsaRoots, extraRoots: o.verify?.extraTsaRoots })));
+            const hash = body.hash ?? "sha256";
+            if (hash !== "sha256" && hash !== "sha512")
+                return fail(400, 'hash must be "sha256" or "sha512"');
+            return reply(200, tsaToJson(await checkTsaToken(unfoldBinary(body.token), sig, { roots: o.verify?.tsaRoots, extraRoots: o.verify?.extraTsaRoots, hash })));
         }
         finally {
             running--;

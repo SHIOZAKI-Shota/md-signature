@@ -68,7 +68,11 @@ async function importEs256(key: Uint8Array): Promise<CryptoKey> {
 export interface WebAuthnInfo {
   rpId: string;
   origin: string;
+  // SPEC 5.8.7: UP (bit 0) and UV (bit 2) both set
   userVerified: boolean;
+  // BE (bit 3) and BS (bit 4): the credential may be, or is, synced
+  backupEligible: boolean;
+  backedUp: boolean;
 }
 
 export type WebAuthnCheck = { ok: true; info: WebAuthnInfo } | { ok: false; code: "malformed" | "bad-signature"; message: string; info?: WebAuthnInfo };
@@ -83,7 +87,7 @@ export async function checkWebAuthnData(fields: Record<string, string>, payload:
   } catch {
     return { ok: false, code: "malformed", message: "WebAuthn fields are not valid base64" };
   }
-  let cd: { type?: unknown; challenge?: unknown; origin?: unknown };
+  let cd: { type?: unknown; challenge?: unknown; origin?: unknown; crossOrigin?: unknown };
   try {
     cd = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(clientData));
   } catch {
@@ -92,9 +96,12 @@ export async function checkWebAuthnData(fields: Record<string, string>, payload:
   if (cd === null || typeof cd !== "object" || Array.isArray(cd)) return { ok: false, code: "malformed", message: "clientDataJSON is not a JSON object" };
   const origin = typeof cd.origin === "string" ? cd.origin : "";
   // authenticatorData = rpIdHash(32) | flags (UP 0x01, UV 0x04) | signCount(4)
-  const info: WebAuthnInfo = { rpId, origin, userVerified: authData.length > 32 && (authData[32]! & 0x04) !== 0 };
+  const flags = authData.length > 32 ? authData[32]! : 0;
+  const info: WebAuthnInfo = { rpId, origin, userVerified: (flags & 0x05) === 0x05, backupEligible: (flags & 0x08) !== 0, backedUp: (flags & 0x10) !== 0 };
   if (cd.type !== "webauthn.get") return { ok: false, code: "bad-signature", message: `clientDataJSON type is ${JSON.stringify(cd.type)}, expected "webauthn.get"`, info };
   if (cd.challenge !== toBase64Url(await sha256(payload))) return { ok: false, code: "bad-signature", message: "challenge does not match the signed payload", info };
+  // SPEC 6.1: an assertion made inside a cross-origin iframe is refused
+  if (cd.crossOrigin === true) return { ok: false, code: "bad-signature", message: "clientDataJSON crossOrigin is true", info };
   let host: string, scheme: string;
   try {
     const u = new URL(origin);
@@ -129,8 +136,15 @@ export interface WebAuthnSigner {
   alg: "webauthn-es256";
   publicKey: Uint8Array;
   rpId: string;
-  getAssertion(challenge: Uint8Array): Promise<WebAuthnAssertion>;
+  getAssertion(challenge: Uint8Array, o?: AssertionOptions): Promise<WebAuthnAssertion>;
 }
+
+export interface AssertionOptions {
+  // "required" when a require line asks for user_verified (SPEC 5.8)
+  userVerification?: "required" | "preferred";
+}
+
+export const assertionUserVerified = (a: WebAuthnAssertion) => a.authenticatorData.length > 32 && (a.authenticatorData[32]! & 0x05) === 0x05;
 
 // test-only software authenticator; never use for real signatures
 export async function createSoftwareAuthenticator(rpId: string, origin = `https://${rpId}`, flags = 0x05): Promise<WebAuthnSigner & { overrideClientData?: (cd: Record<string, unknown>) => Record<string, unknown> }> {
@@ -174,17 +188,17 @@ export async function registerPasskey(rpId: string, userName: string, rpName = "
   return { publicKey: new Uint8Array(spki), credentialId: new Uint8Array(cred.rawId) };
 }
 
-export function passkeySigner(rpId: string, publicKey: Uint8Array, credentialId?: Uint8Array): WebAuthnSigner {
+export function passkeySigner(rpId: string, publicKey: Uint8Array, credentialId?: Uint8Array, defaults: AssertionOptions = {}): WebAuthnSigner {
   return {
     alg: "webauthn-es256",
     publicKey: es256Spki(publicKey),
     rpId,
-    async getAssertion(challenge) {
+    async getAssertion(challenge, o = {}) {
       const cred = (await navigator.credentials.get({
         publicKey: {
           rpId,
           challenge: challenge as BufferSource,
-          userVerification: "preferred",
+          userVerification: o.userVerification ?? defaults.userVerification ?? "preferred",
           ...(credentialId ? { allowCredentials: [{ type: "public-key", id: credentialId as BufferSource }] } : {}),
         },
       })) as PublicKeyCredential | null;

@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../../color-scheme.js?v=20261118b"></script>
+    <script src="../../color-scheme.js?v=20261127"></script>
     <title>長期保存 | md-signature</title>
     <meta name="description"
         content="dns、git-hosting、pgp の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../../style.css?v=20261118b">
-    <link rel="stylesheet" href="../../guide.css?v=20261118b">
-    <link rel="stylesheet" href="../../docs.css?v=20261118b">
+    <link rel="stylesheet" href="../../style.css?v=20261127">
+    <link rel="stylesheet" href="../../guide.css?v=20261127">
+    <link rel="stylesheet" href="../../docs.css?v=20261127">
     <script src="../../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../../site.js?v=20261118b"></script>
+    <script type="module" src="../../site.js?v=20261127"></script>
 </head>
 
 <body>
@@ -75,6 +75,8 @@
                     <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
                     <li><a href="../../docs/archive/" data-i18n="docs.nav.archive" aria-current="page">長期保存</a></li>
                     <li><a href="../../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                    <li><a href="../../docs/agents/" data-i18n="docs.nav.agents">エージェント間の合意記録</a></li>
+                    <li><a href="../../docs/syntax/" data-i18n="docs.nav.syntax">記法の早見表</a></li>
                 </ol>
                 <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
                 <ul>
@@ -86,13 +88,13 @@
                 <header class="docs-head">
                     <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
                     <h1 id="page-title" data-i18n="docs.nav.archive">長期保存</h1>
-                    <p class="lede" data-i18n-html="docs.archive.lede"><code>dns</code>、<code>git-hosting</code>、<code>pgp</code> の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。</p>
+                    <p class="lede" data-i18n-html="docs.archive.lede"><code>dns</code>、<code>git-hosting</code>、<code>directory</code>、<code>pgp</code> の公開鍵は検証のたびに取得します。署名者が鍵を削除すると古い署名は検証できなくなり、ドメインやアカウントが乗っ取られると第三者の鍵が公開されます。このページでは、数年後の検証に備えて文書に証拠を保持する方法を説明します。</p>
                     <nav class="toc" aria-labelledby="toc-title">
                         <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
                         <ol>
-                            <li><a href="#overview" data-i18n="ar.ov.title">3つの手段</a></li>
-                            <li><a href="#tsa-token" data-i18n="ar.tok.title">署名へのタイムスタンプ（tsa_token）</a></li>
-                            <li><a href="#tsa-block" data-i18n="ar.blk.title">タイムスタンプ専用ブロック（method: tsa）</a></li>
+                            <li><a href="#overview" data-i18n="ar.ov.title">2つの手段</a></li>
+                            <li><a href="#time" data-i18n="ar.time.title">署名の時刻 T(k)</a></li>
+                            <li><a href="#tsa-block" data-i18n="ar.blk.title">タイムスタンプブロック（method: tsa）</a></li>
                             <li><a href="#snapshot" data-i18n="ar.snap.title">公開鍵のスナップショット（pubkey）</a></li>
                             <li><a href="#roots" data-i18n="ar.roots.title">TSA のルート証明書</a></li>
                         </ol>
@@ -100,8 +102,8 @@
                 </header>
         <section class="guide doc-sec" id="overview" tabindex="-1" aria-labelledby="overview-title">
             <div class="section-head">
-                <h2 id="overview-title" data-i18n="ar.ov.title">3つの手段</h2>
-                <p data-i18n-html="ar.ov.lede"><code>ts</code> は署名者の申告にすぎません。第三者の時刻認証局（TSA）による RFC 3161 タイムスタンプと、署名に用いた公開鍵の埋め込みを組み合わせて使用します。</p>
+                <h2 id="overview-title" data-i18n="ar.ov.title">2つの手段</h2>
+                <p data-i18n-html="ar.ov.lede"><code>ts</code> は署名者の申告にすぎません。第三者の時刻認証局（TSA）による RFC 3161 タイムスタンプを <code>tsa</code> ブロックとして追記し、必要に応じて署名に用いた公開鍵を埋め込みます。署名ブロックの中にタイムスタンプを持たせる方式（<code>tsa_token</code>）は 0.1 で廃止しました。</p>
             </div>
             <table class="guide-table means">
                 <thead>
@@ -114,16 +116,10 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <th scope="row"><a href="#tsa-token"><code>tsa_token</code></a></th>
-                        <td data-i18n-html="ar.ov.token.proves">その署名が、TSA の時刻に存在したこと</td>
-                        <td data-i18n-html="ar.ov.token.when">署名時。<code>tsa_url</code> と <code>tsa_token</code> はペイロード外のため、仕様上は署名後にも付与できる</td>
-                        <td><code>mdsig sign --tsa</code><br><code>tsaUrl</code></td>
-                    </tr>
-                    <tr>
                         <th scope="row"><a href="#tsa-block"><code>method: tsa</code></a></th>
                         <td data-i18n-html="ar.ov.block.proves">それより前のチェーン全体（以前のタイムスタンプを含む）が、TSA の時刻に存在したこと</td>
-                        <td data-i18n-html="ar.ov.block.when">いつでも、何度でも。末尾に追記する</td>
-                        <td><code>mdsig timestamp</code><br><code>timestampDocument</code></td>
+                        <td data-i18n-html="ar.ov.block.when">署名の直後、またはいつでも、何度でも。末尾に追記する</td>
+                        <td><code>mdsig sign --tsa</code><br><code>mdsig timestamp</code><br><code>tsaUrl</code> <code>timestampDocument</code></td>
                     </tr>
                     <tr>
                         <th scope="row"><a href="#snapshot"><code>pubkey</code></a></th>
@@ -133,56 +129,42 @@
                     </tr>
                 </tbody>
             </table>
-            <p class="guide-note" data-i18n-html="ar.ov.note">スナップショットだけでは、その鍵が署名者のものだったことは示せません。タイムスタンプと併用すると、「この鍵による署名が、この時刻に存在した」ことまでを示せます。</p>
+            <p class="guide-note" data-i18n-html="ar.ov.note">スナップショットだけでは、その鍵が署名者のものだったことは示せません。<code>tsa</code> ブロックと併用すると、「この鍵による署名が、この時刻までに存在した」ことまでを示せます。</p>
         </section>
 
-        <section class="guide doc-sec" id="tsa-token" tabindex="-1" aria-labelledby="tsa-token-title">
+        <section class="guide doc-sec" id="time" tabindex="-1" aria-labelledby="time-title">
             <div class="section-head">
-                <h2 id="tsa-token-title" data-i18n="ar.tok.title">署名へのタイムスタンプ（tsa_token）</h2>
-                <p data-i18n-html="ar.tok.lede">署名ブロックに <code>tsa_url</code> と <code>tsa_token</code> を付与すると、その署名がある時刻に存在したことを TSA が証明します。証拠のチェーンは <code>document → hash → sig → tsa_token</code> です。</p>
+                <h2 id="time-title" data-i18n="ar.time.title">署名の時刻 T(k)</h2>
+                <p data-i18n-html="ar.time.lede">署名の時刻を証明したい署名者は、自分の署名ブロックの直後に <code>tsa</code> ブロックを追記します。<code>mdsig sign --tsa</code> と TypeScript の <code>tsaUrl</code> は、署名と同時にこれを行います。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
-                    <h3 class="guide-label" data-i18n="ar.tok.genT">生成者の手順</h3>
-                    <ol class="guide-list">
-                        <li data-i18n-html="ar.tok.g1"><code>sig</code> の base64 をデコードしたバイト列の SHA-256 を計算する。</li>
-                        <li data-i18n-html="ar.tok.g2">その値を <code>messageImprint</code> とし、<code>certReq</code> を TRUE に、ランダムな <code>nonce</code> を付与した <code>TimeStampReq</code> を <code>tsa_url</code> に送信する。</li>
-                        <li data-i18n-html="ar.tok.g3">DER 形式の <code>TimeStampResp</code> 全体を <code>tsa_token</code> に格納する。形式は <code>gzip+base64:</code> を推奨。</li>
-                    </ol>
-                    <h3 class="guide-label" data-i18n="ar.tok.verT">検証者の確認事項</h3>
-                    <ol class="guide-list">
-                        <li data-i18n-html="ar.tok.v1">応答ステータスが <code>granted</code> または <code>grantedWithMods</code> で、<code>messageImprint</code> が <code>SHA-256(sig の生バイト列)</code> と一致する。</li>
-                        <li data-i18n-html="ar.tok.v2">トークンの CMS 署名と TSA 証明書チェーンを、検証者が選択したトラストストアに照らして検証する。成功した場合に限り、<code>genTime</code> と TSA の名前を報告する。</li>
-                        <li data-i18n-html="ar.tok.v3">展開後のサイズは 1 MB まで。<code>tsa_token</code> はペイロード外で第三者が差し替えられるため、上限を設ける。</li>
-                    </ol>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="ar.time.r1">ブロック k の時刻 <code>T(k)</code> は、k より後ろにある有効な <code>tsa</code> ブロックの <code>genTime</code> に誤差（<code>accuracy</code>、ない場合は 0）を加えた値のうち、最も早いものです。</li>
+                        <li data-i18n-html="ar.time.r2"><code>tsa</code> ブロックのスライスはブロック k を含むため、<code>T(k)</code> はブロック k がその時刻までに存在したことを示します。</li>
+                        <li data-i18n-html="ar.time.r3">検証結果の表示、鍵のスナップショットの報告、署名欄は、すべて同じ <code>T(k)</code> を使用します。<code>ts</code> とは別の値として示します。</li>
+                        <li data-i18n-html="ar.time.r4">後ろに有効な <code>tsa</code> ブロックがなければ、<code>T(k)</code> は定まりません。TSA 証明書のチェーンを検証できない <code>tsa</code> ブロックは時刻を与えません。</li>
+                    </ul>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">
-                        <figcaption data-i18n="ar.tok.chainCap">証拠のチェーン</figcaption>
-                        <pre class="guide-code formula"><code>document → hash → sig → tsa_token
-messageImprint = SHA-256(base64-decode(sig))</code></pre>
+                        <figcaption data-i18n="ar.time.formulaCap">ブロックの時刻</figcaption>
+                        <pre class="guide-code formula"><code>T(k) = min { genTime(j) + accuracy(j) : j &gt; k, j is a valid tsa block }</code></pre>
                     </figure>
                     <figure class="guide-cell">
-                        <figcaption data-i18n="ar.tok.exCap">tsa_token を持つブロック</figcaption>
-                        <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.4
-method: git-hosting
-signer: github.com/alice
-…
-sig: base64:q1Xv…
-tsa_url: http://ts.ssl.com
-tsa_token: |
-  gzip+base64:H4sIAAAAAAAA/+3SW0hTURwG8G+m…
-<span class="c">--&gt;</span></code></pre>
+                        <figcaption data-i18n="ar.time.cliCap">署名と同時に tsa ブロックを追記する</figcaption>
+                        <pre class="guide-code"><code>mdsig sign contract.md -m dns -s example.com --selector 2026 --tsa
+<span class="cmt"># #1 dns example.com     signature block</span>
+<span class="cmt"># #2 tsa ts.ssl.com      appended right after it; T(1) = genTime(#2) + accuracy</span></code></pre>
                     </figure>
-                    <p class="guide-note" data-i18n-html="ar.tok.note">CLI は <code>mdsig sign --tsa</code> で付与します（URL を省略すると <code>http://ts.ssl.com</code>）。チェーンを検証できないトークンでも署名自体の判定は変わりませんが、時刻は表示しません。</p>
+                    <p class="guide-note" data-i18n-html="ar.time.note"><code>T(k)</code> は検証者が信頼する TSA のルート証明書に依存し、実装によって結果が異なることがあります。本版は RFC 4998 のような更新の連鎖を検証しないため、時刻を長期にわたって主張する保管者は、トークンと検証の結果を別途保存してください。要求または検証に失敗した場合、<code>--tsa</code> は署名ブロックも追記しません（終了コード 3）。</p>
                 </div>
             </div>
         </section>
 
         <section class="guide doc-sec" id="tsa-block" tabindex="-1" aria-labelledby="tsa-block-title">
             <div class="section-head">
-                <h2 id="tsa-block-title" data-i18n="ar.blk.title">タイムスタンプ専用ブロック（method: tsa）</h2>
+                <h2 id="tsa-block-title" data-i18n="ar.blk.title">タイムスタンプブロック（method: tsa）</h2>
                 <p data-i18n-html="ar.blk.lede">署名者を持たないブロックで、それより前のチェーン全体がある時刻に存在したことを示します。TSA 証明書の失効やハッシュアルゴリズムの危殆化に備え、重ねて追記することでタイムスタンプを更新できます。考え方は RFC 4998 と同じです。</p>
             </div>
             <div class="guide-grid wide-left-s">
@@ -213,10 +195,15 @@ tsa_token: |
                             </tr>
                             <tr>
                                 <th scope="row"><code>v</code> <code>ts</code> <code>reason</code> <code>x_*</code></th>
-                                <td data-i18n-html="ar.blk.f.other"><code>v</code> は <code>0.0.2</code> 以降。<code>ts</code> は生成者の申告。任意で <code>reason</code> と <code>x_*</code>。ほかのフィールドを含むブロックは malformed。</td>
+                                <td data-i18n-html="ar.blk.f.other"><code>v</code> は <code>0.1</code>。<code>ts</code> は生成者の申告。任意で <code>reason</code> と <code>x_*</code>。ほかのフィールドを含むブロックは malformed。</td>
                             </tr>
                         </tbody>
                     </table>
+                    <h3 class="guide-label" data-i18n="ar.blk.genT">生成者の手順</h3>
+                    <ol class="guide-list compact">
+                        <li data-i18n-html="ar.blk.g1">署名対象ペイロードを <code>hash</code> と同じアルゴリズムでダイジェストし、<code>messageImprint</code> とする。<code>certReq</code> を TRUE に、ランダムな <code>nonce</code> を付与した <code>TimeStampReq</code> を TSA に送信する。</li>
+                        <li data-i18n-html="ar.blk.g2">応答の <code>TimeStampResp</code> 全体を <code>sig</code> に格納する。接頭辞は <code>gzip+base64:</code> を推奨。展開後のサイズは 1 MB まで。</li>
+                    </ol>
                     <h3 class="guide-label" data-i18n="ar.blk.verT">検証の手順（5.4 節の手順 4 以降に代えて）</h3>
                     <ol class="guide-list steps-out">
                         <li><span data-i18n-html="ar.blk.v1">トークンをデコードできない</span> <code class="st bad">malformed</code></li>
@@ -240,7 +227,7 @@ tsa_token: |
                     <figure class="guide-cell">
                         <figcaption data-i18n="ar.blk.exCap">tsa ブロック（examples/valid-tsa-renewal.md）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.4
+v: 0.1
 method: tsa
 signer: http://ts.ssl.com
 reason: renewal
@@ -263,7 +250,7 @@ mdsig timestamp contract.md --hash sha512 --reason renewal</code></pre>
         <section class="guide doc-sec" id="snapshot" tabindex="-1" aria-labelledby="snapshot-title">
             <div class="section-head">
                 <h2 id="snapshot-title" data-i18n="ar.snap.title">公開鍵のスナップショット（pubkey）</h2>
-                <p data-i18n-html="ar.snap.lede"><code>dns</code> と <code>git-hosting</code> のブロックは、署名に用いた公開鍵を <code>pubkey</code> に埋め込めます（<code>v</code> が <code>0.0.2</code> 以降、指定した場合のみ）。<code>pgp</code> のブロックには埋め込めません。<code>pubkey</code> は署名者自身が書いた値で、偽造者も自身の鍵を埋め込めるため、公開中の鍵との照合を経なければ有効とはしません。</p>
+                <p data-i18n-html="ar.snap.lede"><code>dns</code>、<code>git-hosting</code>、<code>directory</code> のブロックは、署名に用いた公開鍵を <code>pubkey</code> に埋め込めます（<code>directory</code> は既定で埋め込む）。<code>pgp</code> のブロックには埋め込めません。<code>pubkey</code> は署名者自身が書いた値で、偽造者も自身の鍵を埋め込めるため、公開中の鍵との照合を経なければ有効とはしません。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
@@ -298,13 +285,13 @@ mdsig timestamp contract.md --hash sha512 --reason renewal</code></pre>
                             </tr>
                         </tbody>
                     </table>
-                    <p class="guide-note verdict" data-i18n-html="ar.snap.verdict"><code>key-not-published</code> のブロックを、検証者は有効として提示してはなりません。報告できるのは、埋め込まれた鍵で署名が成立すること、およびタイムスタンプを検証できた場合はその時刻に署名が存在したことです。</p>
+                    <p class="guide-note verdict" data-i18n-html="ar.snap.verdict"><code>key-not-published</code> のブロックを、検証者は有効として提示してはなりません。報告できるのは、埋め込まれた鍵で署名が成立すること、および <code>T(k)</code> が定まる場合はその時刻までに署名が存在したことです。</p>
                 </div>
                 <div class="guide-col">
                     <figure class="guide-cell">
                         <figcaption data-i18n="ar.snap.exCap">pubkey を持つ dns ブロック（examples/valid-key-snapshot.md）</figcaption>
                         <pre class="guide-code"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.4
+v: 0.1
 method: dns
 signer: example.com
 selector: 2026
@@ -314,8 +301,8 @@ ts: 2026-11-16T09:00:00Z
 alg: ed25519
 hash: sha256:f06c734545219e83074ab04481e4b4715054a8f1ac88367c90d2ce24bc76705c
 sig: |
-  base64:2gPP7bXr+yIxseGa3InxmDVKNz2GCDedDiUNOVvwgDeq1bg30tcR9xKXhURq65a85svc1
-  0oDK12IYUR0uEDLBA==
+  base64:6MO02qHxqNxXRmrL7yRkrntC+0c8KriUeRDBA6hHtpk1dX0Z9Rq/7NnjbBbJeJT8Gzv+p
+  dpT249xe0WzFO+eCg==
 <span class="c">--&gt;</span></code></pre>
                     </figure>
                     <figure class="guide-cell">
@@ -389,14 +376,14 @@ sig: |
                     <p class="guide-note" data-i18n-html="ar.roots.listNote">Security Communication RootCA3 と GlobalSign Timestamping Root R45 は、総務大臣の認定を受けたタイムスタンプサービスのためのルートです。</p>
                 </div>
             </div>
-            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#55-rfc-3161-タイムスタンプ"
-                    data-i18n-attr="href:ar.href1"><span data-i18n="ar.ref1">仕様書 §5.5 RFC 3161 タイムスタンプ</span><i data-lucide="arrow-up-right"
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#46-tsaタイムスタンプブロック"
+                    data-i18n-attr="href:ar.href1"><span data-i18n="ar.ref1">仕様書 §4.6 tsa：タイムスタンプブロック</span><i data-lucide="arrow-up-right"
                         aria-hidden="true"></i></a><a
                     href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#45-鍵のスナップショットdnsgit-hostingdirectory"
                     data-i18n-attr="href:ar.href2"><span data-i18n="ar.ref2">§4.5 鍵のスナップショット</span><i data-lucide="arrow-up-right"
                         aria-hidden="true"></i></a><a
-                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#46-tsaタイムスタンプ専用ブロック"
-                    data-i18n-attr="href:ar.href3"><span data-i18n="ar.ref3">§4.6 タイムスタンプ専用ブロック</span><i data-lucide="arrow-up-right"
+                    href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#94-時刻"
+                    data-i18n-attr="href:ar.href3"><span data-i18n="ar.ref3">§9.4 時刻</span><i data-lucide="arrow-up-right"
                         aria-hidden="true"></i></a></p>
         </section>
 

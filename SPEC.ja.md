@@ -2,9 +2,9 @@
 
 > **本書（日本語版）が原文です。** 英語版 [SPEC.md](SPEC.md) は、IETF への提出（できれば）に向けて維持する正本です。両者は同期して管理し、内容に相違がある場合は英語版が優先します。
 
-[English](SPEC.md) · [CLI 仕様](CLI_SPEC.ja.md)
+[English](SPEC.md) · [CLI 仕様](CLI_SPEC.ja.md) · [エージェント間取引での使用（参考）](AGENT_COMMERCE.ja.md)
 
-- **バージョン：** 0.0.4（ドラフト）
+- **バージョン：** 0.1（ドラフト）
 - **ステータス：** 作業草案。個人提出の Internet-Draft `draft-shiozaki-md-signature-00` として提出することを想定
 - **著者：** SHIOZAKI Shota（me@shiozakishota.com、Issue：https://github.com/SHIOZAKI-Shota/md-signature/issues）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
@@ -15,7 +15,8 @@
 `md-signature` を規定する。署名はファイル末尾に追加される HTML コメントに格納
 されるため、レンダリングに影響を与えず、署名済み文書は自己完結した単一の
 ファイルのまま保たれる。複数の署名者は追記専用のハッシュチェーンを形成する。
-各署名は、文書とそれより前のすべての署名を対象とする。
+各署名は、文書とそれより前のすべての署名を対象とする。署名者は、文書の完了に
+必要な後続の連署を、その順序と人数、署名者の資格とともに宣言できる。
 
 ## 1. 表記規則と用語
 
@@ -32,6 +33,9 @@
 - **本文（Body）**：文書のうち、チェーンの最初のブロックより前にあるバイト列。
 - **生成者（ジェネレータ、Generator）**：署名ブロックを作成するソフトウェア。
 - **検証者（Verifier）**：署名ブロックを検査するソフトウェア。
+- **署名者の識別子（Signer identity）**：ブロックの `method` と `signer` を `:` で連結した文字列（例：`dns:example.com`）。3.4 節の規則に従う値であり、比較は完全一致で行う。
+- **宣言（Declaration）**：`require` フィールドを持つブロック（5.8 節）。
+- **署名済みリスト（Signed list）**：撤回リストや名簿のように、項目の一覧を本文に持つ md-signature 文書（5.10 節）。
 
 ## 2. 設計目標
 
@@ -45,24 +49,34 @@
 
 ### 3.1 例
 
-```markdown
+````markdown
 # Purchase Agreement
 
 The parties agree to the following terms...
 
+<!-- mdsig:signatures -->
+
 <!-- md-signature
-v: 0.0.4
+v: 0.1
 method: git-hosting
 signer: github.com/alice
+display_name: Alice Example
 role: author
 reason: Initial draft
 ts: 2026-11-16T09:00:00Z
+require: |
+  step
+    dns:example.com role=approver
+  step any=2
+    git-hosting:github.com/bob role=reviewer
+    git-hosting:github.com/carol role=reviewer
+    git-hosting:github.com/dave role=reviewer
 alg: ed25519
 hash: sha256:3a0d0b5c...
 sig: base64:q1Xv...
 -->
 <!-- md-signature
-v: 0.0.4
+v: 0.1
 method: dns
 signer: example.com
 selector: 2026
@@ -71,12 +85,24 @@ ts: 2026-11-16T09:46:00Z
 alg: ed25519
 hash: sha256:8f434346...
 sig: base64:Zm9v...
-tsa_url: http://ts.ssl.com
-tsa_token: |
+-->
+<!-- md-signature
+v: 0.1
+method: tsa
+signer: http://ts.ssl.com
+ts: 2026-11-16T09:46:05Z
+alg: rfc3161
+hash: sha256:51c2b0e4...
+sig: |
   gzip+base64:H4sIAAAAAAAA/+3SW0hTURwG8G+mpWZRFl0oKiR7
   sJuZRZJGQSRRQUQk9VJUFBRBhhGFFdGNioqCLu
 -->
-```
+````
+
+この例では、`github.com/alice` が、まず `example.com` の承認を、次に 3人のうち
+2人の確認者の署名を求めている（5.8 節）。2つ目のブロックで `example.com` が承認し、
+3つ目の `tsa` ブロックが、それまでのチェーン全体の存在時刻を証明する（4.6 節）。
+`<!-- mdsig:signatures -->` は、表示側が署名欄を描画する位置を示す（5.11 節）。
 
 ### 3.2 文法
 
@@ -85,47 +111,64 @@ tsa_token: |
 を行うことにより `CRLF` および `CR` を受け入れなければならない（MUST）。
 
 ```abnf
-block        = open-line *(field) close-line
-open-line    = "<!-- md-signature" LF
-close-line   = "-->" [LF]
-field        = simple-field / folded-field
-simple-field = key ":" SP value LF
-folded-field = key ":" SP "|" LF 1*(cont-line)
-cont-line    = 2SP value LF
-key          = (%x61-7A) *(%x61-7A / DIGIT / "_")      ; lowercase a-z, 0-9, _
-value        = vchar *(*SP vchar)                      ; no leading/trailing space
-vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
+block          = open-line *(field) close-line
+open-line      = "<!-- md-signature" LF
+close-line     = "-->" [LF]
+field          = simple-field / folded-field
+simple-field   = key ":" SP value LF
+folded-field   = key ":" SP "|" LF 1*(cont-line)
+cont-line      = 2SP *SP value LF                      ; 2SP の後の空白は値の一部
+key            = %x61-7A *(%x61-7A / DIGIT / "_")      ; lowercase a-z, 0-9, _
+value          = vchar *(*SP vchar)                    ; no leading/trailing space
+vchar          = %x21-7E / UTF8-non-ascii              ; printable, non-space
+UTF8-non-ascii = UTF8-2 / UTF8-3 / UTF8-4              ; [RFC3629]
 ```
 
 文法に加えて適用される規則：
 
 1. 開始行は、前後に文字を伴わず、厳密に `<!-- md-signature` でなければならない（MUST）（検証者は末尾の空白・タブを許容してもよい（MAY））。終了行は厳密に `-->` でなければならない（MUST）。
 2. ブロックは空行を含んではならない（MUST NOT）。CommonMark は空行で HTML ブロックを終了するため、空行があるとブロックの残りの部分がレンダリング時に表示されてしまう。
-3. 値は `--` という並びを含んではならない（MUST NOT）。これにより HTML コメントが途中で終了することを防止する。生成者は、そのような入力を暗黙に変更せず、拒否しなければならない（MUST）。
-4. 値は制御文字（U+0000–U+001F、U+007F–U+009F）、行区切り文字（U+2028、U+2029）、双方向制御文字（U+202A–U+202E、U+2066–U+2069）を含んではならない（MUST NOT）。ただし、折り返された値の各行を区切る `LF`（規則 7）は除く。これらの文字は、端末や画面に表示される検証結果の偽装に使用できる。
+3. 値は `-->`、`--!>`、`<!--` のいずれの並びも含んではならない（MUST NOT）。生成者は、そのような入力を暗黙に変更せず、拒否しなければならない（MUST）。根拠は次のとおりである。
+   - ブロックは CommonMark 0.31.2 [COMMONMARK] の HTML ブロックの 2 型（`<!--` で始まり、`-->` を含む行で終わる）である。`-->` を含む値はブロックをその行で終了させ、残りのフィールドを可視の Markdown にする。
+   - HTML として解釈する場合、WHATWG HTML [HTML] の構文解析はコメントを `-->` または `--!>` で終了し、コメント内の `<!--` を構文エラーとする。
+   - ブロックはブロックレベルの HTML であり、インラインの生の HTML に関する CommonMark の規則は適用されない。0.31 より前の CommonMark はインラインのコメントで `--` を拒否していたが、この規則もブロックには適用されない。このため本版は `--` を禁止しない。国際化ドメイン名の A-label（`xn--` で始まるラベル）は `--` を含む。
+4. 値は次の文字を含んではならない（MUST NOT）。ただし、折り返された値の各行を区切る `LF`（規則 7）は除く。
+   - 一般カテゴリ Cc の制御文字（U+0000–U+001F、U+007F–U+009F）
+   - 一般カテゴリ Cf の書式文字（双方向制御文字 U+202A–U+202E、U+2066–U+2069、ゼロ幅文字 U+200B–U+200D、U+FEFF、タグ文字 U+E0001、U+E0020–U+E007F などを含む）
+   - 一般カテゴリ Zl（U+2028）と Zp（U+2029）
+   - 非文字（U+FDD0–U+FDEF、および各面の末尾 2 コードポイント U+xxFFFE、U+xxFFFF）
+
+   一般カテゴリは Unicode 15.0.0 [UNICODE] による。これらの文字は、端末や画面に表示される検証結果の偽装に使用できる。
 5. 1つのブロック内で同じキーが 2回以上現れてはならない（MUST NOT）。検証者は、重複したキーを持つブロックを拒否しなければならない（MUST）。
-6. 検証者は、任意の順序のフィールドを受け入れなければならない（MUST）。生成者は、次の順序でフィールドを出力すべきである（SHOULD）：`v`、`method`、`signer`、方式固有のキー（`selector`、`key_fp`、`fpr`、`pubkey`）、`rp_id`、`role`、`reason`、`ts`、`expires`、`scope`、`require`、`resources`、`revocation_url`、拡張キー（`x_*`、ソート順）、`alg`、`hash`、`sig`、`webauthn_authenticator_data`、`webauthn_client_data`、`tsa_url`、`tsa_token`。
-7. **折り返し。** 折り返されたフィールドの値は、各継続行から 2スペースのインデントを除去し、`LF` で連結したものである（最後の行の後に `LF` は含まない）。各継続行は、それぞれ単独で規則 3 および規則 4 に照らして検査される。折り返しには 2つの用途がある。
-   - **リスト。** `require` や `resources` など。各行が 1つの項目となる。
-   - **長いバイナリ値。** 生成者は、`sig`、`tsa_token`、`webauthn_authenticator_data`、`webauthn_client_data` が 76文字を超える場合、1行 76文字以下で折り返すべきである（SHOULD）。これらの値のデコーダは、デコード前にすべての `LF` と空白を除去しなければならない（MUST）。
+6. 検証者は、任意の順序のフィールドを受け入れなければならない（MUST）。生成者は、次の順序でフィールドを出力すべきである（SHOULD）：`v`、`method`、`signer`、方式固有のキー（`selector`、`key_fp`、`fpr`、`pubkey`）、`rp_id`、`display_name`、`role`、`reason`、`ts`、`expires`、`scope`、`require`、`resources`、`revocation_url`、拡張キー（`x_*`、ソート順）、`alg`、`hash`、`sig`、`webauthn_authenticator_data`、`webauthn_client_data`。
+7. **折り返し。** 折り返されたフィールドの値は、各継続行の先頭から 2つのスペースを除去し、`LF` で連結したものである（最後の行の後に `LF` は含まない）。2つのスペースの後に続く空白は値の一部であり、署名対象に含まれる。各継続行は、それぞれ単独で規則 3 および規則 4 に照らして検査される。継続行の末尾の空白は文法に反し、そのブロックは**形式不正**（malformed）である。折り返しには 2つの用途がある。
+   - **リスト。** `require`、`resources`、`scope` など。各行が 1つの項目となる（3.5 節）。行頭の空白を読み飛ばすのは、これらのリストのパーサだけである。
+   - **長いバイナリ値。** 生成者は、`sig`、`webauthn_authenticator_data`、`webauthn_client_data` が 76文字を超える場合、1行 76文字以下で折り返すべきである（SHOULD）。これらの値のデコーダは、デコード前にすべての `LF` と空白を除去しなければならない（MUST）。
 
    生成者は、`LF` を含む値には折り返し形式を使用しなければならない（MUST）。
+
+**YAML との関係。** ブロックのフィールドは YAML に似ているが、YAML ではない。値は
+すべて文字列であり、型を持たない。YAML のパーサで読み込んで書き戻すと、値が
+変化して署名が破壊されうる。たとえば、`v: 0.1` は数値として読まれ、`ts` は
+日時型として読まれて別の書式で書き戻されうる。YAML 1.1 では `role: no` が偽
+（false）になる。`|` は YAML のリテラルブロックに似ているが、除去する字下げは
+常に 2つのスペースである。生成者と検証者は、本節の文法に従って読み書きしなければ
+ならない（MUST）。
 
 ### 3.3 共通フィールド
 
 | キー | 要件 | 説明 |
 | --- | --- | --- |
-| `v` | MUST | 形式のバージョン。本書は `0.0.4` を定義する。検証者は `0.0.1`、`0.0.2`、`0.0.4` のブロックを受け付けなければならない（MUST）。`0.0.2` は `0.0.4` と同一である（`0.0.4` は `directory` 方式（4.7 節）と鍵の表示（4.4 節）を加えた版であり、ブロックの解釈は変わらない）。`0.0.3` は欠番である。`0.0.1` は、`require` の段階行と順序行（5.8 節）を持たない点を除き、`0.0.2` と同一である。1つのチェーンにこれらが混在してもよい（MAY）。未対応のバージョンの扱いは 5.4 節の手順 1 による。 |
+| `v` | MUST | 形式のバージョン。本書は `0.1` を定義する。版の扱いは本節の末尾と 5.4 節の手順 1 による。 |
 | `method` | MUST | 公開鍵の解決方法：`dns`、`git-hosting`、`pgp`、`tofu`、`directory` のいずれか。または、署名者を持たないタイムスタンプ専用ブロックを示す `tsa`（第 4 節）。 |
-| `signer` | MUST | 署名者の識別子。構文は `method` に依存する。 |
-| `role` | MAY | 署名者の役割。推奨（RECOMMENDED）される値：`author`、`reviewer`、`approver`、`witness`。その他の値も許される。 |
+| `signer` | MUST | 署名者の識別子。構文は `method` に依存し、3.4 節の規則に従う。 |
+| `display_name` | MAY | 署名欄などに示す、署名者が申告した表示名（本節の末尾）。 |
+| `role` | MAY | 署名者の役割。`[a-z0-9][a-z0-9._-]*` に一致する単一の語。推奨（RECOMMENDED）される値：`author`、`reviewer`、`approver`、`witness`。 |
 | `reason` | MAY | 自由記述の理由またはコメント。 |
-| `ts` | MUST | 署名者が申告する署名時刻（UTC）：`YYYY-MM-DDTHH:MM:SSZ` [RFC3339]。これは申告にすぎない。第三者による証拠については `tsa_token` を参照。 |
-| `alg` | MAY | 署名アルゴリズム。既定は `ed25519`。第 6 節を参照。`tsa` ブロックでは `rfc3161`（4.6 節）。 |
-| `hash` | MUST | 対象となる文書スライスのダイジェスト：`<hash-alg>:<lowercase-hex>`。既定は `sha256`。 |
-| `sig` | MUST | 署名対象ペイロードに対する署名：`base64:<standard base64 with padding>` [RFC4648, Section 4]。 |
-| `tsa_url` | MAY | `tsa_token` の取得に使用した RFC 3161 時刻認証局（TSA）のエンドポイント。 |
-| `tsa_token` | MAY | DER エンコードされた RFC 3161 `TimeStampResp` に、エンコーディング接頭辞を付与したもの：`base64:` または `gzip+base64:`（推奨（RECOMMENDED））。`zstd+base64:` は予約されており、本版では使用方法を定義しない。 |
+| `ts` | MUST | 署名者が申告する署名時刻（UTC）：`YYYY-MM-DDTHH:MM:SSZ` [RFC3339]。これは申告にすぎない。第三者による時刻の証拠は `tsa` ブロック（4.6 節）による。 |
+| `alg` | MUST | 署名アルゴリズム。第 6 節を参照。`tsa` ブロックでは `rfc3161`（4.6 節）。 |
+| `hash` | MUST | 対象となる文書スライスのダイジェスト：`<hash-alg>:<lowercase-hex>`。 |
+| `sig` | MUST | 署名対象ペイロードに対する署名：`base64:<standard base64 with padding>` [RFC4648, Section 4]。`tsa` ブロックの形式は 4.6 節による。 |
 | `expires` | MAY | 署名が有効でなくなる時刻。形式は `ts` と同じ（5.9 節）。 |
 | `scope` | MAY | スライス全体に代えて、マーカーで区切ったセクションのみに署名する（5.6 節）。 |
 | `require` | MAY | 文書の完了に必要な後続の連署（5.8 節）。 |
@@ -136,8 +179,16 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 
 方式固有のフィールドは第 4 節に記載する。
 
-検証者は、必須（REQUIRED）フィールドが欠けているブロック、または対応していない
-`v` を持つブロックを拒否しなければならない（MUST）。
+検証者は、必須（REQUIRED）フィールドが欠けているブロックを拒否しなければならない
+（MUST）。
+
+**版。** 検証者が受け付ける版は `0.1` のみである。それ以外の版のブロックは、5.4 節の
+手順 1 により未対応（`unsupported-version`）となる。版を上げるのは、既存の検証者が
+新しいブロックを正しく解釈できなくなる変更（フィールドの追加、既存のフィールドや
+規則の意味の変更）を加える場合に限る。IANA の登録簿（第 8 節）に値を追加する変更
+（方式、アルゴリズム、ハッシュの接頭辞、`require` の属性、署名済みリストの種類）は
+版を変えない。既存の検証者は、それらを未対応として報告するためである。本仕様が
+RFC として発行される時点で、版を `1` とする予定である。
 
 **未知のフィールド。** 本書で定義されておらず、かつ `x_` で始まらないキーを含む
 ブロックを、検証者は形式不正（malformed）として報告しなければならない（MUST）。
@@ -147,12 +198,97 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 引き起こすため、フィールドを追加した将来のバージョンの署名が、そのフィールドを
 理解しない検証者によって有効な署名と誤認されることはない。
 
+**表示名（`display_name`）。** 署名者が申告する表示名であり、署名欄（5.11 節）などで
+`signer` に添えて示す。
+
+- 値は、RFC 8266 の Nickname プロファイル [RFC8266] の強制（enforcement）[RFC8264] の処理を施しても変化しない文字列であり、64 コードポイント以下でなければならない（MUST）。生成者は、入力にこの処理を施してから書き込まなければならない（MUST）。
+- 検証者は長さを検査し、64 コードポイントを超える値を持つブロックを**形式不正**としなければならない（MUST）。Nickname プロファイルへの適合は、検証者に検査を要求しない。値に許される文字の範囲は 3.2 節の規則 4 が制限する。
+- 表示名は自己申告であり、誰の名前でも書ける。表示名を示す検証者は、検証済みの署名者の識別子を必ず併記し、表示名が申告であることを示さなければならない（MUST）。表示名だけを示してはならない（MUST NOT）。
+- CLI_SPEC 8.2 節の受け渡しのパラメータ `name`（文書の表示名）とは別のものである。
+
+### 3.4 識別子の正規化
+
+署名者の識別子は完全一致で比較する。そのため、各方式の `signer` は次の構文に
+従う正規の形でなければならない（MUST）。正規の形でない値を持つブロック、要件行
+（5.8 節）、名簿の項目（5.10 節）は**形式不正**である。生成者は、`tofu` 以外の方式では
+利用者の入力の ASCII の英大文字を小文字にそろえてから書き込んでよい（MAY）が、それ以外の
+変換を行ってはならない（MUST NOT）。
+
+**ドメイン名（`ldh-domain`）。** RFC 1123 [RFC1123] のホスト名と RFC 5890 [RFC5890]
+の A-label の構文に従う。
+
+```abnf
+ldh-domain = ldh-label 1*("." ldh-label)
+ldh-label  = let-dig [*61(let-dig / "-") let-dig]
+let-dig    = %x61-7A / DIGIT                 ; ASCII の小文字と数字のみ
+```
+
+- ラベルは 1〜63 オクテットで、先頭と末尾はハイフンでない。名前全体は 253 オクテット以下で、2つ以上のラベルからなり、末尾のドットを持たない。
+- 最後のラベルは数字だけで構成されない（RFC 1123 の 2.1 節。IPv4 アドレスと区別するため）。
+- 照合は構文の検査だけで行う。A-label が IDNA2008 [RFC5891] に適合するかの検査は要求しない。
+
+`ldh-domain` は次の場所に適用する：`dns` の `signer`、メールアドレスのドメイン部分
+（`pgp`、`directory`）、`git-hosting` のホスト、`member_of` の名簿の URL のホストと
+`dns:` の値（5.8.8 節）、`rp_id`（6.1 節。`localhost` も許される）、パターンの
+ドメイン部分（5.8.3 節）。
+
+**メールアドレス。** `pgp` と `directory` の `signer` は `local "@" ldh-domain` である。
+`local` は RFC 5322 [RFC5322] の `dot-atom-text` に、RFC 6531 [RFC6531] の UTF-8 の
+文字を加えたものであり、ASCII の英大文字を含まない。引用符で囲んだローカル部は
+使用できない。RFC 5321 はローカル部の大文字小文字を区別しうるとしているが、本形式は
+ASCII の英字を小文字にそろえた形だけを扱う。
+
+**`git-hosting`。** `signer` は `<host>/<username>` である。`<host>` は `ldh-domain`、
+`<username>` は `1*(%x61-7A / DIGIT / "-" / "_" / ".")` である。GitHub や GitLab の
+利用者名は大文字小文字を区別しないため、小文字にそろえた形で比較できる。大文字小文字を
+区別するホストでは、英大文字を含む利用者名の鍵を取得できないことがある。
+
+**`tofu`。** `signer` は空白を含まない任意の文字列（`1*vchar`）である。大文字小文字を
+含め、書かれたとおりに比較する。
+
+**共通の制限。** どの方式でも、`signer` は `*` を含んではならない（MUST NOT）。`*` は
+`require` のパターン（5.8.3 節）だけに使用する。`signer` は空白を含まない。
+
+**比較。** 署名者の識別子の比較は、上記の正規の形どうしの完全一致で行う。大文字
+小文字の同一視や末尾のドットの除去は行わない。`pubkey` の値（4.4 節、5.8.2 節）は、
+base64 をデコードした鍵のバイト列で比較する。`ed25519` では生の 32バイトと DER 形式の
+`SubjectPublicKeyInfo` を、`es256` では 65バイトの非圧縮点と DER 形式の
+`SubjectPublicKeyInfo` を、それぞれ同じ鍵として扱う。
+
+**表示。** 検証者は、A-label を含むドメイン名を表示する際、その A-label が IDNA2008
+の検証に通り、U-label が単一の文字体系からなる場合に限り、U-label を示してもよい
+（MAY）（文字体系の判定は UTS #39 [UTS39] を参考にする）。それ以外の場合は A-label を
+示す。
+
+### 3.5 リスト形式の行
+
+`scope`、`resources`、`require` の値は、`LF` で区切った行の並びである。値が 1行だけの
+場合は単純形式（`scope: terms`）で書いてもよい（MAY）。各行は次の形をとる。
+
+```abnf
+list-line  = *SP target *(SP attr)
+target     = 1*vchar                       ; 最初の SP までの項目。"=" を含んでもよい（フィールドごとに規定）
+attr       = attr-name ["=" attr-value]
+attr-name  = %x61-7A *(%x61-7A / DIGIT / "_")
+attr-value = 1*vchar
+```
+
+- 行頭の空白は読み飛ばす。字下げは構造を持たず、読みやすさのためだけに使う。
+- 対象と属性、属性どうしの区切りは、ちょうど 1つのスペースである。
+- 行の最初の項目は常に対象である。対象は `=` を含んでもよい（たとえばクエリ文字列を持つ URL）。属性は、対象より後の項目だけである。
+- 属性の名前と値は、最初の `=` で分ける。値は `=` を含んでもよく、空にはできない。
+- 属性の順序は自由である。生成者は、フィールドごとに定める順序で出力すべきである（SHOULD）。
+
+次の行を含む値を持つブロックは**形式不正**である：フィールドが定義しない属性（ただし
+`require` は 5.8.9 節の扱いによる）、同じ属性の重複、値を取る属性に値がない、または
+値を取らない属性に値がある。
+
 ## 4. 公開鍵の解決方法
 
 ### 4.1 `dns`：ドメインの TXT レコード
 
-- `signer`：小文字で、末尾のドットを含まないドメイン名。
-- `selector`（MAY）：DNS ラベル。存在する場合、レコードは `<selector>._mdsig.<signer>` にある。存在しない場合、`_mdsig.<signer>` にある。
+- `signer`：`ldh-domain`（3.4 節）。
+- `selector`（MAY）：1〜63 オクテットの、ASCII の小文字、数字、`-`、`_` からなるラベル。`_` で始まってはならない（MUST NOT）（`_mdsig` の下にある `_member` などの名前と衝突しないため。5.8.8 節）。存在する場合、レコードは `<selector>._mdsig.<signer>` にある。存在しない場合、`_mdsig.<signer>` にある。
 - レコードの値：`;` で区切られた `tag=value` の組のリスト（空白は任意）。例：
 
   ```
@@ -166,12 +302,12 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
   - 検証者は未知のタグを無視しなければならない（MUST）。`p` を持たないレコードは鍵として扱わない。
 - TXT レコードが複数の character-string に分割されている場合、検証者は解析前にそれらを連結しなければならない（MUST）。
 - その名前に `v=mdsig1` を持つ TXT レコードが複数ある場合、いずれかで検証に成功すれば署名は有効である。これにより鍵のローテーションが可能になる。
-- システムのリゾルバを使用できない実装（ブラウザ、エッジランタイム）は、DNS-over-HTTPS [RFC8484] を使用すべきである（SHOULD）。例として、`https://cloudflare-dns.com/dns-query` の JSON API を使用し、`https://dns.google/resolve` にフォールバックする方法がある。これは任意のドメインで機能し、当該ドメインの DNS プロバイダが DoH に対応している必要はない。
+- システムのリゾルバを使用できない実装（ブラウザ、エッジランタイム）は、DNS-over-HTTPS [RFC8484] を使用すべきである（SHOULD）。DoH のサービスは検証者が選択する。DoH は任意のドメインの名前解決に使用でき、当該ドメインの DNS プロバイダが DoH に対応している必要はない（例：JSON API を提供する公開 DoH サービス `https://cloudflare-dns.com/dns-query` や `https://dns.google/resolve`）。
 - 検証者は、DNS レコードが署名後に変更されうることを利用者に通知すべきである（SHOULD）（9.3 節）。
 
 ### 4.2 `git-hosting`：Git ホスティングサービスが公開する SSH 鍵
 
-- `signer`：`<host>/<username>`。例：`github.com/alice`、`gitlab.com/bob`。`<host>` は 2つ以上のラベルからなるドメイン名でなければならない（MUST）。IP アドレスや単一ラベルの名前（`localhost` など）を `<host>` とするブロックは**形式不正**（malformed）である。
+- `signer`：`<host>/<username>`（3.4 節）。例：`github.com/alice`、`gitlab.com/bob`。`<host>` が `ldh-domain` でないブロック（IP アドレスや `localhost` など）は**形式不正**である。
 - `key_fp`（MAY）：鍵の OpenSSH フィンガープリント。`SHA256:<unpadded base64 of SHA-256 over the SSH wire-format public key blob>`（`ssh-keygen -l` が出力する形式）。
 - 取得：`GET https://<signer>.keys` は 1行に 1つの OpenSSH 公開鍵を返す。検証者は、鍵種別が `alg` に一致する行（`ed25519` の場合は `ssh-ed25519`）のみを使用しなければならない（MUST）。`key_fp` が存在する場合、検証者はそのフィンガープリントを持つ鍵のみを使用しなければならない（MUST）。それ以外の場合、列挙されたいずれかの鍵で検証に成功すれば署名は有効である。
 - 生成者は、署名対象ペイロード（5.3 節）に対して直接、生の Ed25519 署名 [RFC8032] を生成しなければならない（MUST）。たとえば、生の秘密鍵を用いる方法や、ssh-agent の `SSH_AGENTC_SIGN_REQUEST` を用いる方法がある。生成者は OpenSSH の SSHSIG 形式（`ssh-keygen -Y sign`）を使用してはならない（MUST NOT）。この形式はペイロードをラップした別のメッセージに署名するため、互換性がない。
@@ -180,33 +316,33 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 
 ### 4.3 `pgp`：OpenPGP
 
-- `signer`：小文字のメールアドレス（`local@domain`）。
+- `signer`：メールアドレス（3.4 節）。
 - `fpr`（MUST）：署名に使用した鍵（主鍵または署名用副鍵）のフィンガープリント。大文字の 16進数で 40文字（v4 鍵）または 64文字（v6 鍵）[RFC9580]。
 - `alg`：`openpgp` でなければならない（MUST）。`method: pgp` のブロックで `alg` が `openpgp` でない場合、および `method` が `pgp` でないブロックで `alg` が `openpgp` の場合、そのブロックは**形式不正**（malformed）となる。署名の形式は 6.2 節に規定する。
 - **鍵の取得。** 検証者は次の順に鍵を取得し、`fpr` を持つ鍵を含む証明書（transferable public key）を最初に得た時点で取得を終える。
   1. 利用者のローカルの鍵束（利用できる実装のみ。例：`gpg --export <fpr>`）。
   2. `signer` のドメインの WKD [WKD]。advanced 方式（`https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<local>`）を試し、続いて direct 方式（`https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<local>`）を試す。`<hash>` はローカル部を小文字化した文字列の SHA-1 を z-base-32 で表したものである。
-  3. 検証者が選択した鍵サーバ。既定は `https://keys.openpgp.org` とする。HKP [HKP] の `GET <keyserver>/pks/lookup?op=get&options=mr&search=0x<fpr>` を用いる。
+  3. 検証者が設定した鍵サーバ。HKP [HKP] の `GET <keyserver>/pks/lookup?op=get&options=mr&search=0x<fpr>` を用いる（鍵サーバの例：`https://keys.openpgp.org`）。
 
   鍵サーバをブロックで指定することはできない。署名者が鍵サーバを指定できると、メールアドレスを確認しない鍵サーバを経由して他人の `signer` を名乗る署名を作成できるためである。検証者は、メールアドレスを確認する鍵サーバのみを使用すべきである（SHOULD）。
 
   ブラウザで動作する検証者では、WKD のサーバが CORS を許可していないために取得に失敗することがある。その場合、検証者は鍵サーバからの取得に進むべきである（SHOULD）。
 - **鍵の検証。** 検証者は、取得した証明書について次をすべて確認しなければならない（MUST）。
   1. `fpr` と一致する主鍵または副鍵が存在する。
-  2. 主鍵による有効な自己証明（署名種別 0x10〜0x13）を持つユーザ ID が存在し、そのメールアドレス部分（`<` と `>` で囲まれた部分、なければユーザ ID 全体）が `signer` と一致する（大文字と小文字は区別しない）。
+  2. 主鍵による有効な自己証明（署名種別 0x10〜0x13）を持つユーザ ID が存在し、そのメールアドレス部分（`<` と `>` で囲まれた部分、なければユーザ ID 全体）の ASCII の英大文字を小文字にそろえたものが `signer` と完全に一致する。
   3. `fpr` が副鍵を指す場合、主鍵による有効な副鍵束縛署名（0x18）が存在し、その鍵フラグが署名用（0x02）を含み、かつ副鍵による有効な主鍵束縛署名（0x19）が埋め込まれている。`fpr` が主鍵を指し、自己証明に鍵フラグがある場合は、署名用（0x02）を含む。
   4. 鍵（主鍵、または `fpr` が指す副鍵）に対する有効な失効署名（0x20 または 0x28）が存在しない。
 
-  条件 1〜3 を満たす証明書が得られない場合、結果は **unresolved**（code `not-found`）である。鍵サーバによっては、メールアドレスが確認されていないユーザ ID を配布しないため、条件 2 を満たさないことがある。条件 4 を満たさない場合、ブロックは **invalid**（code `revoked`）である。鍵の有効期限が検証時点で過ぎている場合、検証者は警告すべきである（SHOULD）が、そのことのみを理由に無効としてはならない（MUST NOT）。署名時点の証拠は `tsa_token` による（5.5 節）。
+  条件 1〜3 を満たす証明書が得られない場合、結果は **unresolved**（code `not-found`）である。鍵サーバによっては、メールアドレスが確認されていないユーザ ID を配布しないため、条件 2 を満たさないことがある。条件 4 を満たさない場合、ブロックは **invalid**（code `revoked`）である。鍵の有効期限が検証時点で過ぎている場合、検証者は警告すべきである（SHOULD）が、そのことのみを理由に無効としてはならない（MUST NOT）。署名時点の証拠は後続の `tsa` ブロックによる（4.6 節）。
 - **取得結果の区別。** 試行したすべての取得先が「鍵が存在しない」と応答した場合に限り、結果は `not-found` である。いずれかの取得先が通信の失敗により応答しなかった場合、結果は `network` である。検証者は、取得先ごとの結果を利用者に示すべきである（SHOULD）。
 - 生成者は、ローカルの OpenPGP 実装（例：`gpg --detach-sign`）で署名してもよい（MAY）。この場合も署名の対象は署名対象ペイロード（5.3 節）であり、6.2 節の条件を満たさなければならない（MUST）。
 
 ### 4.4 `tofu`：初回信頼（TOFU）（埋め込み鍵）
 
-- `signer`：任意の識別子。例：`bob@laptop`。
+- `signer`：空白と `*` を含まない任意の識別子（3.4 節）。例：`bob@laptop`。
 - `pubkey`（MUST）：`<key-type>:<base64>`。例：`ed25519:11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=`。鍵種別とエンコーディングは `dns` の場合と同じである（4.1 節）。鍵種別が `alg` に一致しない `pubkey`、またはデコードできない `pubkey` を持つブロックは**形式不正**（malformed）となる。
 - `tofu` 署名が証明するのは、その鍵を保持する何者かが署名して以降、文書が変更されていないことのみである。それが誰であるかは証明しない。
-- 状態を保持する検証者は、`signer` → `pubkey` の対応付けを初めて検出した時点で記録すべきであり（SHOULD）、後の文書が同じ `signer` で異なる `pubkey` を使用している場合は、そのブロックを **invalid**（code `key-changed`）としなければならない（MUST）。対応付けは、ブロックの検証が成功した後に記録し、利用者が新しい鍵を明示的に受け入れた場合に限り更新する。
+- 状態を保持する検証者は、`signer` → `pubkey` の対応付けを初めて検出した時点で記録すべきであり（SHOULD）、後の文書が同じ `signer` で異なる `pubkey` を使用している場合は、そのブロックを **invalid**（code `key-changed`）としなければならない（MUST）。鍵の比較は 3.4 節のとおりデコードしたバイト列で行う。対応付けは、ブロックの検証が成功した後に記録し、利用者が新しい鍵を明示的に受け入れた場合に限り更新する。
 - 検証者は、記録済みの対応付けと一致した鍵と、初めて検出した鍵を区別して表示すべきである（SHOULD）。利用者が操作する検証者は、初めて検出した鍵を記録する前に、鍵のフィンガープリントを示して利用者の確認を求めてもよい（MAY）。確認を求める場合、確認が得られるまで対応付けを記録しない。
 
 ### 4.5 鍵のスナップショット（`dns`、`git-hosting`、`directory`）
@@ -214,7 +350,7 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 `dns`、`git-hosting`、`directory` の公開鍵は検証時に取得するため、署名者が鍵を削除または変更すると、
 以前の署名は検査できなくなる（9.3 節）。これに備え、`dns`、`git-hosting`、`directory` のブロックは、
 署名に用いた公開鍵を `pubkey` に含めてもよい（MAY）。形式は 4.4 節と同じである。
-`v` が `0.0.1` のブロックは `pubkey` を含まない。`pgp` のブロックは `pubkey` を含まない。
+`pgp` のブロックは `pubkey` を含まない。
 
 `pubkey` は署名対象ペイロードに含まれるが、署名者自身が書いた値である。偽造者も
 自身の鍵を埋め込めるため、`pubkey` だけでは、その鍵が `signer` のものであることは
@@ -232,42 +368,58 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
    `key-not-published`）とする。ネットワークによる取得の失敗は、従来どおり **unresolved** である。
 
 `key-not-published` のブロックを、検証者は有効として提示してはならない（MUST NOT）。
-報告できるのは、埋め込まれた鍵で署名が成立すること、およびタイムスタンプ（`tsa_token`
-または後続の `tsa` ブロック）を検証できた場合はその時刻に署名が存在したことである。
-その鍵がその時刻に `signer` の鍵として公開されていたことは示せない。検証者は、
-タイムスタンプの時刻を確認できた場合、それを併せて報告すべきである（SHOULD）。
+報告できるのは、埋め込まれた鍵で署名が成立すること、および時刻 `T(k)`（4.6 節）が
+定まる場合はその時刻までに署名が存在したことである。その鍵がその時刻に `signer` の
+鍵として公開されていたことは示せない。検証者は、`T(k)` が定まる場合、それを併せて
+報告すべきである（SHOULD）。
 
-### 4.6 `tsa`：タイムスタンプ専用ブロック
+### 4.6 `tsa`：タイムスタンプブロック
 
-`tsa` ブロックは署名者を持たず、RFC 3161 タイムスタンプによって、それより前の
-チェーン全体（以前のタイムスタンプを含む）がある時刻に存在したことを示す。TSA 証明書の
-失効や、ハッシュアルゴリズムの危殆化に備え、`tsa` ブロックを重ねて追記することで
-タイムスタンプを更新できる。考え方は RFC 4998 と同じである。
+時刻の証拠は `tsa` ブロックだけで示す。`tsa` ブロックは署名者を持たず、RFC 3161
+[RFC3161] のタイムスタンプトークンによって、それより前のチェーン全体（以前の
+タイムスタンプを含む）がある時刻に存在したことを示す。署名者が自分のブロックの時刻を
+証明したい場合は、署名ブロックの直後に `tsa` ブロックを追記する。TSA 証明書の失効や
+ハッシュアルゴリズムの危殆化に備え、`tsa` ブロックを重ねて追記することもできる
+（考え方は RFC 4998 [RFC4998] と同じであるが、9.4 節のとおり本版は更新の連鎖を検証
+しない）。
 
-- `v`：`0.0.2` 以降。
 - `method`：`tsa`。`alg`：`rfc3161`。一方だけを持つブロックは**形式不正**である。
 - `signer`：TSA の `http://` または `https://` の URL。検証によって認証されるのは
   トークンの TSA 証明書であり、この値ではない。
 - `ts`：生成者が申告する時刻。
 - `hash`：通常のブロックと同じく、スライスのダイジェスト（5.3 節）。`sha256` または
   `sha512`。
-- `sig`：DER エンコードされた `TimeStampResp` に、`tsa_token` と同じエンコーディング
-  接頭辞を付与したもの。
+- `sig`：DER エンコードされた `TimeStampResp` に、エンコーディング接頭辞を付与したもの。
+  接頭辞は `base64:` または `gzip+base64:`（推奨（RECOMMENDED））である。`gzip` は
+  RFC 1952 の形式であり、Web 標準の `DecompressionStream("gzip")` で展開できる。
 - 任意で `reason` と `x_*`。上記以外のフィールドを含むブロックは**形式不正**である。
 
-生成者は、署名対象ペイロード（5.3 節）を `hash` と同じアルゴリズムでダイジェストし、
-それを `messageImprint` とする `TimeStampReq` を、`nonce` を付与して送信する。
+**生成者。** 署名対象ペイロード（5.3 節）を `hash` と同じアルゴリズムでダイジェストし、
+それを `messageImprint` とし、`certReq` を `TRUE` に設定し、ランダムな `nonce` を
+付与した `TimeStampReq` を TSA に送信する。応答の `TimeStampResp` 全体を `sig` に
+格納する。
 
-検証者は、`tsa` ブロックを、5.4 節の手順 4 以降に代えて次のとおり検証しなければ
-ならない（MUST）。
+**検証者。** 検証者は、`tsa` ブロックを、5.4 節の手順 4 以降に代えて次のとおり検証
+しなければならない（MUST）。
 
-1. トークンをデコードできない場合、そのブロックは**形式不正**である。
+1. トークンをデコードできない場合、そのブロックは**形式不正**である。第三者が作成した
+   トークンも展開するため、検証者は展開後のサイズを制限すべきである（SHOULD）。上限は
+   1 MB を推奨（RECOMMENDED）する。
 2. 応答ステータスが `granted` または `grantedWithMods` でない場合、または
    `messageImprint` のアルゴリズムと値が、`hash` と同じアルゴリズムによる署名対象
    ペイロードのダイジェストと一致しない場合、そのブロックは **invalid (bad signature)** である。
-3. トークンの CMS 署名と TSA 証明書チェーンを、自ら選択したトラストストアに照らして
-   検証する（5.5 節）。成功すれば**有効**であり、検証者は `genTime` と TSA 証明書の名前を
-   報告する。検証できない場合、そのブロックは **unresolved** である。
+3. トークンの CMS 署名 [RFC5652] [RFC5816] と TSA 証明書チェーン [RFC5280] を、自ら
+   選択したトラストストアに照らして検証する。成功すれば**有効**であり、検証者は
+   `genTime`、`accuracy`、TSA 証明書の名前を報告する。検証できない場合、そのブロックは
+   **unresolved**（code `not-found`）である。
+
+**ブロックの時刻 `T(k)`。** チェーンの `k` 番目のブロックについて、`T(k)` は、`k` より
+後ろにある有効な `tsa` ブロック `j` の `genTime(j) + accuracy(j)` の最小値である
+（`accuracy` がない場合は 0 とする）。そのような `j` がない場合、`T(k)` は定まらない。
+`tsa` ブロック `j` のスライスはブロック `k` を含むため、`T(k)` は、ブロック `k` が
+その時刻までに存在したことを示す。検証者は、ブロックの時刻を報告するすべての箇所
+（検証結果の表示、4.5 節の報告、署名欄）で、同じ `T(k)` を使用しなければならない
+（MUST）。`T(k)` は `ts` とは別の値として示す。
 
 `tsa` ブロックは `require` を満たさない（5.8 節）。
 
@@ -277,7 +429,7 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 結び付けた公開鍵を公開するサービスである。ドメインを持たない署名者も、メールアドレスを
 `signer` として署名できる。鍵ディレクトリは誰でも運用でき、本書は特定の運用者を定めない。
 
-- `signer`：小文字のメールアドレス（`local@domain`）。
+- `signer`：メールアドレス（3.4 節）。
 - `alg`：`ed25519` または `webauthn-es256`。
 - `pubkey`（MAY）：4.5 節の鍵のスナップショット。ディレクトリが停止した場合や鍵が削除された場合に備え、生成者は `pubkey` を含めるべきである（SHOULD）。
 - ブロックは鍵ディレクトリを指定できない。署名者がディレクトリを指定できると、メールアドレスを確認しないディレクトリを経由して他人の `signer` を名乗る署名を作成できるためである（4.3 節の鍵サーバと同じ理由）。
@@ -286,17 +438,17 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
   2. `dir` がない場合は、検証者が信頼するディレクトリの一覧。検証者は一覧の順に問い合わせ、鍵を得た時点で終える。既定の一覧は実装が定める。実装は、利用者が一覧に追加し、または一覧を置き換える手段を提供すべきである（SHOULD）。
 
   DNS の問い合わせが通信の失敗により完了しない場合、結果は **unresolved**（code `network`）である。
-- **鍵の取得。** 検証者は `GET <dir>/v1/keys/<hex>` を送信する。`<hex>` は `signer` の UTF-8 バイト列の SHA-256 を小文字の16進数で表したものである。`<dir>` の末尾の `/` は除く。応答は次の形式の JSON オブジェクトである。
+- **鍵の取得。** 検証者は `GET <dir>/v1/keys/<hex>` を送信する。`<hex>` は `signer` の UTF-8 バイト列の SHA-256 を小文字の16進数で表したものである。`<dir>` の末尾の `/` は除く。応答は次の形式の JSON [RFC8259] オブジェクトである。
 
   ```json
   {"email": "alice@example.com", "verified": "email",
    "keys": [{"type": "es256", "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE…", "added": "2026-11-18T09:00:00Z"}]}
   ```
 
-  - `email` が `signer` と一致しない応答を、検証者は鍵が存在しない応答として扱わなければならない（MUST）。
+  - `email` が `signer` と完全に一致しない応答を、検証者は鍵が存在しない応答として扱わなければならない（MUST）。
   - `keys` の各要素の `type` は鍵種別（第 6 節）、`key` は標準 base64 による公開鍵であり、エンコーディングは 4.1 節の `p` と同じである。検証者は、ブロックの `alg` に対応しない `type` の要素、および未知の `type` の要素を無視しなければならない（MUST）。
   - `verified` は、ディレクトリがアドレスの持ち主を確認した方法である。本版は `email` のみを定義する。
-  - 確認済みの鍵がない場合、ディレクトリは HTTP 404 を返す。
+  - 確認済みの鍵がない場合、ディレクトリは HTTP 404 [RFC9110] を返す。
 - **取得結果の区別。** 4.3 節と同じく、問い合わせたすべてのディレクトリが「鍵が存在しない」と応答した場合に限り、結果は `not-found` である。いずれかのディレクトリが通信の失敗により応答しなかった場合、結果は `network` である。検証者は、鍵を返したディレクトリと、それをドメインの `dir` と信頼する一覧のいずれによって選択したかを、利用者に示すべきである（SHOULD）。
 - **ディレクトリの要件。** 鍵ディレクトリは、次をすべて満たさなければならない（MUST）。
   1. 鍵を公開する前に、そのアドレスへ送信した確認により、アドレスの持ち主の同意を得る。
@@ -320,7 +472,7 @@ vchar        = %x21-7E / UTF8-non-ascii                ; printable, non-space
 Unicode 正規化は行わない。生成者は、署名前に文書の文字を変更すべきではない
 （SHOULD NOT）。
 
-文書は有効な UTF-8 でなければならない（MUST）。有効な UTF-8 でない文書に対して、
+文書は有効な UTF-8 [RFC3629] でなければならない（MUST）。有効な UTF-8 でない文書に対して、
 生成者は署名を拒否しなければならず（MUST）、検証者は失敗を報告しなければならない
 （MUST）。
 
@@ -355,10 +507,10 @@ Unicode 正規化は行わない。生成者は、署名前に文書の文字を
 
 ブロック `N` について：
 
-1. `hash = <hash-alg> ":" lowercase-hex(H(normalize(slice_N)))`。ここで `H` は `<hash-alg>` で指定されるハッシュ（既定は SHA-256）である。ブロックが `scope` フィールドを持つ場合、`H` への入力は代わりに 5.6 節で定義される。
-2. **署名対象ペイロード**は、ブロックのフィールドのうち `sig`、`tsa_url`、`tsa_token`、`webauthn_authenticator_data`、`webauthn_client_data` を除くすべてから構築する。
+1. `hash = <hash-alg> ":" lowercase-hex(H(normalize(slice_N)))`。ここで `H` は `<hash-alg>` で指定されるハッシュ [RFC6234] である。ブロックが `scope` フィールドを持つ場合、`H` への入力は代わりに 5.6 節で定義される。
+2. **署名対象ペイロード**は、ブロックのフィールドのうち `sig`、`webauthn_authenticator_data`、`webauthn_client_data` を除くすべてから構築する。
    1. キーを ASCII バイト列として比較し、フィールドをキーでソートする。
-   2. 各フィールドを `key "=" value` として出力する。値が `LF` を含む場合（折り返されたリスト）、その中の各 `LF` を、`LF` に続けて 2つのスペースを置いたものとして出力する。キーは小文字で始まるため、継続行が別のフィールドと誤認されることはない。
+   2. 各フィールドを `key "=" value` として出力する。値が `LF` を含む場合（折り返されたリスト）、その中の各 `LF` を、`LF` に続けて 2つのスペースを置いたものとして出力する。値の行頭にある字下げ（3.2 節の規則 7）は、その後にそのまま続く。キーは小文字で始まるため、継続行が別のフィールドと誤認されることはない。
    3. `LF` で連結する。末尾に `LF` は付与しない。
    4. 先頭に、ドメイン分離のための行 `md-signature/v1` と `LF` を付加する。
    5. UTF-8 でエンコードする。
@@ -373,13 +525,20 @@ Unicode 正規化は行わない。生成者は、署名前に文書の文字を
 ```
 md-signature/v1
 alg=ed25519
+display_name=Alice Example
 hash=sha256:3a0d0b5c...
 method=git-hosting
 reason=Initial draft
+require=step
+    dns:example.com role=approver
+  step any=2
+    git-hosting:github.com/bob role=reviewer
+    git-hosting:github.com/carol role=reviewer
+    git-hosting:github.com/dave role=reviewer
 role=author
 signer=github.com/alice
 ts=2026-11-16T09:00:00Z
-v=0.0.4
+v=0.1
 ```
 
 ### 5.4 検証手順
@@ -387,42 +546,64 @@ v=0.0.4
 検証者は、チェーン内の各ブロックについて、順に次を行わなければならない（MUST）。
 
 1. `v` がちょうど 1つあり、その値が検証者の対応するバージョンでない場合、そのブロックは**未対応**（unsupported、未対応のバージョン）である。この判定は、以降のすべての検査より先に行う。これにより、後のバージョンで追加されたフィールドを持つブロックは、形式不正ではなく未対応のバージョンとして報告される。`v` が欠落または重複している場合は、手順 2 により**形式不正**となる。
-2. ブロックを解析する（第 3 節）。構文エラー、必須（REQUIRED）フィールドの欠落、または未知のフィールドがある場合、そのブロックは**形式不正**（malformed）である。
+2. ブロックを解析する（第 3 節）。構文エラー、必須（REQUIRED）フィールドの欠落、未知のフィールド、または正規の形でない識別子（3.4 節）がある場合、そのブロックは**形式不正**（malformed）である。
 3. ブロックのスライス（またはスコープ指定されたセクション。5.6 節）のダイジェストを計算し、`hash` と比較する（値は公開情報であるため、定数時間比較は要求されない）。一致しない場合、そのブロックは**無効**（invalid、ハッシュ不一致）である。
 4. ペイロードを構築し、`method` を用いて候補となる公開鍵を解決する（第 4 節）。ネットワークが原因で解決に失敗した場合、結果は**未解決**（unresolved）であり、これは無効とは異なる。
 5. 各候補鍵で `sig` を検証する（`webauthn-es256` の場合は 6.1 節、`openpgp` の場合は 6.2 節のとおり）。いずれの鍵でも検証に成功しない場合、そのブロックは**無効**（invalid、不正な署名）である。
 6. `expires` が存在し、その時刻を過ぎている場合、そのブロックは**無効**（invalid、期限切れ）である（5.9 節）。
 7. `resources` が存在する場合、それを検査する（5.7 節）。
 8. `revocation_url` が存在する場合、それを検査する（5.9 節）。
-9. `tsa_token` が存在する場合、それを検査する（5.5 節）。
 
 `method` が `tsa` のブロックは手順 4 以降に代えて 4.6 節のとおり、`pubkey` を持つ `dns`、
 `git-hosting`、`directory` のブロックは手順 4 と 5 に代えて 4.5 節のとおり検証する。
 
 文書が**検証済み**（verified）となるのは、チェーンに少なくとも 1つのブロックが
 あり、すべてのブロックが有効であり、最後のブロックの後に署名されていない
-内容がなく、かつ合意ステータス（5.8 節）が `violated` でない場合に限られる。これとは別に、`require` フィールド（5.8 節）がすべては
-満たされていない検証済みの文書は**検証済みだが保留**（verified but pending）
-である。検証者は、そのような文書を完了したものとして提示してはならない（MUST NOT）。
+内容がなく、かつ合意ステータス（5.8.9 節）が `none`、`complete`、`pending` の
+いずれかである場合に限られる。合意ステータスが `undetermined` の文書は、判定できない
+部分が残るため検証済みではない。これとは別に、合意ステータスが `pending` の
+検証済みの文書は**検証済みだが未完了**（verified but pending）である。検証者は、
+そのような文書を完了したものとして提示してはならない（MUST NOT）。
 
-### 5.5 RFC 3161 タイムスタンプ
+検証者は、本文がコードフェンスの途中で終わる文書（5.5 節）について警告すべきである
+（SHOULD）。
 
-タイムスタンプは署名を対象とするため、証拠のチェーンは
-`document → hash → sig → tsa_token` となる。
+### 5.5 コードフェンスとマーカーの走査
 
-1. 生成者は `SHA-256(raw signature bytes)`（base64 テキストをデコードした `sig` のバイト列）を計算する。
-2. 生成者は、その値を `messageImprint`（ハッシュアルゴリズム `id-sha256`）とし、`certReq` を `TRUE` に設定し、ランダムな `nonce` を付与した `TimeStampReq` [RFC3161] を `tsa_url` に送信する。
-3. 生成者は、DER 形式の `TimeStampResp` 全体を `tsa_token` に格納する。形式は `gzip+base64:` が推奨（RECOMMENDED）される。`tsa_url` および `tsa_token` フィールドは署名対象ペイロードに含まれないため、タイムスタンプは署名後に追加できる。
+セクションのマーカー（5.6 節）、署名欄のマーカー（5.11 節）、署名済みリストの
+フェンス（5.10 節）、および本文中の迷い込んだ開始行 `<!-- md-signature` の検出は、
+次の行単位の走査に従う。走査の対象は本文（5.2 節）である。この走査は CommonMark の
+完全な構文解析ではない。リストや引用の中のフェンス、インデントによるコードブロック、
+HTML ブロックは考慮しない。実装間で同じ結果を得るため、検証者と生成者はこの
+アルゴリズムを使用しなければならない（MUST）。
 
-タイムスタンプを検査する検証者は、応答ステータスが `granted` または
-`grantedWithMods` であること、および `TSTInfo` 内の `messageImprint` が
-`SHA-256(raw signature bytes)` と等しいことを確認しなければならない（MUST）。
-`tsa_token` は署名対象ペイロードに含まれず、第三者が差し替えられるため、検証者は
-展開後のサイズを制限すべきである（SHOULD）。上限は 1 MB を推奨（RECOMMENDED）する。
-検証者は `genTime` を報告すべきである（SHOULD）。検証者は、トークンの CMS 署名と
-TSA 証明書チェーンを、自ら選択したトラストストアに照らして検証すべきである
-（SHOULD）。CMS の検査を行わない検証者は、タイムスタンプを報告する際にその旨を
-示さなければならない（MUST）（例："imprint matched, TSA signature not checked"）。
+```
+fence := none
+for each line L of the body, in order:
+  if fence = none:
+    if L matches  ^( {0,3})(`{3,}|~{3,})(.*)$ :
+      c    := the character of group 2;  n := the length of group 2
+      info := group 3 with leading and trailing SP/HTAB removed
+      if c = "`" and info contains "`":
+        classify L as an ordinary line          ; CommonMark 4.5 の規則
+      else:
+        fence := (c, n);  classify L as a fence opening with info string info
+    else:
+      classify L as an ordinary line
+  else:
+    if L matches  ^( {0,3})(c{m,})[ \t]*$  with c = fence.c and m >= fence.n :
+      fence := none;  classify L as a fence closing
+    else:
+      classify L as a line inside the fence
+at the end: the body ends inside an open fence iff fence != none
+```
+
+マーカーとして扱うのは「通常の行」だけである。マーカー行は、末尾の空白とタブを
+除いて、マーカーの文字列と厳密に一致する行である（先頭に空白を置かない）。
+
+本文がコードフェンスの途中で終わる場合、CommonMark のレンダラはそれ以降のすべての
+署名ブロックをコードとして表示する。生成者は、そのような文書への署名を拒否しなければ
+ならない（MUST）。
 
 ### 5.6 セクション署名（`scope`）
 
@@ -430,7 +611,6 @@ TSA 証明書チェーンを、自ら選択したトラストストアに照ら�
 署名を破壊せずに引き続き編集できる。
 
 **セクションマーカー。** セクションは、本文中の 2つのマーカー行で区切られる。
-各マーカーはそれぞれ単独で 1行を占める（末尾の空白とタブは許容される）。
 
 ```markdown
 <!-- mdsig:section terms -->
@@ -440,23 +620,29 @@ TSA 証明書チェーンを、自ら選択したトラストストアに照ら�
 ```
 
 - セクション ID は `[a-z0-9-]+` に一致する。
-- フェンスで囲まれたコードブロック内のマーカー行はマーカーではない。
+- マーカー行は 5.5 節の走査で通常の行に分類されたものに限る。コードフェンスの中の行はマーカーではない。
 - セクションは入れ子にしてはならず（MUST NOT）、同じ ID を 2回使用してはならない（MUST NOT）。
 - すべての開始マーカーには、対応する終了マーカーがなければならない（MUST）。
 
-**フィールド。** `scope` は `section:<id>` のカンマ区切りリストである。例：
-`scope: section:terms,section:fees`。
+**フィールド。** `scope` はリスト形式（3.5 節）であり、各行はセクション ID だけからなる
+（属性はない）。同じ ID を 2回挙げることはできない。例：
+
+```
+scope: |
+  terms
+  fees
+```
 
 **ハッシュ入力。** `scope` を持つブロックの場合、5.3 節における `H` への入力は、
 列挙された各セクションの `normalize(section)` を、列挙された順に連結したもので
 ある。ここで `section` は、開始マーカー行の最初のバイトから終了マーカー行の末尾
-までのテキストである。マーカーはブロックのスライス（5.2 節）内で探索する。正規化に
-より各セクションの末尾にはちょうど 1つの `LF` が付くため、ハッシュを変更せずに
-セクションの境界をずらすことはできない。
+までのテキストである。マーカーは本文の中で探索する（3.2 節の規則 3 により、ブロックは
+マーカー行を含みえない）。正規化により各セクションの末尾にはちょうど 1つの `LF` が
+付くため、ハッシュを変更せずにセクションの境界をずらすことはできない。
 
 **検証。**
 
-- スライス内のマーカーが上記の規則に違反している場合、そのブロックは**形式不正**（malformed）である。
+- 本文のマーカーが上記の規則に違反している場合、そのブロックは**形式不正**（malformed）である。
 - 列挙された ID が見つからない場合、そのブロックは**無効**（invalid、スコープ欠落）である。
 - 検証者は、そのようなブロックを有効として報告するすべての箇所で、署名が列挙されたセクションのみを対象とすることを示さなければならない（MUST）（例："valid (partial: terms, fees)"）。
 
@@ -468,17 +654,27 @@ TSA 証明書チェーンを、自ら選択したトラストストアに照ら�
 ### 5.7 外部リソース（`resources`）
 
 `resources` は、スクリーンショット、図、データファイルなど、文書が参照する
-ファイルおよび URL を結び付ける。値の各行は `sha256:<lowercase-hex> SP <ref>`
-である。
+ファイルおよび URL を結び付ける。値はリスト形式（3.5 節）であり、各行は
+`<ref> hash=sha256:<lowercase-hex>` である。`hash` は必須の属性である。
 
 ```
 resources: |
-  sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ./diagram.png
-  sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4 https://example.com/chart.png
+  diagram.png hash=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  images/screen%20shot.png hash=sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+  https://example.com/chart.png hash=sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4
 ```
 
-- `<ref>` は `https://` URL または相対パスのいずれかである。相対パスは区切り文字として `/` を使用し、文書を含むディレクトリを基準に解決される。相対パスは、絶対パスであること、ドライブレターで始まること、`\` を含むこと、`..` セグメントを含むことのいずれもあってはならない（MUST NOT）。
-- ハッシュは、ファイルまたは HTTP レスポンスボディの正確なバイト列に対する SHA-256 である。
+- `<ref>` は `https://` で始まる絶対 URI [RFC3986]、またはローカルの相対参照のいずれかである。
+- **ローカルの参照**は、RFC 3986 の 2.1 節に従ってパーセントデコードしてから使用する。区切り文字は `/` であり、文書を含むディレクトリを基準に解決する。次のいずれかに該当する参照は**形式不正**である。
+  - `%` の後に 16進数 2桁が続かない。
+  - `%2F`、`%5C`、`%00`（大文字小文字を問わない）を含む。
+  - デコードしたバイト列が有効な UTF-8 でない。
+  - デコードした結果が `/` で始まる、ドライブレター（`[A-Za-z]:`）で始まる、または `\` を含む。
+  - デコードした結果を `/` で分けたセグメントに、`.`、`..`、または空のセグメントがある。
+
+  空白を含むファイル名は `%20` で書く（属性の区切りと区別するため）。Unicode 正規化は行わない。ファイル名を NFD で保存するファイルシステム（macOS の HFS+ など）で作成した参照は、他の環境で見つからないことがあるため、生成者はファイル名を NFC で書くべきである（SHOULD）。
+- **リモートの参照**は、書かれたとおりに使用する（デコードや正規化は行わない）。
+- `hash` の値は、ファイルまたは HTTP レスポンスボディの正確なバイト列に対する SHA-256 である。`sha256` 以外の接頭辞を持つ行は、そのブロックを**未対応**（code `unsupported-hash`）とする。
 
 検証：
 
@@ -492,90 +688,240 @@ resources: |
 
 ### 5.8 必須の連署（`require`）
 
-`require` は、文書が完了するまでに後に続く必要がある連署と、その順序および人数を
-示す。値の各行は次のいずれかである。
-
-- **要件行：** `<method>:<signer>` であり、任意で `SP <role>` が続く。
-- **段階行：** `step <n>` または `step <n> any <m>`。以降の要件行が属する段階を開始する。
-- **順序行：** `order pending`、`order guide`、`order strict` のいずれか。
+`require` は、文書が完了するまでに後に続く必要がある連署を、その順序、人数、および
+署名者の資格とともに示す。`require` の状態は、列挙された当事者が連署したかどうかを
+示すにすぎず、義務を生じさせるものではない。
 
 ```
 require: |
-  order strict
-  step 1
-  dns:example.com approver
-  step 2 any 2
-  git-hosting:github.com/bob reviewer
-  git-hosting:github.com/carol reviewer
-  git-hosting:github.com/dave reviewer
-  step 3
-  dns:legal.example.com
+  order mode=pending
+  step
+    dns:example.com role=approver
+  step any=2
+    directory:*@example.com member_of=dns:example.com role=reviewer
+    git-hosting:github.com/bob role=reviewer
+  step
+    dns:legal.example.com user_verified
 ```
 
-この例では、まず `example.com` が承認し、その後に 3人のうち 2人が、最後に
-`legal.example.com` が署名すると完了する。
+この例では、まず `example.com` が承認し、次に `example.com` の名簿に載る社員または
+`github.com/bob` のうち異なる 2者が確認し、最後に `legal.example.com` がパスキーの
+利用者確認（6.1 節）を伴って署名すると完了する。
+
+#### 5.8.1 構文
+
+`require` の値はリスト形式（3.5 節）であり、次の ABNF に従う。
 
 ```abnf
-require-value = [order-line LF] (steps / members)
-order-line    = "order" SP ("pending" / "guide" / "strict")
-steps         = step-group *(LF step-group)
-step-group    = step-line 1*(LF member)
-step-line     = "step" SP count [SP "any" SP count]
-members       = member *(LF member)
-member        = method ":" 1*vchar [SP 1*vchar]
+require-value = [order-line LF] (step-group *(LF step-group) / req-lines)
+order-line    = *SP "order" SP "mode=" ("pending" / "guide" / "strict")
+step-group    = step-line 1*(LF req-line)
+step-line     = *SP "step" [SP "any=" count]
+req-lines     = req-line *(LF req-line)
+req-line      = *SP target *(SP attr)
+target        = method ":" (signer / pattern)
 method        = %x61-7A *(%x61-7A / DIGIT / "-")
+signer        = 1*vchar                      ; 3.4 節の正規の形
+pattern       = "*" / "*." ldh-domain / "*@" ldh-domain
 count         = %x31-39 *3DIGIT
+attr          = <3.5 節の attr>
 ```
 
-検証者は、次の規則に反する値を持つブロックを**形式不正**（malformed）としなければ
-ならない（MUST）。
+- 段階行（`step-line`）を使用しない場合は、すべての要件行で 1つの段階を構成し、その全員を必要とする。段階行の前に要件行を置くことはできない。
+- 段階には、現れた順に 1 から番号を付ける。
+- 字下げは任意である。生成者は、段階行の下の要件行を 2つのスペースで字下げして出力すべきである（SHOULD）。
 
-1. 順序行は、値の最初の行にのみ置ける。
-2. 段階行を用いる場合、順序行を除く最初の行は `step 1` であり、番号は 1 から連続する。
-3. 各段階は 1件以上の要件行を持ち、`any <m>` の `m` はその段階の要件行の件数以下である。
-4. 同じ段階に、`method`、`signer`、`role` が同一の要件行を重複して置かない。
-5. `v` が `0.0.1` のブロックは、段階行と順序行を含まない。
-6. `v` が `0.0.2` 以降のブロックでは、要件行の `method` は `tsa` ではない。
+検証者は、次のいずれかに該当する値を持つブロックを**形式不正**としなければならない
+（MUST）。
 
-段階行のない値は、すべての要件行で 1つの段階を構成し、その全員を必要とする。
-`any` を省略した段階も全員を必要とする。
+1. ABNF に一致しない。順序行が最初の行以外にある場合を含む。
+2. 要件行の `method` が `tsa` である。
+3. 名指しの行の `signer` が、その方式について 3.4 節の正規の形でない。
+4. `*` を含む対象が、5.8.3 節のパターンの一覧にない。
+5. 属性が 5.8.2 節の表の組み合わせに反する、属性の値が規定の構文に従わない、または属性が重複している。
+6. パターンの行を持たない段階で、`any` の `m` が、その段階の名指しの行が示す異なる署名者の数を超える。
+7. `any` のない段階に、同じ署名者しか満たせない行が 2つ以上ある（同じ対象を名指しする 2つの行など）。
+8. `order mode=strict` の値がパターンの行を含む（5.8.6 節）。
 
-ブロック `N` が宣言した要件は、段階ごとに評価する。段階の要件を満たしうるのは、
-`N` より後ろにある有効なブロックで、`method` が `tsa` でなく、同じ `method` と `signer`（ドメイン名は
-大文字・小文字を区別せず、末尾のドットも無視して比較する）を持ち、役割が
-指定されている場合は同じ `role` を持つものである。1つのブロックは、同じ宣言の中では
-1件の要件にのみ数える。段階は、異なる `m` 件の要件が満たされたときに**成立**し、
-`m` 件目を満たしたブロックの位置をその段階の成立位置とする。
+本書が定義しない方式の要件行（例：`foo:bar`）と、本書が定義しない名前の属性は、
+形式不正としない。その場合の扱いは 5.8.9 節による。
 
-段階どうしの順序の扱いは、宣言する署名者が順序行で選択する。順序行がない場合は
-`pending` とする。
+#### 5.8.2 属性
 
-- **`pending`：** 段階 `i` に数えるのは、段階 `i-1` の成立位置より後ろのブロックに
-  限る。順番より前の署名は数えず、合意は保留のままとなる。その署名者が改めて
-  署名すれば、要件は満たされる。
-- **`guide`：** 順番にかかわらず数える。段階 `i-1` の成立より前にある、段階 `i` の
-  要件に一致するブロックは順序違反として報告するが、合意の判定には影響しない。
-- **`strict`：** 順番にかかわらず数え、順序違反が 1つでもあれば合意を `violated`
-  とする。
+| 属性 | 値 | 使える行 | 意味 |
+| --- | --- | --- | --- |
+| `role=<token>` | 3.3 節の `role` の構文 | すべての方式 | ブロックの `role` が値と完全に一致する。 |
+| `user_verified` | なし | `dns`、`directory`、および `pubkey=` を持つ `tofu` の行 | 利用者確認を伴うパスキーの署名である（5.8.7 節）。 |
+| `member_of=<roster>` | `https` の URL、または `dns:<ldh-domain>` | パターンの行と名指しの行（`tofu` を除く） | 署名者が名簿に載っている（5.8.8 節）。 |
+| `pubkey=<key-type>:<base64>` | 4.4 節の `pubkey` の形式 | `tofu` の名指しの行のみ | ブロックの `pubkey` が同じ鍵である（3.4 節の比較）。 |
+
+ブロックが行を満たすのは、ブロックの署名者の識別子が行の対象に一致し、かつ行の
+すべての属性を満たす場合である。生成者は、属性を `role`、`user_verified`、
+`member_of`、`pubkey` の順に出力すべきである（SHOULD）。
+
+`tofu` の行の `user_verified` に `pubkey=` を要求するのは、`tofu` では誰でも同じ
+`signer` を名乗る鍵を作成できるためである。`tofu` の要件行は `pubkey=` を持つべきで
+ある（SHOULD）。`pubkey=` のない `tofu` の行について、検証者は「自称の名前で誰でも
+満たせる要件」である旨を警告すべきである（SHOULD）。
+
+#### 5.8.3 パターン
+
+対象の `signer` に代えて、次のパターンを書ける。一覧は閉じており、これ以外で `*` を
+含む対象は形式不正である（5.8.1 節の規則 4）。
+
+| パターン | 一致する署名者 |
+| --- | --- |
+| `dns:*` | すべての `dns` の署名者 |
+| `dns:*.<d>` | `<d>` の下位のドメイン（`<d>` 自身は含まない） |
+| `directory:*`、`pgp:*` | その方式のすべての署名者 |
+| `directory:*@<d>`、`pgp:*@<d>` | ドメイン部分が `<d>` と完全に一致するメールアドレス（`<d>` の下位のドメインのアドレスは含まない） |
+| `git-hosting:*` | すべての `git-hosting` の署名者 |
+
+- ドメインのパターンはラベルの境界で照合する。`dns:*.example.com` は `a.example.com` と `a.b.example.com` に一致し、`example.com` と `badexample.com` には一致しない。
+- `git-hosting` はホストを限定するパターンを持たない。Git ホスティングのアカウントは、組織への所属を示さないためである。
+- `tofu` と `tsa` のパターンはない。
+- パターンが限定するのは方式とドメインだけであり、署名者の適格性は判断しない（9.9 節）。資格を限定するには `member_of` を併用する。
+
+#### 5.8.4 組織の指定
+
+「ある組織の誰か」を要求する宣言者は、次の順に手段を検討すべきである（SHOULD）。
+
+1. **組織の構成員**：組織のドメインの DNS の名簿（`member_of=dns:<domain>`、5.8.8 節）を推奨（RECOMMENDED）する。組織の DNS を管理する者が、構成員の識別子を 1件ずつ公開する。
+2. **第三者が認定する会員**（業界団体の会員など）：その第三者が公開する署名済みの名簿（`member_of=https://...`）。
+3. **簡易な手段**：ドメインのパターン（`directory:*@example.com` など）を使用してもよい（MAY）。メールアドレスのドメインを持つことは、組織に所属していることを示すとは限らない。
+
+#### 5.8.5 段階の評価
+
+宣言 `D`（チェーンの位置 `d`）の各段階を、1 から順に評価する。判定は、付録 C の
+擬似コードと同じ結果になるように行わなければならない（MUST）。
+
+1. **数える対象。** 段階 `s` で数える**適格なブロック**は、有効で、`scope` を持たず、`method` が `tsa` でなく、開始位置より後ろにあり、同じ宣言の前の段階で使われていないブロックである。開始位置は、段階 1 では `d`、`pending` の段階 `s > 1` では段階 `s-1` の成立位置、`guide` と `strict` では常に `d` である。
+2. **辺。** 署名者 `S` から行 `L` への辺は、`S` の適格なブロックのどれかが `L` を満たす場合に張る。その辺を代表するブロックは、`L` を満たす `S` のブロックのうち最も早いものとする。パターンの行は、`D` と同じ署名者の識別子を持つブロックを数えない（自己承諾の防止。9.9 節のとおり助言的なものにとどまる）。
+3. **容量。** 各署名者は、1つの段階で 1つの行にのみ数える。`any` のある段階では、名指しの行の容量は 1、パターンの行の容量は無制限である。`any` のない段階では、各行の容量は 1 である。
+4. **成立。** `any=m` の段階は、数えた異なる署名者が `m` 者に達したときに成立する。`any` のない段階は、すべての行がそれぞれ異なる署名者で満たされたときに成立する。段階単独の成立点 `k` は、位置 `k` までの適格なブロックだけで上記の割り当てが可能になる最小の `k` である。段階 `s` の**成立位置**は、`pending` では `k`、`guide` と `strict` では `k` と段階 `s-1` の成立位置の大きいほうである。
+5. **報告する割り当て。** 署名者を最も早い適格なブロックの順に、行を宣言の順に試す増加路法（Kuhn 法）で、割り当てを一意に定める（付録 C）。欠けている連署、`next`、署名欄は、この割り当てから作る。
+6. **使われたブロック。** 段階 `s` の割り当てで辺を代表したブロックは、同じ宣言の後の段階では数えない。同じ署名者が、別のブロックで後の段階を満たすことはできる。
+
+「異なる署名者」は、署名者の識別子の違いで判断する。同じ組織が複数の方式で署名すると、
+別の署名者として数えられる。
 
 要件は、有効なブロック、および未解決のブロック（たとえば検証者がオフラインのため
 確認できなかったもの）のすべてから収集する。これにより、完全には確認できなかった
 チェーンが「完了」と報告されることはない。要件を満たせるのは有効なブロックだけである。
+宣言したブロック自体が、通信の失敗またはオフラインのために未解決（コード `network`
+または `offline`）である場合、その宣言の状態は、`violated` に当たらない限り
+`undetermined` とする（5.8.9 節）。
 
 `scope` を持つブロックは要件を満たさない。そのようなブロックは、要件を宣言した
 ブロックを署名対象に含まず、同じセクションを含む別の文書に移しても有効なままで
 あるためである（9.9 節）。
 
-`v` が `0.0.1` のブロックが宣言した要件は、従来の規則で評価する。すなわち、各要件は
-後続の有効なブロックのいずれかに一致すれば満たされ、1つのブロックが複数の要件を
-満たしてもよい。
+#### 5.8.6 順序
 
-検証者は、検証済み文書の合意ステータスを報告しなければならない（MUST）：`none`
-（要件なし）、`complete`（すべての段階が成立）、`pending`（欠けている連署のリストを
-伴う）、または `violated`（`strict` の順序違反があり、違反した署名のリストを伴う）。
-合意ステータスが `violated` の文書を、検証者は合意済みとして提示してはならない
-（MUST NOT）。照合が `method` と `signer` で行われるのは、それらが署名によって
-認証されるものだからである。`role` だけでは署名者自身の申告にすぎない。
+段階どうしの順序の扱いは、宣言する署名者が順序行で選択する。順序行がない場合は
+`pending` とする。
+
+- **`pending`：** 段階 `s` に数えるのは、段階 `s-1` の成立位置より後ろのブロックに限る。順番より前の署名は数えず、合意は未完了のままとなる。その署名者が改めて署名すれば、要件は満たされる。
+- **`guide`：** 順番にかかわらず数える。報告する割り当てに入った段階 `s` のブロックが、段階 `s-1` の成立位置より前にある（または段階 `s-1` が成立していない）場合、順序違反として報告するが、合意の判定には影響しない。そのブロックの署名者がパターンの行にしか辺を持たない場合は、報告しない。
+- **`strict`：** 順番にかかわらず数え、報告する割り当てに入ったブロックに順序違反が 1つでもあれば、合意を `violated` とする。
+
+順序違反と判定するのは、報告する割り当てに入ったブロックだけである。行に一致した
+だけのブロックは対象としない。
+
+`strict` の宣言はパターンの行を使用できない（5.8.1 節の規則 8）。署名は誰でも
+追記できるため、パターンに一致する第三者が早く署名するだけで、取り消せない違反を
+作れるためである。
+
+#### 5.8.7 利用者確認（`user_verified`）
+
+`user_verified` を満たすのは、`alg` が `webauthn-es256` の有効なブロックで、
+`authenticatorData` のフラグの UP（ビット 0）と UV（ビット 2）の両方がセットされて
+いるものに限る。`clientDataJSON` の `crossOrigin` が true のブロックは 6.1 節により
+無効である。検証者は、BE（ビット 3）と BS（ビット 4）、すなわちパスキーが同期可能か、
+同期されているかを報告すべきである（SHOULD）。
+
+UV は、認証器が利用者を確認したと申告したことを示す。本版は認証器の構成証明
+（attestation）を確認しないため、認証器の種類や確認の方法は保証しない（9.9 節）。
+
+#### 5.8.8 名簿（`member_of`）
+
+**https の名簿。** `member_of=<URL>` の URL は、`https` の絶対 URI でなければならない
+（MUST）。ユーザ情報とフラグメントを持たず、ポートは省略または `443` であり、ホストは
+`ldh-domain`（3.4 節）である。これに反する値（IP アドレスの直書きを含む）は形式不正
+である。
+
+- 名簿は、`type: members` の署名済みリスト（5.10 節）である。
+- 名簿の発行者は、書かれた URL のホストを署名者とする `dns:<host>` である。リダイレクトは 5.7 節の制限の範囲で追従してよい（MAY）が、発行者はリダイレクト先のホストではない。
+- 署名者は、名簿の `member:` の項目に、その署名者の識別子と完全に一致するものがある場合に限り、名簿に載っている。
+- 検証者は、オンラインの場合は名簿を取得しなければならない（MUST）。オフラインの場合、名簿を取得できない場合、および名簿を信頼できない場合、その名簿による判定は**判定不能**である。
+
+**DNS の名簿。** `member_of=dns:<domain>` は、`<domain>` の DNS に置いた TXT レコードで
+構成員を示す。
+
+- レコードの名前は `<label>._member._mdsig.<domain>` である。`<label>` は `base32lower-nopad(SHA-256("md-signature/member/v1" LF <id>))` であり、52文字になる。`<id>` は照合する署名者の識別子、`base32lower-nopad` は RFC 4648 の 6 節の base32 を小文字にし、パディングを除いたものである。
+- レコードの値は `v=mdsig1; m=<id>` である。タグの解析は 4.1 節と同じである。
+- 照合する識別子と `m` が完全に一致する `v=mdsig1` のレコードがある場合に限り、署名者は名簿に載っている。`m` を照合することで、DNS のワイルドカードレコード [RFC4592] や、存在しない名前に応答を合成するプロバイダによる誤判定を防ぐ。
+- 応答が NXDOMAIN または NODATA の場合、あるいは `m` が一致するレコードがない場合は、「名簿に載っていない」とする。それ以外の失敗（SERVFAIL、タイムアウト、DNSSEC の検証の失敗など）は**判定不能**とする。
+
+例（`directory:alice@example.com` を `example.com` の構成員とする）：
+
+```
+<52 文字のラベル>._member._mdsig.example.com. IN TXT "v=mdsig1; m=directory:alice@example.com"
+```
+
+名簿は、検証の時点の内容で判断する。名簿の更新により、同じ文書の合意の状態は
+時間とともに変わりうる（単調ではない）。
+
+#### 5.8.9 合意の報告
+
+検証者は、検証した文書の合意ステータスを報告しなければならない（MUST）。
+
+| 状態 | 意味 |
+| --- | --- |
+| `none` | 宣言がない。 |
+| `complete` | すべての宣言のすべての段階が成立した。 |
+| `pending` | 成立していない段階があり、`undetermined` の条件に当たらない。欠けている連署の一覧を伴う。 |
+| `undetermined` | 成立していない段階の行について、通信の失敗、オフライン、名簿を取得できないこと、または 5.8.10 節の上限により判定できない部分がある。宣言したブロックが通信の失敗またはオフラインのために未解決である場合も含む（5.8.5 節）。 |
+| `violated` | `strict` の順序違反がある。違反した署名の一覧を伴う。 |
+| `unsupported` | 検証者が理解しない方式の要件行、または理解しない属性を含む宣言がある。 |
+
+複数の宣言がある場合、文書の状態は、`violated`、`unsupported`、`undetermined`、
+`pending`、`complete` の順に、最初に当てはまるものとする。`unsupported` は合意の
+評価だけに影響し、ブロックの署名の判定は変えない。合意ステータスが `violated` または
+`unsupported` の文書を、検証者は合意済みとして提示してはならない（MUST NOT）。照合が
+署名者の識別子で行われるのは、それが署名によって認証されるものだからである。
+`role` だけでは署名者自身の申告にすぎない。
+
+欠けている連署の各行について、検証者は、その行の対象に識別子が一致したが数えられ
+なかったブロックと、その理由を報告すべきである（SHOULD）。理由は次の語彙を用い、
+該当するもののうち最初のものを 1つ示す。この語彙は、ブロックの `code`（5.4 節）とは
+別のものである。
+
+| 理由 | 意味 |
+| --- | --- |
+| `not-valid` | ブロックが有効でない。 |
+| `scoped` | ブロックが `scope` を持つ。 |
+| `self` | パターンの行で、ブロックが宣言と同じ署名者の識別子を持つ。 |
+| `key-mismatch` | `pubkey=` の鍵と、ブロックの鍵が異なる。 |
+| `not-user-verified` | `user_verified` の条件を満たさない。 |
+| `not-member` | 名簿に載っていない。 |
+| `roster-unavailable` | 名簿による判定が判定不能である。 |
+| `blocked` | 同じ宣言の前の段階で使われた。 |
+| `early` | `pending` の段階の開始位置より前にある。 |
+
+検証者は、成立していない最初の段階について、あと何者が必要かと、その候補となる行を
+**次の連署**（`next`）として報告すべきである（SHOULD）。その後に続く段階については、
+段階ごとに必要な者数を示す。
+
+#### 5.8.10 上限
+
+相互運用のため、検証者は少なくとも次の規模の宣言を評価できなければならない（MUST）。
+
+- 1つの `require` の値あたり 64行、16段階。
+- 1つの文書あたり、異なる https の名簿の URL を 8種類、名簿の問い合わせ（URL の取得と DNS の問い合わせの合計）を 256回。
+
+検証者が評価できる規模を超える宣言は、形式不正ではなく、合意ステータス
+`undetermined` とする。
 
 ### 5.9 有効期限と撤回（`expires`、`revocation_url`）
 
@@ -586,23 +932,87 @@ count         = %x31-39 *3DIGIT
 である。検証者は自身の時計を使用する。
 
 **撤回。** `revocation_url` は、署名者の撤回リストの `https://` URL である。
-リスト自体も md-signature 文書である。その本文には、撤回された署名ごとに 1行が
-含まれる。
+撤回リストは、`type: revocation` の署名済みリスト（5.10 節）であり、撤回された署名
+ごとに 1つの項目を持つ。
 
-```
+````markdown
+```mdsig-list
+type: revocation
 revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 ```
+````
 
 識別子は、撤回対象のブロックの署名対象ペイロード（5.3 節）から計算する。`sig` の
 バイト列から計算しないのは、ECDSA や OpenPGP の署名は、秘密鍵を持たない第三者でも、
 検証に通る別のバイト列に変形できるためである。その場合、識別子が変わり、撤回を
 回避される。
 
-1. 検証者は、オンラインの場合はリストを取得すべきである（SHOULD）。検証者は、検証対象の文書に関するいかなる情報も送信してはならない（MUST NOT）。リクエストは URL への単純な `GET` である。取得には 5.7 節の制限を適用し、サイズ上限は 5 MB を推奨（RECOMMENDED）する。
-2. リストが信頼されるのは、それを文書として検証して成功し、かつそのチェーンに、撤回対象のブロックと同じ `method` および `signer`（5.8 節と同じ方法で比較し、`tofu` の場合はさらに同じ `pubkey`）を持つ有効なブロックが含まれる場合に限られる。
-3. リストを検証する際、検証者はリスト自体に含まれる `revocation_url` フィールドをたどってはならず（MUST NOT）、そのリモートリソースを取得してはならず（MUST NOT）、その `require` フィールドを評価してはならない（MUST NOT）。これにより循環を防止する。
-4. ブロックの識別子が信頼されたリストに含まれている場合、そのブロックは**無効**（invalid、撤回済み）である。
-5. リストを取得できない、または信頼されない場合、そのブロックは **unresolved** である。リストの取得を妨害するだけで撤回を隠せないようにするためである。利用者がリストの取得を無効にした場合、およびオフラインの場合は、検証者は撤回が検査されていないことを報告しなければならない（MUST）。これだけでブロックが無効になるわけではない。
+1. 検証者は、オンラインの場合はリストを取得すべきである（SHOULD）。取得と検証は 5.10 節による。
+2. 撤回リストの発行者は、撤回対象のブロックと同じ署名者の識別子を持つ者（`tofu` の場合はさらに同じ `pubkey`）である。
+3. ブロックの識別子が信頼されたリストに含まれている場合、そのブロックは**無効**（invalid、撤回済み）である。
+4. リストを取得できない、または信頼されない場合、そのブロックは **unresolved** である。リストの取得を妨害するだけで撤回を隠せないようにするためである。利用者がリストの取得を無効にした場合、およびオフラインの場合は、検証者は撤回が検査されていないことを報告しなければならない（MUST）。これだけでブロックが無効になるわけではない。
+
+### 5.10 署名済みリスト
+
+撤回リスト（5.9 節）と名簿（5.8.8 節）は、共通の形式の署名済みリストである。
+署名済みリストは md-signature 文書であり、その本文に、情報文字列が `mdsig-list` の
+コードフェンス（5.5 節）を 1つだけ持つ。項目はそのフェンスの中に書く。表示したときに
+項目が見え、箇条書きや引用の中に入る曖昧さもない。フェンスの外の本文には、自由に
+説明を書いてよい。
+
+````markdown
+# Example Corp members
+
+```mdsig-list
+type: members
+member: directory:alice@example.com
+member: dns:sales.example.com
+```
+````
+
+- フェンスの最初の行は `type: <種類>` である。本版は `revocation` と `members` を定義する。
+- 以降の各行は 1つの項目である。`revocation` の項目は `revoked: sha256:<lowercase-hex>`、`members` の項目は `member: <署名者の識別子>`（3.4 節の正規の形。パターンは使えない）である。
+- 行の前後に空白を置かず、空行を置かない。同じ項目が重複してもよい（MAY）。
+
+次の場合、検証者はリストを信頼してはならない（MUST NOT）：情報文字列が
+`mdsig-list` のフェンスが 0個または 2個以上ある、フェンスが閉じていない、種類が期待と
+異なる、または不正な行が 1つでもある。
+
+**取得。** 検証者は `https://` の URL のみを取得し、5.7 節の制限（プライベートアドレスの
+拒否など）を適用する。サイズの上限は 10 MB を推奨（RECOMMENDED）する。リクエストは
+URL への単純な `GET` であり、検証対象の文書に関するいかなる情報も送信してはならない
+（MUST NOT）。検証者は取得したリストを URL をキーとしてキャッシュしてよい（MAY）が、
+キャッシュは 1回の検証の呼び出しの間だけ保持する。
+
+**検証。** 検証者は、リストを文書として検証する。その際、リストの `revocation_url` を
+たどってはならず（MUST NOT）、リソースを検査してはならず（MUST NOT）、リストの
+`require` を評価してはならない（MUST NOT）。これにより再帰を防ぐ。リストのブロックから
+`tofu` の対応付けを記録してはならない（MUST NOT）。
+
+**信頼。** リストを信頼するのは、そのチェーンに、期待する発行者による `scope` を
+持たない有効なブロックがあり、かつ最後のブロックの後に署名されていない内容がない
+場合に限る。期待する発行者は用途ごとに定める（5.8.8 節、5.9 節）。
+
+**規模。** 検証者は、少なくとも 100,000 項目のリストを扱えなければならない（MUST）。
+
+名簿の内容は、検証の時点のものである。保存を目的とする検証者は、合意の判定に使用した
+名簿のバイト列の SHA-256 を記録すべきである（SHOULD）。
+
+### 5.11 署名欄のマーカー
+
+本文に次のマーカー行を置くと、表示側はその位置に署名欄を描画できる。
+
+```markdown
+<!-- mdsig:signatures -->
+```
+
+- マーカー行の条件は 5.5 節による。コードフェンスの中の行はマーカーではない。
+- 本文に置けるマーカーは 1つである。2つ目以降のマーカーと、コードフェンスの中のマーカーは無視し、検証者は警告すべきである（SHOULD）。
+- マーカーは本文の一部として最初の署名の対象になるため、その位置は最初の署名で固定される。後の署名者が決められるのは、自分の行の内容（`display_name`、`role`）だけである。
+
+署名欄の内容は、チェーンの検証結果から作る。本文に表を書き込むことはしない。署名欄を
+表示するかどうか、どう見せるかは表示側が決める。表示の安全上の要件は 9.5 節に、
+表の内容と描画の例は CLI_SPEC の `mdsig render` に示す。
 
 ## 6. アルゴリズム
 
@@ -618,7 +1028,7 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 
 | ハッシュ接頭辞 | ステータス |
 | --- | --- |
-| `sha256` | 実装必須（REQUIRED）、既定 |
+| `sha256` | 実装必須（REQUIRED） |
 | `sha512` | 使用可。`tsa` ブロックで使用し、検証者はどのブロックでも受け付ける |
 | `sha3-256` | 予約 |
 
@@ -641,7 +1051,7 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 
 | キー | 説明 |
 | --- | --- |
-| `rp_id` | アサーションに使用した WebAuthn の RP ID（ドメイン）。署名対象ペイロードの一部である。 |
+| `rp_id` | アサーションに使用した WebAuthn の RP ID。`ldh-domain`（3.4 節）または `localhost`。署名対象ペイロードの一部である。 |
 | `webauthn_authenticator_data` | アサーションの `authenticatorData`（標準 base64）。ペイロードには含まれない。 |
 | `webauthn_client_data` | アサーションの `clientDataJSON`（標準 base64）。ペイロードには含まれない。 |
 | `sig` | アサーションの `signature`（ASN.1 DER 形式の `ECDSA-Sig-Value`）を `base64:` で表したもの。 |
@@ -649,19 +1059,24 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 **生成者。**
 
 1. `rp_id` を含めてペイロードを構築する（5.3 節）。
-2. `challenge = SHA-256(payload)` および `rpId = rp_id` を指定して `navigator.credentials.get()` を呼び出す。
+2. `challenge = SHA-256(payload)` および `rpId = rp_id` を指定して `navigator.credentials.get()` を呼び出す。文書に満たされていない `user_verified` の要件行がある場合は、`userVerification` に `"required"` を指定すべきである（SHOULD）。
 3. 応答に含まれる 3つの値を上記のフィールドに格納する。
 
 **検証者。** ブロックの署名は、次のすべてが成り立つ場合に限り有効である。
 
 1. `clientDataJSON` が JSON として解析でき、その `type` が `webauthn.get` であり、かつその `challenge` が `SHA-256(payload)` のパディングなし base64url エンコーディングと等しい。
 2. その `origin` のホストが `rp_id` と等しいか、そのサブドメインである。オリジンは、`localhost` の場合を除き、`https` を使用しなければならない（MUST）。検証者は `rp_id` を表示しなければならず（MUST）、それが `localhost` の場合は警告すべきである（SHOULD）。
-3. `authenticatorData` の先頭 32バイトが `SHA-256(rp_id)` と等しく、かつ User Present フラグ（バイト 32 のビット 0）がセットされている。
-4. `sig` が、候補となる `es256` 鍵により、`authenticatorData || SHA-256(clientDataJSON)` に対して ECDSA P-256 / SHA-256 で検証に成功する。Web Crypto のように固定長の `r || s` 形式を必要とする API では、DER からの変換が必要である。この変換は、不正な DER および 33バイトを超える整数を拒否しなければならない（MUST）。
+3. `clientDataJSON` の `crossOrigin` が存在しないか、false である。true の場合、アサーションは別のオリジンに埋め込まれたフレームで作成されており、署名者が見ていたページを特定できないためである。
+4. `authenticatorData` の先頭 32バイトが `SHA-256(rp_id)` と等しく、かつ User Present フラグ（バイト 32 のビット 0）がセットされている。
+5. `sig` が、候補となる `es256` 鍵により、`authenticatorData || SHA-256(clientDataJSON)` に対して ECDSA P-256 / SHA-256 で検証に成功する。Web Crypto のように固定長の `r || s` 形式を必要とする API では、DER からの変換が必要である。この変換は、不正な DER および 33バイトを超える整数を拒否しなければならない（MUST）。
+
+検証者は、User Verified（ビット 2）、Backup Eligible（ビット 3）、Backup State
+（ビット 4）のフラグを報告すべきである（SHOULD）。これらは署名の有効性には影響せず、
+`user_verified`（5.8.7 節）の判定に使用する。
 
 公開鍵は、他のアルゴリズムと同様に、ブロックの `method` から取得する：`tofu`
-（`pubkey: es256:...`）または `dns`（`k=es256`）。パスキーはその RP ID に結び
-付けられている（9.9 節）。
+（`pubkey: es256:...`）、`dns`（`k=es256`）、または `directory`。パスキーはその RP ID に
+結び付けられている（9.9 節）。
 
 ### 6.2 OpenPGP（`openpgp`）
 
@@ -699,36 +1114,52 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 に成功する場合に限り有効である。
 
 **署名作成時刻。** 署名パケットの作成時刻は、`ts` と同様に署名者が設定する値で
-ある。検証者は、作成時刻、`ts`、および `tsa_token` の時刻を区別して表示すべきで
-ある（SHOULD）。第三者による証拠となるのは `tsa_token` のみである（9.4 節）。
-
-**タイムスタンプ。** 5.5 節にいう「署名の生バイト」は、`sig` をデコードした
-署名パケットのバイト列である。
+ある。検証者は、作成時刻、`ts`、および `T(k)`（4.6 節）を区別して表示すべきで
+ある（SHOULD）。第三者による証拠となるのは `T(k)` のみである（9.4 節）。
 
 ## 7. 署名の追記（生成者の手順）
 
-1. 文書を読み込み、既存のチェーンを特定する（5.2 節）。最後のブロックの後に署名されていない内容がある場合、生成者は連署を拒否しなければならない（MUST）。新しい署名が、先行する署名者が署名していない内容まで承認することになるためである。（生成者は、代わりにファイル全体を新しい本文として署名することを提案してもよい（MAY）。これにより失われるものはないが、利用者による明示的な選択である必要がある。）
+1. 文書を読み込み、既存のチェーンを特定する（5.2 節）。最後のブロックの後に署名されていない内容がある場合、生成者は連署を拒否しなければならない（MUST）。新しい署名が、先行する署名者が署名していない内容まで承認することになるためである。（生成者は、代わりにファイル全体を新しい本文として署名することを提案してもよい（MAY）。これにより失われるものはないが、利用者による明示的な選択である必要がある。）本文がコードフェンスの途中で終わる場合も、署名を拒否する（5.5 節）。
 2. 現時点のファイル全体に対して `hash` を計算する（これが新しいブロックのスライスとなる）。
-3. フィールドを構築し、`sig` を計算し、必要に応じて `tsa_token` を取得する。
+3. フィールドを構築し（値の規則は 3.2 節、識別子の正規の形は 3.4 節、表示名は 3.3 節による）、`sig` を計算する。
 4. 出力：末尾の空白を除去した元のファイル、続いて `LF`、続いて（既存のチェーンがない場合に限り）1つの空行、続いて新しいブロックとそれに続く `LF`。
+5. 時刻の証拠が必要な場合は、続けて同じ手順で `tsa` ブロック（4.6 節）を追記する。
 
 ## 8. IANA に関する考慮事項
 
-本書は、"Underscored and Globally Scoped DNS Node Names" レジストリ [RFC8552] に
-次のエントリを登録することを IANA に要求する。
+**DNS の名前。** 本書は、"Underscored and Globally Scoped DNS Node Names" レジストリ
+[RFC8552] に次のエントリを登録することを IANA に要求する。
 
 | RR Type | _NODE NAME | Reference |
 | --- | --- | --- |
-| TXT | `_mdsig` | 本書（4.1 節、4.7 節） |
+| TXT | `_mdsig` | 本書（4.1 節、4.7 節、5.8.8 節） |
 
-`<selector>._mdsig.<domain>` の `<selector>` は `_mdsig` の下位の名前であり、
-`_mdsig` の登録の範囲に含まれる。
+`_mdsig` の下位の名前は、下記の "md-signature Names below _mdsig" レジストリで
+管理する。`_` で始まらない名前は `dns` のセレクタ（4.1 節）であり、登録しない。
 
-将来の改訂では、次のレジストリの作成を要求する可能性がある。
+**新しいレジストリ。** 本書は、新しいレジストリグループ "md-signature" を作成し、
+次のレジストリを作成することを IANA に要求する。登録の方針は RFC 8126 [RFC8126] の
+用語による。各エントリは、名前、簡単な説明、参照する仕様を持つ。
 
-- レジストリ "md-signature Methods"（初期エントリ `dns`、`git-hosting`、`pgp`、`tofu`、`tsa`、`directory`）
-- レジストリ "md-signature DNS Tags"（初期エントリ `v`、`k`、`p`、`dir`）
-- レジストリ "md-signature Algorithms"（第 6 節）
+| レジストリ | 方針 | 初期エントリ |
+| --- | --- | --- |
+| md-signature Methods | Specification Required | `dns`、`git-hosting`、`pgp`、`tofu`、`tsa`、`directory`（第 4 節） |
+| md-signature Algorithms | Specification Required | 第 6 節の表のすべて（予約を含む） |
+| md-signature Hash Prefixes | Specification Required | `sha256`、`sha512`、`sha3-256`（予約） |
+| md-signature Key Types | Specification Required | `ed25519`、`es256` |
+| md-signature Block Fields | IETF Review | 3.3 節、第 4 節、6.1 節のフィールド。`x_` で始まる名前は私用（Private Use）であり、登録しない |
+| md-signature Require Keywords | IETF Review | 行のキーワード `order`、`step`、`any`。順序の種類 `pending`、`guide`、`strict` |
+| md-signature Require Attributes | Specification Required | `role`、`user_verified`、`member_of`、`pubkey`（5.8.2 節） |
+| md-signature Signed List Types | Specification Required | 種類 `revocation`（項目のキーワード `revoked`）、`members`（項目のキーワード `member`）（5.10 節） |
+| md-signature DNS Tags | Specification Required | `v`、`k`、`p`、`dir`、`m` |
+| md-signature Names below _mdsig | Specification Required | `_member`（5.8.8 節） |
+| md-signature Comment Markers | Specification Required | `mdsig:section`、`/mdsig:section`（5.6 節）、`mdsig:signatures`（5.11 節） |
+
+Block Fields と Require Keywords を IETF Review とするのは、これらの追加は版の変更を
+伴う（3.3 節）ためである。
+
+**メディアタイプ。** 署名済み文書は通常の Markdown であり、`text/markdown`
+[RFC7763] の登録に変更は必要ない。
 
 ## 9. セキュリティに関する考慮事項
 
@@ -742,6 +1173,7 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 検証者が選択したその鍵サーバによるメールアドレスの確認に、ローカルの鍵束から取得した場合は利用者自身の
 判断に結び付く。`directory` は、ドメインの `dir` で選択した場合はメールアドレスのドメインの運用者に、信頼する一覧から
 選択した場合はそのディレクトリによるメールアドレスの確認に結び付く。`tofu` は鍵そのもの以上の何にも結び付かない。
+`display_name` は、これらのいずれによっても確認されない。
 
 ### 9.2 正規化
 
@@ -755,7 +1187,7 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 `dns`、`git-hosting`、`pgp`、および `directory` は検証時に鍵を解決する。署名者が後に鍵を削除すると、
 古い署名は検証できなくなる。攻撃者がドメインやアカウントを乗っ取った場合、攻撃者
 は自身の鍵を公開できる。いずれの場合も、文書のみからは検出できない。
-長期的な証拠のために、署名者は RFC 3161 タイムスタンプを追加すべきであり
+長期的な証拠のために、署名者は署名の後に `tsa` ブロックを追記すべきであり
 （SHOULD）、検証者は使用した鍵とその日時を記録すべきである（SHOULD）。
 `dns`、`git-hosting`、`directory` の署名者は、鍵のスナップショット（4.5 節）を含められる。これにより、
 鍵が削除された後も署名が数学的に成立することは確認できるが、その鍵が署名者のもので
@@ -763,11 +1195,20 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 文書の保管者は、TSA 証明書の期限やハッシュアルゴリズムの危殆化より前に、`tsa` ブロック
 （4.6 節）を追記して更新すべきである（SHOULD）。
 
-### 9.4 申告された時刻
+### 9.4 時刻
 
 `ts` は署名者が設定するものであり、任意の値でありうる。OpenPGP 署名パケットの
 作成時刻（6.2 節）も同様である。署名がある時点に存在していたことを示す第三者の
-証拠となるのは `tsa_token` のみである。
+証拠となるのは、`tsa` ブロックによる `T(k)`（4.6 節）のみである。
+
+`T(k)` は、検証者が信頼する TSA の証明書に依存する。トラストストアは実装ごとに
+異なり（たとえば、オペレーティングシステムの証明書ストアを使う実装と、ルート証明書の
+一覧を同梱する実装）、同じトークンが一方の実装では検証でき、他方では検証できない
+ことがある。また本版は、RFC 4998 のような更新の連鎖を検証しない。各 `tsa` ブロックは
+検証の時点のトラストストアで個別に判定されるため、TSA 証明書が失効または期限切れに
+なった後は、後から追記した `tsa` ブロックが以前のブロックの時刻を引き継ぐことはない。
+時刻を長期にわたって主張する必要がある保管者は、使用したトークンと検証の結果を
+別途保存すべきである（SHOULD）。
 
 ### 9.5 レンダリングと表示
 
@@ -784,7 +1225,7 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 - **レンダラごとの差異。** 生の HTML の扱い、表や脚注などの拡張記法、インデントや遅延継続行の解釈は、レンダラによって異なる。あるレンダラでは X と表示され、別のレンダラでは Y と表示される文書を作成すれば、署名者には X を見せ、後から Y に署名したと主張できる。
 - **見た目の紛らわしい文字。** 本文には双方向制御文字、ゼロ幅文字、字形の似た別の文字が含まれうる（3.2 節の規則 4 が制限するのはブロックの値のみである）[TROJANSRC]。表示される語順や文字が、ソースの文字列と一致しないことがある。
 - **リンクと外部の内容。** リンクの表示テキストと実際の URL は異なりうる。外部の画像は、`resources`（5.7 節）で結び付けない限り、署名の後に差し替えられる。
-- **偽の検証表示。** 本文に「検証済み」と読める文言や画像を置くことは誰にでもできる。
+- **偽の検証表示。** 本文に「検証済み」と読める文言や画像、署名欄に似せた表を置くことは誰にでもできる。
 
 署名を生成するツール、および検証結果を表示するツールは、本文中の HTML コメント、
 生の HTML、双方向制御文字、不可視の文字を利用者が確認できるようにすべきである
@@ -792,74 +1233,140 @@ revoked: sha256:<lowercase-hex of SHA-256(signed payload)>
 本文の外側の、文書の内容が入り込めない領域に表示する。重要な文書の署名者は、
 レンダリング結果だけでなくソースを確認してから署名すべきである（SHOULD）。
 
+**署名欄。** 署名欄のマーカー（5.11 節）の位置に検証結果を描画する表示側は、次に
+従わなければならない（MUST）。
+
+- 同じ検証結果を、本文が触れられない UI（本文の外側の領域）にも示す。本文の中の表だけでは、本物の署名欄と本文に書かれた偽の表を読者が区別できないためである。
+- 署名欄は、無害化した本文の DOM の外で作成し、本文の HTML やスタイルが署名欄の内容や見た目に影響しないようにする。たとえば、マーカーの位置で本文を分割して別々に描画し、その間に署名欄の要素を置く。
+- 表示名（`display_name`）は、検証済みの署名者の識別子と並べ、申告である旨を添えて示す（3.3 節）。
+
 ### 9.6 鍵の再利用とドメイン分離
 
 `git-hosting` は、SSH 認証にも使用される SSH 鍵を再利用する。`md-signature/v1`
 接頭辞（5.3 節）により、署名対象ペイロードは SSH 認証データや他のプロトコルと
-区別可能になる。
+区別可能になる。DNS の名簿のラベル（5.8.8 節）も、独自の接頭辞
+`md-signature/member/v1` を用いる。
 
 ### 9.7 コメントインジェクション
 
-3.2 節の規則 3（値に `--` を含めない）は、値によって HTML コメントが途中で終了し、
-可視の Markdown が注入されることを防止する。
+3.2 節の規則 3（値に `-->`、`--!>`、`<!--` を含めない）は、値によって HTML コメントが
+途中で終了し、可視の Markdown が注入されることを防止する。
 
 ### 9.8 リソースと撤回リストの取得
 
 URL を取得すると、誰かが検証を行っていること、およびその時刻がそのサーバに
 伝わる。これはトラッキングピクセルと同じ仕組みである。そのため、検証者はリモートの
-`resources` を要求があった場合にのみ取得する。撤回リストはファイル全体として
-取得されるため、サーバはその署名者の何らかの文書が検証されていることを知る。
-署名者が文書ごとに異なる `revocation_url` を指定した場合は、どの文書であるかも
-伝わる。サーバ上で動作し、信頼できない文書を処理する検証者は、
+`resources` を要求があった場合にのみ取得する。撤回リストと名簿の取得が伝える情報は、
+第 10 節で扱う。サーバ上で動作し、信頼できない文書を処理する検証者は、
 内部アドレスへのリクエストを行わされる可能性がある（サーバサイドリクエスト
-フォージェリ（SSRF））。5.7 節の制限は、撤回リスト、および鍵の取得（`git-hosting` のホスト、WKD、
+フォージェリ（SSRF））。5.7 節の制限は、撤回リスト、名簿、および鍵の取得（`git-hosting` のホスト、WKD、
 鍵サーバ、鍵ディレクトリ）にも適用される。`dir` の値は署名者のドメインの運用者が決めるため、検証者は
-それを信頼できない URL として扱う。
+それを信頼できない URL として扱う。`member_of` の URL は宣言者が決めるため、同様に扱う。
 
 ### 9.9 部分署名、要件、パスキー
 
 - `scope` を持つ署名は、文書の残りの部分を署名されないままにする。レンダリングされた文書の読者には署名されたセクションの終わりが見えないため、誤認させる目的でセクション外にテキストを追加されうる。そのため、検証者は部分的な対象範囲を示す必要がある（5.6 節）。また、`scope` を持つ署名は、同じセクションを含む別の文書に移しても有効である。そのため、`require` を満たすものとしては扱わない（5.8 節）。
 - `require` は、それを宣言するブロックの署名者が設定する。そのステータスは、列挙された当事者が連署したかどうかを示すにすぎず、義務を生じさせるものではない。
-- `order strict` では、後の段階の署名者が順番より前に署名するだけで、合意を `violated` にできる。そのため、宣言者は既定の `pending` を用い、`strict` は順序そのものに意味がある場合に限って用いるべきである（SHOULD）。
-- `any <m>` は異なる要件の件数を数えるため、同じ署名者が複数回署名しても 1件にしかならない。ただし、異なる要件として列挙された識別子が同一人物に属していないことは、検証者には確認できない。
+- パターン（5.8.3 節）が限定するのは方式とドメインだけである。`dns:*` や `git-hosting:*` は、ドメインやアカウントを持つ誰もが満たせる。相手の適格性の判断は、名簿（`member_of`）か、名指しの行で行う。
+- パターンで誰でも署名できる文書は複製でき、複製ごとに別々に成立しうる。たとえば、申込の文書を 2者が別々に承諾できる。排他性が必要な場合、宣言者は、自身または特定の当事者を名指しした最終確認の段階を最後に置くべきである（SHOULD）。
+- パターンの行では、第三者が先に署名して席を埋めることができる（seat-squatting）。`any=m` の段階では、無関係の署名者が数に入りうる。重要な判断には、名簿か名指しの行を使う。
+- 自己承諾の防止（5.8.5 節）は、宣言と同じ署名者の識別子だけを除外する。同じ者が別の方式や別の識別子で署名すれば数えられるため、この防止は助言的なものにとどまる。同様に、異なる識別子が別人に属することは、検証者には確認できない。
+- `order mode=strict` では、後の段階の署名者が順番より前に署名するだけで、合意を `violated` にできる。そのため、宣言者は既定の `pending` を用い、`strict` は順序そのものに意味がある場合に限って用いるべきである（SHOULD）。
+- `user_verified` は、認証器が UV フラグを立てたことを示すにすぎない。本版は構成証明を確認しないため、ソフトウェアで実装した認証器が UV を申告することもありうる。同期されるパスキー（BS が立っているもの）は、複数の端末から使用できる。
+- 名簿（5.8.8 節）は検証の時点の内容で判断する。名簿から削除された構成員の署名は、後の検証で要件を満たさなくなり、追加された者の署名は満たすようになる。署名の時点の構成を示すには、保存時に名簿の SHA-256 を記録する（5.10 節）。https の名簿の発行者は URL のホストであり、リダイレクト先ではない。DNS の名簿は、レコードの `m` を照合するため、ワイルドカードレコードでは構成員を作れない。
+- 時刻の判定は TSA の信頼に依存する（9.4 節）。
 - パスキーは、登録時の RP ID でのみ使用できる。署名ページをホストするサイトが別のドメインに移転した場合、旧ドメインで登録されたパスキーではそこで署名できない。すでに行われた署名は、各ブロックに `rp_id` が記録されているため、引き続き検証可能である。
 
 ### 9.10 OpenPGP の鍵
 
 - v4 鍵のフィンガープリントは SHA-1 に基づく。SHA-1 の衝突攻撃は知られているが、`fpr` の偽造には第二原像が必要であり、現時点で実用的な攻撃は知られていない。より強い結び付きを望む署名者は v6 鍵を使用できる。
-- WKD と鍵サーバは、署名時点の鍵ではなく現在の証明書を返す。鍵が失効した後に取得された証明書には失効署名が含まれるため、失効前に行われた署名も無効と報告される。失効の前に署名が存在したことを示す証拠は `tsa_token` であるが、本版の検証手順はそれを理由に失効を無視しない。
+- WKD と鍵サーバは、署名時点の鍵ではなく現在の証明書を返す。鍵が失効した後に取得された証明書には失効署名が含まれるため、失効前に行われた署名も無効と報告される。失効の前に署名が存在したことを示す証拠は `T(k)` であるが、本版の検証手順はそれを理由に失効を無視しない。
 - ブラウザで秘密鍵を扱う生成者は、秘密鍵およびパスフレーズを永続的な記憶領域に保存してはならない（MUST NOT）。また、署名後には、消去可能なバッファ（復号した鍵素材など）を消去すべきである（SHOULD）。JavaScript の文字列や、暗号 API の内部に複製された鍵素材は消去できないため、この措置は露出の期間を短くするものにすぎない。
 
 ### 9.11 鍵ディレクトリ
 
 - 信頼する一覧に複数のディレクトリを含めると、署名の結び付きの強さは、その中で最も確認の甘いディレクトリの水準になる。いずれか1つが確認を怠れば、そのディレクトリを経由して任意のアドレスを名乗れるためである。検証者は、メールアドレスの確認を行うことが公開されているディレクトリのみを一覧に含めるべきである（SHOULD）。
 - ディレクトリの運用者は、任意のアドレスに偽の鍵を公開できる。メールアカウントを乗っ取った者も、そのアドレスで鍵を登録できる。これらは `pgp` の鍵サーバ、`git-hosting` のホスティングサービスと同じ種類の信頼である。
-- ディレクトリは現在の鍵を返す。鍵が削除された後、またはディレクトリが停止した後は、`pubkey` を含むブロックも **unresolved**（code `key-not-published` または `network`）となる。署名時点の証拠は `tsa_token` と `tsa` ブロックによる。
-- 公開された鍵とメールアドレスの対応は、誰でも取得できる。取得の URL はアドレスのハッシュを含むが、ハッシュからアドレスを推測することは困難ではない。
+- ディレクトリは現在の鍵を返す。鍵が削除された後、またはディレクトリが停止した後は、`pubkey` を含むブロックも **unresolved**（code `key-not-published` または `network`）となる。署名時点の証拠は `tsa` ブロックによる。
 
-## 10. 参考文献
+## 10. プライバシーに関する考慮事項
 
+本節は RFC 6973 [RFC6973] の観点による。
+
+- **撤回リストと名簿の取得。** リストはファイル全体として取得されるため、送信される情報は URL だけである。それでも、撤回リストのサーバは、その署名者の何らかの文書が検証されていること、およびその時刻を知る。署名者が文書ごとに異なる `revocation_url` を指定した場合は、どの文書であるかも伝わる。https の名簿のサーバも同様に、その名簿を参照する文書が検証されていることを知る。宣言者が文書ごと、または相手ごとに異なる名簿の URL を指定すると、文書の閲覧者を追跡できる。
+- **DNS の名簿の問い合わせ。** 問い合わせの名前は、照合する署名者の識別子から決まる。DoH のサービスの運用者と、そのドメインの権威サーバは、どの識別子がどの組織の構成員として照合されたかを知りうる。ラベルはハッシュであるが、識別子の候補が限られる場合は辞書攻撃で元に戻せる。DNSSEC の NSEC レコード [RFC4034] によるゾーンの列挙を許す運用では、構成員の数や、ラベルの一覧が知られうる。構成員の一覧を秘匿したい組織は、NSEC3 などの対策を検討するか、署名済みの名簿を限られた範囲で配布する。
+- **鍵の取得。** 鍵ディレクトリ、WKD、鍵サーバへの問い合わせは、その署名者の文書が検証されていることを伝える。鍵ディレクトリの URL はアドレスのハッシュを含むが、ハッシュからアドレスを推測することは困難ではない。公開された鍵とメールアドレスの対応は、誰でも取得できる。
+- **文書に含まれる情報。** ブロックの `signer`、`display_name`、`role`、`ts`、`require` の要件行、名簿の項目は、文書を受け取ったすべての者が読める。署名者は、これらに含める個人情報を必要な範囲にとどめるべきである（SHOULD）。
+- **オフラインでの検証。** ネットワークを使用しない検証は第三者に何も伝えないが、`dns`、`git-hosting`、`directory`、名簿に依存する判定は完了しない（`unresolved` または `undetermined`）。
+
+## 11. 実装状況
+
+**（RFC Editor への注記：本節は RFC として発行する前に削除すること。）**
+
+本節は RFC 7942 [RFC7942] に従い、本書の執筆時点で知られている実装を記録する。
+ここに挙げることは、IETF による実装の承認を意味しない。
+
+- **`@mdsig/core`**（TypeScript）：署名の生成と検証を行う参照実装。Web 標準の API のみを使用し、ブラウザとサーバの両方で動作する。MIT ライセンス。https://github.com/SHIOZAKI-Shota/md-signature
+- **`mdsig.dev`**（Go）：署名の生成と検証のライブラリ、およびコマンドラインツール `mdsig`（CLI_SPEC）。MIT ライセンス。同じリポジトリ。
+- **デモ**：https://mdsig.dev/playground/ で、ブラウザでの署名（パスキーを含む）と検証を試せる。
+
+これらの実装は、同じテストベクタ（リポジトリの `examples/`）で結果の一致を確認している。
+いずれの実装も本書の版 0.1 に対応している。連絡先は冒頭の著者欄による。
+
+## 12. 参考文献
+
+### 12.1 規範的な参考文献
+
+- [RFC1123] Braden, R., Ed., "Requirements for Internet Hosts - Application and Support", STD 3, RFC 1123.
 - [RFC2119] Bradner, S., "Key words for use in RFCs to Indicate Requirement Levels", BCP 14, RFC 2119.
-- [RFC8174] Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words", BCP 14, RFC 8174.
 - [RFC3161] Adams, C., et al., "Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)", RFC 3161.
 - [RFC3339] Klyne, G. and C. Newman, "Date and Time on the Internet: Timestamps", RFC 3339.
+- [RFC3629] Yergeau, F., "UTF-8, a transformation format of ISO 10646", STD 63, RFC 3629.
+- [RFC3986] Berners-Lee, T., Fielding, R., and L. Masinter, "Uniform Resource Identifier (URI): Generic Syntax", STD 66, RFC 3986.
+- [RFC4592] Lewis, E., "The Role of Wildcards in the Domain Name System", RFC 4592.
 - [RFC4648] Josefsson, S., "The Base16, Base32, and Base64 Data Encodings", RFC 4648.
-- [RFC5234] Crocker, D. and P. Overell, "Augmented BNF for Syntax Specifications: ABNF", RFC 5234.
+- [RFC5234] Crocker, D. and P. Overell, "Augmented BNF for Syntax Specifications: ABNF", STD 68, RFC 5234.
+- [RFC5280] Cooper, D., et al., "Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile", RFC 5280.
+- [RFC5322] Resnick, P., Ed., "Internet Message Format", RFC 5322.
 - [RFC5480] Turner, S., et al., "Elliptic Curve Cryptography Subject Public Key Information", RFC 5480.
-- [WebAuthn] W3C, "Web Authentication: An API for accessing Public Key Credentials", Level 3.
+- [RFC5652] Housley, R., "Cryptographic Message Syntax (CMS)", STD 70, RFC 5652.
+- [RFC5816] Santesson, S. and N. Pope, "ESSCertIDv2 Update for RFC 3161", RFC 5816.
+- [RFC5890] Klensin, J., "Internationalized Domain Names for Applications (IDNA): Definitions and Document Framework", RFC 5890.
+- [RFC5891] Klensin, J., "Internationalized Domain Names in Applications (IDNA): Protocol", RFC 5891.
+- [RFC6234] Eastlake 3rd, D. and T. Hansen, "US Secure Hash Algorithms (SHA and SHA-based HMAC and HKDF)", RFC 6234.
+- [RFC6531] Yao, J. and W. Mao, "SMTP Extension for Internationalized Email", RFC 6531.
 - [RFC8032] Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital Signature Algorithm (EdDSA)", RFC 8032.
-- [RFC8463] Levine, J., "A New Cryptographic Signature Method for DomainKeys Identified Mail (DKIM)", RFC 8463.
+- [RFC8174] Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words", BCP 14, RFC 8174.
+- [RFC8259] Bray, T., Ed., "The JavaScript Object Notation (JSON) Data Interchange Format", STD 90, RFC 8259.
+- [RFC8264] Saint-Andre, P. and M. Blanchet, "PRECIS Framework: Preparation, Enforcement, and Comparison of Internationalized Strings in Application Protocols", RFC 8264.
+- [RFC8266] Saint-Andre, P., "Preparation, Enforcement, and Comparison of Internationalized Strings Representing Nicknames", RFC 8266.
 - [RFC8484] Hoffman, P. and P. McManus, "DNS Queries over HTTPS (DoH)", RFC 8484.
-- [RFC8552] Crocker, D., "Scoped Interpretation of DNS Resource Records through Underscored Naming of Attribute Leaves", RFC 8552.
-- [RFC9580] Wouters, P., et al., "OpenPGP", RFC 9580.
+- [RFC8552] Crocker, D., "Scoped Interpretation of DNS Resource Records through Underscored Naming of Attribute Leaves", BCP 222, RFC 8552.
+- [RFC9110] Fielding, R., Ed., Nottingham, M., Ed., and J. Reschke, Ed., "HTTP Semantics", STD 97, RFC 9110.
+- [RFC9580] Wouters, P., Ed., et al., "OpenPGP", RFC 9580.
+- [WebAuthn] W3C, "Web Authentication: An API for accessing Public Key Credentials Level 3", W3C Recommendation, 25 August 2026, https://www.w3.org/TR/2026/REC-webauthn-3-20260825/
+- [COMMONMARK] MacFarlane, J., "CommonMark Spec", Version 0.31.2, 2024-01-28, https://spec.commonmark.org/0.31.2/
+- [HTML] WHATWG, "HTML Living Standard", Section 13.1.6 "Comments" and Section 13.2.5 "Tokenization", 参照日 2026-11-27, https://html.spec.whatwg.org/multipage/
+- [UNICODE] The Unicode Consortium, "The Unicode Standard, Version 15.0.0", https://www.unicode.org/versions/Unicode15.0.0/
+
+### 12.2 参考情報としての参考文献
+
+- [AGENT_COMMERCE] SHIOZAKI, S., "md-signature for Agent-to-Agent Commerce", 参考文書, [AGENT_COMMERCE.md](AGENT_COMMERCE.md)
+- [RFC4034] Arends, R., et al., "Resource Records for the DNS Security Extensions", RFC 4034.
+- [RFC4998] Gondrom, T., Brandner, R., and U. Pordesch, "Evidence Record Syntax (ERS)", RFC 4998.
+- [RFC6376] Crocker, D., Ed., Hansen, T., Ed., and M. Kucherawy, Ed., "DomainKeys Identified Mail (DKIM) Signatures", STD 76, RFC 6376.
+- [RFC6973] Cooper, A., et al., "Privacy Considerations for Internet Protocols", RFC 6973.
+- [RFC7515] Jones, M., Bradley, J., and N. Sakimura, "JSON Web Signature (JWS)", RFC 7515.
+- [RFC7763] Leonard, S., "The text/markdown Media Type", RFC 7763.
+- [RFC7942] Sheffer, Y. and A. Farrel, "Improving Awareness of Running Code: The Implementation Status Section", BCP 205, RFC 7942.
+- [RFC8126] Cotton, M., Leiba, B., and T. Narten, "Guidelines for Writing an IANA Considerations Section in RFCs", BCP 26, RFC 8126.
+- [RFC8463] Levine, J., "A New Cryptographic Signature Method for DomainKeys Identified Mail (DKIM)", RFC 8463.
+- [RFC9052] Schaad, J., "CBOR Object Signing and Encryption (COSE): Structures and Process", STD 96, RFC 9052.
+- [UTS39] The Unicode Consortium, "Unicode Security Mechanisms", Unicode Technical Standard #39.
 - [WKD] Koch, W., "OpenPGP Web Key Directory", Work in Progress, Internet-Draft, draft-koch-openpgp-webkey-service.
 - [HKP] Shaw, D. and A. Gallagher, "OpenPGP HTTP Keyserver Protocol", Work in Progress, Internet-Draft, draft-gallagher-openpgp-hkp.
 - [FIPS204] NIST, "Module-Lattice-Based Digital Signature Standard", FIPS 204.
 - [FIPS205] NIST, "Stateless Hash-Based Digital Signature Standard", FIPS 205.
-- CommonMark Spec, Section 4.6 "HTML blocks", https://spec.commonmark.org/
-- [RFC6376] Crocker, D., Ed., Hansen, T., Ed., and M. Kucherawy, Ed., "DomainKeys Identified Mail (DKIM) Signatures", STD 76, RFC 6376.
-- [RFC7515] Jones, M., Bradley, J., and N. Sakimura, "JSON Web Signature (JWS)", RFC 7515.
-- [RFC9052] Schaad, J., "CBOR Object Signing and Encryption (COSE): Structures and Process", STD 96, RFC 9052.
 - [MINISIGN] Denis, F., "Minisign", https://jedisct1.github.io/minisign/
 - [SIGSTORE] The Sigstore Authors, "Sigstore", https://www.sigstore.dev/
 - [GIT] "git-commit(1)" (`--gpg-sign`) and "gpg.format" in git-config(1), https://git-scm.com/docs
@@ -880,6 +1387,8 @@ URL を取得すると、誰かが検証を行っていること、およびそ�
 - **PDF の署名 [ISO32000]。** 増分更新によって署名を追記し、後の署名が先の署名を含む点は、本形式の追記専用のチェーン（5.2 節）と同じ考え方である。本形式はこれを、差分の確認しやすいテキスト形式で実現する。
 - **DKIM [RFC6376]。** `dns` 方式の TXT レコード（`v=`、`k=`、`p=` のタグ）と、Ed25519 鍵の表現 [RFC8463] は DKIM にならった。
 
+エージェント間の取引の条件文書に本形式を使用する方法は、[AGENT_COMMERCE] に示す。
+
 ## 付録 B. 運用上の注意（参考）
 
 本付録は参考情報であり、規範的な要件を含まない。
@@ -891,7 +1400,8 @@ URL を取得すると、誰かが検証を行っていること、およびそ�
 - 各行の末尾の空白の削除（エディタの「行末の空白を削除」設定、markdownlint の自動修正など）。Markdown では行末の 2つの空白が改行を意味するため、表示も変わる。
 - タブと空白の変換、Unicode の正規化（NFC と NFD）、全角と半角の変換。
 - 本文と最初のブロックの間、およびブロックの間にある空行の追加や削除。ブロック N のスライスは、本文とそれより前のブロック、およびそれらの間の空白を含むため（5.2 節）、2つ目以降のブロックの署名が破壊される。最後のブロックの直前の空行の変化だけは、正規化によって吸収される。
-- フォーマッタによる署名ブロック自体の書き換え（インデントの付与、折り返しの変更）。
+- フォーマッタによる署名ブロック自体の書き換え（インデントの付与や変更、折り返しの変更）。継続行の字下げは値の一部であるため（3.2 節の規則 7）、`require` の字下げを整えるだけでも署名が破壊される。
+- YAML のツールによるブロックの読み書き（3.2 節）。
 
 運用上は次の方法がある。
 
@@ -902,3 +1412,76 @@ URL を取得すると、誰かが検証を行っていること、およびそ�
 
 Git の `core.autocrlf` による改行コードの変換は正規化によって吸収されるが、
 `.gitattributes` の `filter` や `ident` など、内容を書き換える設定は署名を破壊する。
+
+## 付録 C. 段階の割り当て（規範）
+
+本付録は規範であり、5.8.5 節と 5.8.6 節の判定を擬似コードで定める。検証者は、
+これと同じ結果を得なければならない（MUST）。名簿による判定が判定不能の場合
+（5.8.8 節）、その辺は張らず、行を判定不能として記録する。
+
+```
+; D: 宣言（位置 d、署名者の識別子 id(D)、順序 mode）
+; chain[i]: i 番目のブロック。valid(b)、scoped(b)、id(b) を持つ
+function evaluate(D):
+  used := {}                         ; 前の段階で使ったブロック
+  prev := d                          ; 前の段階の成立位置（未成立なら ∞）
+  for s := 1 to number of steps:
+    st    := steps[s]
+    start := (mode = pending) ? prev : d
+    if start = ∞: report step s as blocked_by s-1; continue
+    E := [ b in chain | position(b) > start, valid(b), not scoped(b),
+                        method(b) != "tsa", b not in used ]
+    need := st.any if present, else number of lines of st
+    k := none
+    for each position p of E, ascending:
+      A := assign(st, [ b in E | position(b) <= p ], need)
+      if size(A) = need: k := p; break
+    if k = none:
+      A := assign(st, E, need)        ; 未成立。報告用の割り当て
+      done := ∞
+    else:
+      done := (mode = pending) ? k : max(k, prev)
+    if s > 1 and mode != pending:
+      for each (signer x, line L, block b) in A:
+        if position(b) < prev (or prev = ∞):
+          if mode = guide and every line with an edge from x is a pattern line:
+            continue
+          record order violation (b, s)
+    used := used ∪ { b | (x, L, b) in A }
+    prev := done
+
+function matches(b, L):
+  if L is named:   if id(b) != L.target: return false
+  else:            if not pattern-match(L.target, id(b)): return false
+                   if id(b) = id(D): return false        ; self
+  each attribute of L holds for b (5.8.2)
+
+function assign(st, B, need):
+  ; 署名者：B に現れる id を、それぞれの最も早いブロックの位置の順に並べる
+  X   := distinct id(b) for b in B, ordered by min position
+  cap(L) := (st.any present and L is a pattern line) ? ∞ : 1
+  edge(x, L) := exists b in B with id(b) = x and matches(b, L)
+  rep(x, L)  := the earliest such b
+  owner := {}                          ; line -> list of signers
+  line  := {}                          ; signer -> line
+  for x in X:
+    if |line| = need: break
+    seen := {}
+    augment(x)
+  return { (x, line[x], rep(x, line[x])) | x in line }
+
+  function augment(x):
+    for L in st.lines in declaration order:
+      if not edge(x, L) or L in seen: continue
+      seen := seen ∪ {L}
+      if |owner[L]| < cap(L):
+        owner[L] += x;  line[x] := L;  return true
+      for y in owner[L] in insertion order:
+        if augment(y):                 ; y を別の行へ移す
+          owner[L] := owner[L] - y + x;  line[x] := L;  return true
+    return false
+```
+
+`augment(y)` が `y` を別の行へ移した場合、`owner` と `line` はその移動を反映する。
+割り当ての大きさは、`any` のない段階では行数、`any=m` の段階では `m` に達した時点で
+打ち切る。

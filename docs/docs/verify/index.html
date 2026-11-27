@@ -7,7 +7,7 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../../color-scheme.js?v=20261118b"></script>
+    <script src="../../color-scheme.js?v=20261127"></script>
     <title>検証手順と結果 | md-signature</title>
     <meta name="description"
         content="検証者はチェーンの各ブロックを順に検査し、ブロックごとにステータスを決定します。文書全体が検証済みとなるのは、すべてのブロックが valid の場合に限られます。">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../../style.css?v=20261118b">
-    <link rel="stylesheet" href="../../guide.css?v=20261118b">
-    <link rel="stylesheet" href="../../docs.css?v=20261118b">
+    <link rel="stylesheet" href="../../style.css?v=20261127">
+    <link rel="stylesheet" href="../../guide.css?v=20261127">
+    <link rel="stylesheet" href="../../docs.css?v=20261127">
     <script src="../../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../../site.js?v=20261118b"></script>
+    <script type="module" src="../../site.js?v=20261127"></script>
 </head>
 
 <body>
@@ -75,6 +75,8 @@
                     <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
                     <li><a href="../../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
                     <li><a href="../../docs/fields/" data-i18n="docs.nav.fields">拡張フィールド</a></li>
+                    <li><a href="../../docs/agents/" data-i18n="docs.nav.agents">エージェント間の合意記録</a></li>
+                    <li><a href="../../docs/syntax/" data-i18n="docs.nav.syntax">記法の早見表</a></li>
                 </ol>
                 <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
                 <ul>
@@ -92,6 +94,7 @@
                         <ol>
                             <li><a href="#verify" data-i18n="docs.verify.stepsT">検査の手順と判定</a></li>
                             <li><a href="#json" data-i18n="docs.verify.jsonT">JSON 出力の読み方</a></li>
+                            <li><a href="#display" data-i18n="docs.verify.dispT">結果の表示と署名欄</a></li>
                         </ol>
                     </nav>
                 </header>
@@ -105,23 +108,20 @@
                     <ol class="guide-list steps-out">
                         <li><span data-i18n-html="guide.verify.v0"><code>v</code> がちょうど1つあり、その値が対応するバージョンでなければ、ほかのすべての検査より先に</span> <code
                                 class="st warn">unsupported · unsupported-version</code></li>
-                        <li><span data-i18n-html="guide.verify.v1">ブロックを解析する。構文エラー、必須フィールドの欠落、未知のフィールドがあれば</span> <code
+                        <li><span data-i18n-html="guide.verify.v1">ブロックを解析する。構文エラー、必須フィールドの欠落、未知のフィールド、正規の形でない識別子があれば</span> <code
                                 class="st bad">malformed</code></li>
-                        <li><span data-i18n-html="guide.verify.v2">スライス（<code>scope</code>
-                                指定時はセクション）のダイジェストを計算し、<code>hash</code> と比較する。不一致なら</span> <code
+                        <li><span data-i18n-html="guide.verify.v2">スライス（<code>scope</code> 指定時はセクション）のダイジェストを計算し、<code>hash</code> と比較する。不一致なら</span> <code
                                 class="st bad">invalid · hash-mismatch</code></li>
-                        <li><span data-i18n-html="guide.verify.v3">ペイロードを構築し、<code>method</code> で候補鍵を解決する。ネットワーク起因の失敗は
-                                invalid と区別して</span> <code class="st warn">unresolved</code></li>
+                        <li><span data-i18n-html="guide.verify.v3">ペイロードを構築し、<code>method</code> で候補鍵を解決する。ネットワーク起因の失敗は invalid と区別して</span> <code class="st warn">unresolved</code></li>
                         <li><span data-i18n-html="guide.verify.v4">各候補鍵で <code>sig</code> を検証する。どの鍵でも成立しなければ</span>
                             <code class="st bad">invalid · bad-signature</code></li>
                         <li><span data-i18n-html="guide.verify.v5"><code>expires</code> を過ぎていれば</span> <code
                                 class="st bad">invalid · expired</code></li>
                         <li><span
-                                data-i18n-html="guide.verify.v6"><code>resources</code>、<code>revocation_url</code>、<code>tsa_token</code>
-                                があれば、それぞれ検査する。</span></li>
+                                data-i18n-html="guide.verify.v6"><code>resources</code> と <code>revocation_url</code> があれば、それぞれ検査する。</span></li>
                     </ol>
-                    <p class="guide-note" data-i18n-html="guide.verify.alt"><code>method: tsa</code> のブロックは手順 4 以降を、<code>pubkey</code> を持つ <code>dns</code>・<code>git-hosting</code> のブロックは手順 4 と 5 を、それぞれ専用の手順で置き換えます（「長期保存」を参照）。</p>
-                    <p class="guide-note verdict" data-i18n-html="guide.verify.verdict">文書が verified となる条件は、チェーンにブロックが1つ以上あり、すべてが valid で、最後のブロックの後に未署名の内容がなく、合意が順序違反（<code>violated</code>）でないことです。<code>require</code> が満たされていなければ verified but pending となり、検証者はこれを完了として提示してはなりません。</p>
+                    <p class="guide-note" data-i18n-html="guide.verify.alt"><code>method: tsa</code> のブロックは手順 4 以降を、<code>pubkey</code> を持つ <code>dns</code>・<code>git-hosting</code>・<code>directory</code> のブロックは手順 4 と 5 を、それぞれ専用の手順で置き換えます（「長期保存」を参照）。</p>
+                    <p class="guide-note verdict" data-i18n-html="guide.verify.verdict">文書が verified となる条件は、チェーンにブロックが1つ以上あり、すべてが valid で、最後のブロックの後に未署名の内容がなく、合意ステータスが <code>violated</code> でも <code>unsupported</code> でもないことです。合意が <code>pending</code> または <code>undetermined</code> なら verified but pending となり、検証者はこれを完了として提示してはなりません。</p>
                     <div class="agree">
                         <h3 class="guide-label" data-i18n="guide.verify.agreeT">合意ステータス</h3>
                         <dl>
@@ -135,11 +135,19 @@
                             </div>
                             <div>
                                 <dt><code class="st warn">pending</code></dt>
-                                <dd data-i18n="guide.verify.ag.pending">不足あり（不足する連署を列挙）</dd>
+                                <dd data-i18n="guide.verify.ag.pending">不足あり（不足する連署と次の連署 next を列挙）</dd>
+                            </div>
+                            <div>
+                                <dt><code class="st warn">undetermined</code></dt>
+                                <dd data-i18n="guide.verify.ag.undetermined">通信の失敗、オフライン、名簿を取得できないなどの理由で判定できない</dd>
                             </div>
                             <div>
                                 <dt><code class="st bad">violated</code></dt>
-                                <dd data-i18n-html="guide.verify.ag.violated"><code>order strict</code> の順序違反（違反した署名を列挙）</dd>
+                                <dd data-i18n-html="guide.verify.ag.violated"><code>order mode=strict</code> の順序違反（違反した署名を列挙）</dd>
+                            </div>
+                            <div>
+                                <dt><code class="st bad">unsupported</code></dt>
+                                <dd data-i18n-html="guide.verify.ag.unsupported">理解できない方式や属性の要件行がある。署名の判定は変えない</dd>
                             </div>
                         </dl>
                     </div>
@@ -194,7 +202,7 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code>1</code></th>
-                                <td data-i18n-html="guide.verify.e1">検証失敗：ハッシュ不一致、不正な署名、形式不正、未対応、署名なし、末尾の未署名内容、合意の順序違反（<code>violated</code>）など</td>
+                                <td data-i18n-html="guide.verify.e1">検証失敗：ハッシュ不一致、不正な署名、形式不正、未対応、署名なし、末尾の未署名内容、合意が <code>violated</code> または <code>unsupported</code> など</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>2</code></th>
@@ -202,7 +210,7 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code>3</code></th>
-                                <td data-i18n-html="guide.verify.e3">ネットワークまたは公開鍵の解決のエラー、または <code>--offline</code> で未検査の署名がある（終了コード 1 となる失敗がない場合）</td>
+                                <td data-i18n-html="guide.verify.e3">ネットワークまたは公開鍵の解決のエラー、<code>--offline</code> で未検査の署名がある、または合意が <code>undetermined</code>（いずれも終了コード 1 となる失敗がない場合）</td>
                             </tr>
                             <tr>
                                 <th scope="row"><code>4</code></th>
@@ -210,21 +218,18 @@
                             </tr>
                             <tr>
                                 <th scope="row"><code>5</code></th>
-                                <td data-i18n-html="guide.verify.e5">すべての署名は有効だが、<code>require</code>
-                                    の連署が不足（<code>pending</code>）</td>
+                                <td data-i18n-html="guide.verify.e5">すべての署名は有効だが、<code>require</code> の連署が不足（<code>pending</code>）</td>
                             </tr>
                         </tbody>
                     </table>
-                    <p class="guide-note" data-i18n="guide.verify.exitNote">複数ファイルの場合は最も重大なコードを返します（1 &gt; 4 &gt; 3 &gt;
-                        5 &gt; 0）。</p>
+                    <p class="guide-note" data-i18n="guide.verify.exitNote">複数ファイルの場合は最も重大なコードを返します（1 &gt; 4 &gt; 3 &gt; 5 &gt; 0）。</p>
                 </div>
             </div>
             <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#54-検証手順"
                     data-i18n-attr="href:guide.verify.href"><span data-i18n="guide.verify.ref">仕様書 §5.4 検証手順</span><i
                         data-lucide="arrow-up-right" aria-hidden="true"></i></a><a
                     href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#4-終了コード"
-                    data-i18n-attr="href:guide.verify.cliHref"><span data-i18n="guide.verify.cliRef">CLI 仕様 §4
-                        終了コード</span><i data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
+                    data-i18n-attr="href:guide.verify.cliHref"><span data-i18n="guide.verify.cliRef">CLI 仕様 §4 終了コード</span><i data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
         </section>
 
 
@@ -244,18 +249,19 @@
       "ok": true,
       "error": null,
       "warnings": [],
-      "agreement": { "status": "complete", "required": [ … ], "missing": [], "violations": [] },
+      "agreement": { "status": "complete", "required": [ … ], "missing": [], "next": [], "violations": [], … },
       "signatures": [
         {
           "index": 1,
           "line": 12,
           "status": "valid",
           "code": null,
-          "fields": { "v": "0.0.4", "method": "git-hosting", "signer": "github.com/alice", … },
+          "fields": { "v": "0.1", "method": "git-hosting", "signer": "github.com/alice", … },
+          "display_name": "Alice Example",
           "hash_ok": true,
           "key_source": "https://github.com/alice.keys (SHA256:…)",
           "tofu": null,
-          "tsa": { "status": "ok", "verified": true, "gen_time": "2026-11-16T09:46:02Z", … },
+          "tsa": { "verified": true, "gen_time": "2026-11-16T09:46:02Z", "time": "2026-11-16T09:46:03Z", "block": 3, … },
           …
         }
       ]
@@ -267,16 +273,56 @@
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="docs.verify.readT">判定に使用する値</h3>
                     <ul class="guide-list plain">
-                        <li data-i18n-html="docs.verify.read1"><code>ok</code>：そのファイル単独で終了コードが 0 または 5 となる場合に <code>true</code>。合意が <code>violated</code> の場合、および <code>--offline</code> で未検査のブロックがある場合は <code>false</code>。</li>
-                        <li data-i18n-html="docs.verify.read2"><code>agreement.status</code>：<code>ok</code> が <code>true</code> でも <code>pending</code> なら連署が不足しています。完了の判定にはこの値も確認します。</li>
+                        <li data-i18n-html="docs.verify.read1"><code>ok</code>：そのファイル単独で終了コードが 0 または 5 となる場合に <code>true</code>。合意が <code>violated</code>、<code>unsupported</code>、<code>undetermined</code> の場合、および <code>--offline</code> で未検査のブロックがある場合は <code>false</code>。</li>
+                        <li data-i18n-html="docs.verify.read2"><code>agreement.status</code>：<code>ok</code> が <code>true</code> でも <code>pending</code> なら連署が不足しています。完了の判定にはこの値も確認し、次に必要な連署は <code>agreement.next</code> で分かります。</li>
                         <li data-i18n-html="docs.verify.read3"><code>signatures[].status</code> と <code>code</code>：ブロックごとの判定。<code>key_source</code> は鍵の取得元を示します。</li>
-                        <li data-i18n-html="docs.verify.read4"><code>tsa.verified</code>：TSA の署名と証明書チェーンを検証できた場合のみ <code>true</code> となり、そのときに限り <code>gen_time</code> が値を持ちます。</li>
+                        <li data-i18n-html="docs.verify.read5"><code>display_name</code>：署名者の申告にすぎません。表示する場合は <code>fields.signer</code> と並べ、申告である旨を添えます。</li>
+                        <li data-i18n-html="docs.verify.read4"><code>tsa</code>：署名ブロックでは、<code>time</code> がそのブロックの時刻 <code>T(k)</code>、<code>block</code> がそれを与えた <code>tsa</code> ブロックの番号です。<code>tsa</code> ブロック自身では、<code>verified</code> が <code>true</code> の場合に限り <code>gen_time</code> が値を持ちます。</li>
                     </ul>
                     <p class="guide-note" data-i18n-html="docs.verify.libNote">ライブラリの結果（<code>VerifyResult</code>）は同じ情報を持ちます。キーの表記は TypeScript がキャメルケース、JSON がスネークケースです。</p>
                 </div>
             </div>
             <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#5-json-出力"
                     data-i18n-attr="href:docs.verify.jsonHref"><span data-i18n="docs.verify.jsonRef">CLI 仕様 §5 JSON 出力</span><i
+                        data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
+        </section>
+
+
+        <section class="guide doc-sec" id="display" tabindex="-1" aria-labelledby="display-title">
+            <div class="section-head">
+                <h2 id="display-title" data-i18n="docs.verify.dispT">結果の表示と署名欄</h2>
+                <p data-i18n-html="docs.verify.dispLede">署名ブロックはレンダリング結果に現れないため、検証結果は表示側が示します。本文の中には「検証済み」と読める文言も、署名欄に似せた表も、誰でも書けます。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label" data-i18n="docs.verify.dispRulesT">表示側の規則</h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="docs.verify.disp1">ブロックが存在するだけで「署名済み」と表示してはなりません。</li>
+                        <li data-i18n-html="docs.verify.disp2">検証結果は、本文の外側の、文書の内容が入り込めない領域に表示します。署名欄のマーカー（<code>&lt;!-- mdsig:signatures --&gt;</code>）の位置に署名欄を描画する場合も、同じ結果を本文の外にも示します。</li>
+                        <li data-i18n-html="docs.verify.disp3">表示名（<code>display_name</code>）は、検証済みの署名者の識別子と並べ、申告である旨を添えます。</li>
+                        <li data-i18n-html="docs.verify.disp4">本文がコードフェンスの途中で終わる文書や、マーカーが複数ある文書には警告を出します。本文中の HTML コメントや不可視の文字は、ソースで確認できるようにします。</li>
+                    </ul>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="docs.verify.dispCap">mdsig verify の出力</figcaption>
+                        <pre class="guide-code"><code>docs/contract.md
+  ✓ #1 author    github.com/alice   2026-11-16T09:00:00Z  git-hosting  "Alice Example" (declared)
+  ✓ #2 approver  example.com        2026-11-16T09:46:00Z  dns  ⏱ by 2026-11-16T09:46:03Z (#3)
+  ✓ #3 tsa       http://ts.ssl.com  TSA 2026-11-16T09:46:02Z ±1s
+  Verified: 3 signatures
+  Agreement: pending
+    next: step 2 needs 2 more (any 2 of 3)
+      git-hosting:github.com/bob role=reviewer
+      git-hosting:github.com/carol role=reviewer
+      git-hosting:github.com/dave role=reviewer</code></pre>
+                    </figure>
+                    <pre class="guide-code console"><code><span class="cmd">mdsig render contract.md --lang ja -o contract.html</span></code></pre>
+                    <p class="guide-note" data-i18n-html="docs.verify.dispNote"><code>mdsig render</code> は、検証結果の要約を本文の外に置き、マーカーの位置（なければ本文の後）に署名欄を挟んだ HTML を出力します。終了コードは <code>verify</code> と同じです。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/CLI_SPEC.ja.md#310-mdsig-render-file"
+                    data-i18n-attr="href:docs.verify.dispHref"><span data-i18n="docs.verify.dispRef">CLI 仕様 §3.10 mdsig render</span><i
                         data-lucide="arrow-up-right" aria-hidden="true"></i></a></p>
         </section>
 

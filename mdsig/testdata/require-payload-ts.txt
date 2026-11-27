@@ -1,6 +1,6 @@
 md-signature/v1
-require=dns:a.com approver
+require=dns:a.com role=approver
   git-hosting:github.com/b
   v=9
-v=0.0.1
+v=0.1
 x_note=n

@@ -5,7 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <script src="../color-scheme.js?v=20261118b"></script>
+  <script src="../color-scheme.js?v=20261127"></script>
   <title>md-signature エディタ</title>
   <meta name="description" content="Markdown 文書の署名を作成・検証するブラウザ内エディタ。">
   <meta property="og:type" content="website">
@@ -22,10 +22,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="../style.css?v=20261118b">
-  <link rel="stylesheet" href="../chain.css?v=20261118b">
-  <link rel="stylesheet" href="../editor-cm.css?v=20261118b">
-  <link rel="stylesheet" href="editor.css?v=20261118b">
+  <link rel="stylesheet" href="../style.css?v=20261127">
+  <link rel="stylesheet" href="../chain.css?v=20261127">
+  <link rel="stylesheet" href="../editor-cm.css?v=20261127">
+  <link rel="stylesheet" href="editor.css?v=20261127">
   <script src="../vendor/lucide/lucide.min.js" defer></script>
   <script src="../vendor/marked/marked.min.js" defer></script>
   <script src="../vendor/dompurify/purify.min.js" defer></script>
@@ -123,7 +123,7 @@
 
         <div role="tabpanel" id="panel-preview" aria-labelledby="tab-preview" class="panel preview-panel">
           <p class="preview-note" id="preview-note" role="status"></p>
-          <article class="md-preview" id="preview"></article>
+          <div class="preview-doc" id="preview"></div>
         </div>
 
         <div role="tabpanel" id="panel-sigs" aria-labelledby="tab-sigs" class="panel" hidden>
@@ -218,9 +218,13 @@
                       <input type="password" name="pgppass" id="cosign-pgp-pass" autocomplete="off">
                   </label>
               </div>
+              <label><span><span data-i18n="cs.displayName">表示名</span> <span class="opt" data-i18n="cs.displayNameHint">（任意。署名欄に「申告」として表示。64文字まで）</span></span>
+                <input name="displayName" maxlength="64" autocomplete="off" data-i18n-attr="placeholder:cs.displayNamePh" placeholder="Carol Example">
+              </label>
+              <p class="hint only-passkey" id="cosign-uv-note" hidden data-i18n="cs.uvNote">この文書は、この署名者にパスキーの利用者確認を要求しています。署名時に PIN や生体認証を求められます。</p>
               <div class="row">
                 <label><span data-i18n="cs.role">役割</span>
-                  <input name="role" list="roles" placeholder="reviewer" autocomplete="off">
+                  <input name="role" list="roles" placeholder="reviewer" autocomplete="off" spellcheck="false">
                   <datalist id="roles"><option value="author"><option value="reviewer"><option value="approver"><option value="witness"></datalist>
                 </label>
                 <label><span><span data-i18n="cs.reason">理由</span> <span class="opt" data-i18n="cs.optional">（任意）</span></span>
@@ -234,9 +238,10 @@
                   <div id="cosign-sections" class="checks"></div>
                   <p class="hint" id="cosign-sections-none"><span data-i18n="cs.sectionsNone1">この文書には</span> <code>&lt;!-- mdsig:section id --&gt;</code> <span data-i18n="cs.sectionsNone2">の目印がありません。</span></p>
                 </fieldset>
-                <label><span><span data-i18n="cs.require">必須の連署者</span> <span class="opt" data-i18n="cs.requireHint">（1行に1件：method:signer [role]。段階は step 1、step 2 any 2 のように行で区切り、順序の扱いは先頭行の order pending | guide | strict で指定）</span></span>
-                  <textarea name="require" rows="2" placeholder="step 1&#10;dns:example.com approver&#10;step 2 any 1&#10;git-hosting:github.com/bob&#10;git-hosting:github.com/carol" spellcheck="false"></textarea>
+                <label><span><span data-i18n="cs.require">必須の連署（require）</span> <span class="opt" data-i18n="cs.requireHint">（1行に1件。要件行は「方式:署名者 属性」、段階は step または step any=2、順序は先頭行の order mode=pending|guide|strict）</span></span>
+                  <textarea name="require" rows="4" data-i18n-attr="placeholder:cs.requirePh" placeholder="step&#10;  dns:example.com role=approver&#10;step any=2&#10;  git-hosting:github.com/bob role=reviewer&#10;  git-hosting:github.com/carol role=reviewer" spellcheck="false" autocomplete="off"></textarea>
                 </label>
+                <div class="req-explain" id="cosign-require-explain" aria-live="polite" hidden></div>
                 <div class="row">
                   <label><span><span data-i18n="cs.expires">有効期限</span> <span class="opt" data-i18n="cs.expiresHint">（現地時刻で入力し、UTC で保存）</span></span>
                     <input type="datetime-local" name="expires" step="1">
@@ -254,6 +259,10 @@
                   </label>
                 </fieldset>
               </details>
+              <label class="check"><input type="checkbox" name="tsa"> <span><span data-i18n="cs.tsa">タイムスタンプを追記</span> <span class="opt" data-i18n="cs.tsaHint">（署名ブロックの直後に tsa ブロックを追記。ブラウザからは、https でクロスオリジン要求を許可する TSA にのみ接続できます）</span></span></label>
+              <label class="only-tsa" hidden><span data-i18n="cs.tsaUrl">TSA の URL</span>
+                <input type="url" name="tsaUrl" placeholder="https://" autocomplete="off">
+              </label>
               <p class="form-error" id="cosign-error" role="alert"></p>
               <button type="submit" class="primary" data-i18n="cs.submit">署名・追記</button>
             </form>

@@ -7,15 +7,15 @@
         content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="../../color-scheme.js?v=20261118b"></script>
+    <script src="../../color-scheme.js?v=20261127"></script>
     <title>拡張フィールド | md-signature</title>
     <meta name="description"
-        content="基本のフィールドに加えて、形式 0.0.4 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
+        content="基本のフィールドに加えて、形式 0.1 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
     <link rel="canonical" href="https://mdsig.dev/docs/fields/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="md-signature">
     <meta property="og:title" content="拡張フィールド | md-signature">
-    <meta property="og:description" content="基本のフィールドに加えて、形式 0.0.4 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
+    <meta property="og:description" content="基本のフィールドに加えて、形式 0.1 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。">
     <meta property="og:url" content="https://mdsig.dev/docs/fields/">
     <meta property="og:image" content="https://mdsig.dev/og.png">
     <meta property="og:image:width" content="1200">
@@ -27,11 +27,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="../../style.css?v=20261118b">
-    <link rel="stylesheet" href="../../guide.css?v=20261118b">
-    <link rel="stylesheet" href="../../docs.css?v=20261118b">
+    <link rel="stylesheet" href="../../style.css?v=20261127">
+    <link rel="stylesheet" href="../../guide.css?v=20261127">
+    <link rel="stylesheet" href="../../docs.css?v=20261127">
     <script src="../../vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="../../site.js?v=20261118b"></script>
+    <script type="module" src="../../site.js?v=20261127"></script>
 </head>
 
 <body>
@@ -75,6 +75,8 @@
                     <li><a href="../../docs/workflow/" data-i18n="docs.nav.workflow">連署ワークフロー</a></li>
                     <li><a href="../../docs/archive/" data-i18n="docs.nav.archive">長期保存</a></li>
                     <li><a href="../../docs/fields/" data-i18n="docs.nav.fields" aria-current="page">拡張フィールド</a></li>
+                    <li><a href="../../docs/agents/" data-i18n="docs.nav.agents">エージェント間の合意記録</a></li>
+                    <li><a href="../../docs/syntax/" data-i18n="docs.nav.syntax">記法の早見表</a></li>
                 </ol>
                 <p class="docs-nav-title" data-i18n="docs.nav.specs">仕様書</p>
                 <ul>
@@ -86,7 +88,7 @@
                 <header class="docs-head">
                     <p class="eyebrow" data-i18n="docs.eyebrow">ドキュメント</p>
                     <h1 id="page-title" data-i18n="docs.nav.fields">拡張フィールド</h1>
-                    <p class="lede" data-i18n-html="docs.fields.lede">基本のフィールドに加えて、形式 0.0.4 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。</p>
+                    <p class="lede" data-i18n-html="docs.fields.lede">基本のフィールドに加えて、形式 0.1 は次の任意フィールドを規定します。いずれも署名対象ペイロードに含まれるため、署名後に変更すると署名が破壊されます。連署の宣言（require）は「連署ワークフロー」、タイムスタンプは「長期保存」で説明します。</p>
                     <nav class="toc" aria-labelledby="toc-title">
                         <p id="toc-title" data-i18n="docs.toc">このページの内容</p>
                         <ol>
@@ -94,6 +96,8 @@
                             <li><a href="#resources" data-i18n="fl.res.title">添付ファイルの固定（resources）</a></li>
                             <li><a href="#expires" data-i18n="fl.exp.title">有効期限（expires）</a></li>
                             <li><a href="#revocation" data-i18n="fl.rev.title">撤回（revocation_url）</a></li>
+                            <li><a href="#lists" data-i18n="fl.list.title">署名済みリスト</a></li>
+                            <li><a href="#signatures" data-i18n="fl.sig.title">表示名と署名欄</a></li>
                             <li><a href="#others" data-i18n="fl.other.title">アルゴリズムと私的拡張</a></li>
                         </ol>
                     </nav>
@@ -107,13 +111,13 @@
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="fl.scope.markT">セクションマーカ</h3>
                     <ol class="guide-list compact">
-                        <li data-i18n-html="fl.scope.m1"><code>&lt;!-- mdsig:section id --&gt;</code> と <code>&lt;!-- /mdsig:section --&gt;</code> の行で囲む。各マーカは単独で1行を占める。</li>
+                        <li data-i18n-html="fl.scope.m1"><code>&lt;!-- mdsig:section id --&gt;</code> と <code>&lt;!-- /mdsig:section --&gt;</code> の行で囲む。各マーカは単独で1行を占め、行頭に空白を置かない。</li>
                         <li data-i18n-html="fl.scope.m2">ID は <code>[a-z0-9-]+</code>。入れ子と同じ ID の重複は不可で、開始マーカには終了マーカが必要。</li>
-                        <li data-i18n-html="fl.scope.m3">フェンスで囲まれたコードブロック内のマーカは無視する。</li>
+                        <li data-i18n-html="fl.scope.m3">コードフェンスの中の行はマーカではない。フェンスの判定は仕様 5.5 節の行単位の走査に従うため、どの実装でも同じ結果になる。</li>
                     </ol>
                     <h3 class="guide-label" data-i18n="fl.scope.verT">検証</h3>
                     <ol class="guide-list compact">
-                        <li data-i18n-html="fl.scope.v1">ハッシュの入力は、列挙した各セクションの <code>normalize(section)</code> を列挙順に連結したもの。</li>
+                        <li data-i18n-html="fl.scope.v1"><code>scope</code> はリスト形式で、1行に1つのセクション ID を書く（属性はない）。ハッシュの入力は、列挙した各セクションの <code>normalize(section)</code> を列挙順に連結したもの。</li>
                         <li data-i18n-html="fl.scope.v2">マーカが規則に違反していれば malformed、列挙した ID が見つからなければ invalid（<code>scope-missing</code>）。</li>
                         <li data-i18n-html="fl.scope.v3">検証者は、有効と報告するすべての箇所で部分署名であることを表示する（例：valid (partial: terms, fees)）。</li>
                     </ol>
@@ -139,7 +143,9 @@ JPY 1,200,000
 
 <span class="c">&lt;!-- md-signature</span>
 …
-scope: section:terms,section:fees
+scope: |
+  terms
+  fees
 …
 <span class="c">--&gt;</span></code></pre>
                     </figure>
@@ -158,8 +164,9 @@ scope: section:terms,section:fees
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="fl.res.refT">参照の書式</h3>
                     <ul class="guide-list plain">
-                        <li data-i18n-html="fl.res.r1">各行は <code>sha256:&lt;16進数&gt; &lt;ref&gt;</code>。ハッシュはファイルまたは HTTP 応答本文の正確なバイト列に対して計算する。</li>
-                        <li data-i18n-html="fl.res.r2"><code>ref</code> は <code>https://</code> の URL、または文書のディレクトリを基準とする相対パス。絶対パス、ドライブレター、<code>\</code>、<code>..</code> は使用できない。</li>
+                        <li data-i18n-html="fl.res.r1">各行は <code>&lt;ref&gt; hash=sha256:&lt;16進数&gt;</code>。ハッシュはファイルまたは HTTP 応答本文の正確なバイト列に対して計算する。<code>sha256</code> 以外は unsupported（<code>unsupported-hash</code>）。</li>
+                        <li data-i18n-html="fl.res.r3">ローカルのパスはパーセントデコードしてから使用する。空白は <code>%20</code> で書く。<code>%2F</code>、<code>%5C</code>、<code>%00</code>、不正な UTF-8、絶対パス、ドライブレター、<code>.</code> や <code>..</code> のセグメントを含む参照は malformed。ファイル名は NFC で書く。</li>
+                        <li data-i18n-html="fl.res.r2"><code>ref</code> は <code>https://</code> の URL、または文書のディレクトリを基準とする相対パス。URL は書かれたとおりに使用する。</li>
                     </ul>
                     <h3 class="guide-label" data-i18n="fl.res.verT">検証</h3>
                     <table class="guide-table outcomes">
@@ -194,8 +201,9 @@ scope: section:terms,section:fees
                     <figure class="guide-cell">
                         <figcaption data-i18n="fl.res.exCap">resources の値</figcaption>
                         <pre class="guide-code"><code>resources: |
-  sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ./diagram.png
-  sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4 https://example.com/chart.png</code></pre>
+  diagram.png hash=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  images/screen%20shot.png hash=sha256:2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+  https://example.com/chart.png hash=sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4</code></pre>
                     </figure>
                     <figure class="guide-cell">
                         <figcaption data-i18n="fl.res.cliCap">CLI で固定する、URL も検証する</figcaption>
@@ -218,6 +226,7 @@ mdsig verify --fetch-resources report.md</code></pre>
                     <ul class="guide-list plain">
                         <li data-i18n-html="fl.exp.r1">形式は <code>ts</code> と同じ <code>YYYY-MM-DDTHH:MM:SSZ</code>。実在しない日時（2月30日、24時など）は malformed。</li>
                         <li data-i18n-html="fl.exp.r2">検証者の時計で期限を過ぎていれば invalid（<code>expired</code>）。</li>
+                        <li data-i18n-html="fl.exp.r4">取引の申込の期限には使わない。期限を過ぎるとブロックは無効になり、期限内に成立した合意まで、後から検証すると無効に見えるため（「エージェント間の合意記録」を参照）。</li>
                         <li data-i18n-html="fl.exp.r3">CLI の <code>--expires</code> は日時のほか、現在からの期間（<code>30d</code>、<code>12h</code>）を受け付ける。</li>
                     </ul>
                 </div>
@@ -231,13 +240,13 @@ mdsig verify --fetch-resources report.md</code></pre>
         <section class="guide doc-sec" id="revocation" tabindex="-1" aria-labelledby="revocation-title">
             <div class="section-head">
                 <h2 id="revocation-title" data-i18n="fl.rev.title">撤回（revocation_url）</h2>
-                <p data-i18n-html="fl.rev.lede">署名者は、自身の撤回リストの <code>https://</code> URL を署名に含められます。リスト自体も md-signature 文書で、本文に撤回した署名ごとに <code>revoked:</code> の行を持ちます。</p>
+                <p data-i18n-html="fl.rev.lede">署名者は、自身の撤回リストの <code>https://</code> URL を署名に含められます。リストは <code>type: revocation</code> の署名済みリストで、撤回した署名ごとに <code>revoked:</code> の行を持ちます。</p>
             </div>
             <div class="guide-grid">
                 <div class="guide-col">
                     <h3 class="guide-label" data-i18n="fl.rev.trustT">リストを信頼する条件</h3>
                     <ol class="guide-list">
-                        <li data-i18n-html="fl.rev.t1">リストを文書として検証し、成功する。</li>
+                        <li data-i18n-html="fl.rev.t1">リストを文書として検証し、成功する。リストの形式は下の「署名済みリスト」の規則に従う。</li>
                         <li data-i18n-html="fl.rev.t2">リストのチェーンに、撤回対象のブロックと同じ <code>method</code> と <code>signer</code>（<code>tofu</code> はさらに同じ <code>pubkey</code>）を持つ有効なブロックがある。</li>
                         <li data-i18n-html="fl.rev.t3">リストの検証では、リスト内の <code>revocation_url</code>、リモートのリソース、<code>require</code> を評価しない（循環の防止）。</li>
                     </ol>
@@ -268,10 +277,14 @@ mdsig verify --fetch-resources report.md</code></pre>
                         <figcaption data-i18n="fl.rev.listCap">撤回リスト（それ自体が署名済み文書）</figcaption>
                         <pre class="guide-code"><code># Revoked signatures
 
+```mdsig-list
+type: revocation
 revoked: sha256:6f1e…c2a9
 revoked: sha256:0b7d…41fe
+```
 
 <span class="c">&lt;!-- md-signature</span>
+v: 0.1
 method: dns
 signer: example.com
 …
@@ -283,6 +296,119 @@ signer: example.com
             </div>
         </section>
 
+        <section class="guide doc-sec" id="lists" tabindex="-1" aria-labelledby="lists-title">
+            <div class="section-head">
+                <h2 id="lists-title" data-i18n="fl.list.title">署名済みリスト</h2>
+                <p data-i18n-html="fl.list.lede">撤回リストと名簿は、共通の形式の署名済みリストです。md-signature 文書の本文に、情報文字列が <code>mdsig-list</code> のコードフェンスを1つだけ置き、その中に1行に1件ずつ項目を書きます。表示したときに項目が見え、箇条書きや引用の中に紛れることもありません。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <table class="guide-table lines">
+                        <thead>
+                            <tr>
+                                <th scope="col"><code>type</code></th>
+                                <th scope="col" data-i18n="fl.list.th.entry">項目</th>
+                                <th scope="col" data-i18n="fl.list.th.issuer">信頼する発行者</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row"><code>revocation</code></th>
+                                <td><code>revoked: sha256:&lt;hex&gt;</code></td>
+                                <td data-i18n-html="fl.list.rev.issuer">撤回対象のブロックと同じ署名者（<code>tofu</code> はさらに同じ <code>pubkey</code>）</td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><code>members</code></th>
+                                <td><code>member: &lt;method:signer&gt;</code></td>
+                                <td data-i18n-html="fl.list.mem.issuer">名簿の URL のホストを署名者とする <code>dns:&lt;host&gt;</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <h3 class="guide-label" data-i18n="fl.list.rulesT">リストを信頼する条件</h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="fl.list.r1">フェンスの最初の行は <code>type: &lt;種類&gt;</code>。以降の行に前後の空白と空行を置かない。<code>member:</code> の値はパターンでない正規の識別子。</li>
+                        <li data-i18n-html="fl.list.r2">フェンスが0個または2個以上、フェンスが閉じていない、種類が期待と異なる、不正な行が1つでもある場合は信頼しない。</li>
+                        <li data-i18n-html="fl.list.r3">チェーンに、期待する発行者による <code>scope</code> なしの有効なブロックがあり、最後のブロックの後に未署名の内容がない。</li>
+                        <li data-i18n-html="fl.list.r4">リストの検証では、撤回、リソース、<code>require</code> を評価しない（循環の防止）。リストのブロックから TOFU の鍵を記録しない。</li>
+                    </ul>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.list.exCap">名簿（type: members）</figcaption>
+                        <pre class="guide-code"><code># Example Corp members
+
+Updated by the IT department every Monday.
+
+```mdsig-list
+type: members
+member: directory:alice@example.com
+member: dns:sales.example.com
+```
+
+<span class="c">&lt;!-- md-signature</span>
+v: 0.1
+method: dns
+signer: example.com
+…
+<span class="c">--&gt;</span></code></pre>
+                    </figure>
+                    <p class="guide-note" data-i18n-html="fl.list.note">取得は <code>https://</code> の単純な GET に限り、検証する文書の情報は送りません。サイズは 10 MB まで、キャッシュは1回の検証の間だけ保持します。検証者は少なくとも 10 万項目のリストを扱えます。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#510-署名済みリスト"
+                    data-i18n-attr="href:fl.href4"><span data-i18n="fl.ref4">仕様書 §5.10 署名済みリスト</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
+        <section class="guide doc-sec" id="signatures" tabindex="-1" aria-labelledby="signatures-title">
+            <div class="section-head">
+                <h2 id="signatures-title" data-i18n="fl.sig.title">表示名と署名欄</h2>
+                <p data-i18n-html="fl.sig.lede">署名ブロックは表示されないため、表示側が検証結果から署名欄を作ります。本文に表を書き込むことはしません。</p>
+            </div>
+            <div class="guide-grid">
+                <div class="guide-col">
+                    <h3 class="guide-label"><code>display_name</code></h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="fl.sig.d1">署名者が申告する表示名。64 コードポイントまでで、生成者は RFC 8266 の Nickname プロファイルで整えてから書き込む。</li>
+                        <li data-i18n-html="fl.sig.d2">誰の名前でも書けるため、表示する際は検証済みの署名者の識別子と並べ、「（申告）」と添える。表示名だけを示してはならない。</li>
+                    </ul>
+                    <h3 class="guide-label"><code>&lt;!-- mdsig:signatures --&gt;</code></h3>
+                    <ul class="guide-list plain">
+                        <li data-i18n-html="fl.sig.m1">本文にこのマーカーの行を置くと、表示側はその位置に署名欄を描画できる。マーカーがなければ本文の後に置く。</li>
+                        <li data-i18n-html="fl.sig.m2">置けるのは1つ。2つ目以降とコードフェンスの中のマーカーは無視し、検証者は警告する。</li>
+                        <li data-i18n-html="fl.sig.m3">マーカーは最初の署名の対象になるため、位置は最初の署名で固定される。後の署名者が決められるのは、自分の行の内容（<code>display_name</code>、<code>role</code>）だけ。</li>
+                    </ul>
+                    <p class="guide-note verdict" data-i18n-html="fl.sig.verdict">署名欄を本文の中に描画する場合も、同じ検証結果を本文が触れられない領域（本文の外側の UI）に必ず示します。署名欄は無害化した本文の DOM の外で作成します。本文には、署名欄に似せた偽の表を誰でも書けるためです。</p>
+                </div>
+                <div class="guide-col">
+                    <figure class="guide-cell">
+                        <figcaption data-i18n="fl.sig.exCap">署名欄のマーカーと表示名</figcaption>
+                        <pre class="guide-code"><code># Purchase order 2026-118
+
+Quantity: 40 units. Price: 1,200 USD.
+
+<span class="k">&lt;!-- mdsig:signatures --&gt;</span>
+
+<span class="c">&lt;!-- md-signature</span>
+v: 0.1
+method: dns
+signer: example.com
+selector: 2026
+<span class="k">display_name: Example Corp</span>
+role: seller
+…
+<span class="c">--&gt;</span></code></pre>
+                    </figure>
+                    <pre class="guide-code console"><code><span class="cmd">mdsig sign po.md -m dns -s example.com --selector 2026 --display-name "Example Corp" -r seller</span>
+<span class="cmd">mdsig render po.md -o po.html</span></code></pre>
+                    <p class="guide-note" data-i18n-html="fl.sig.note">署名欄の各行は、番号、表示名（申告）、署名者、確認方法、役割、申告時刻、時刻証明 <code>T(k)</code>、利用者確認、状態です。合意が成立していなければ、<code>next</code> から作った未署名の行が続きます。<code>mdsig render</code> はこの形の HTML を出力し、ライブラリは <code>signatureTable</code> で行のデータを返します。</p>
+                </div>
+            </div>
+            <p class="guide-ref"><a href="https://github.com/SHIOZAKI-Shota/md-signature/blob/main/SPEC.ja.md#511-署名欄のマーカー"
+                    data-i18n-attr="href:fl.href5"><span data-i18n="fl.ref5">§5.11 署名欄のマーカー、§9.5 レンダリングと表示</span><i data-lucide="arrow-up-right"
+                        aria-hidden="true"></i></a></p>
+        </section>
+
         <section class="guide doc-sec" id="others" tabindex="-1" aria-labelledby="others-title">
             <div class="section-head">
                 <h2 id="others-title" data-i18n="fl.other.title">アルゴリズムと私的拡張</h2>
@@ -290,7 +416,7 @@ signer: example.com
             <div class="guide-grid">
                 <div class="guide-col">
                     <h3 class="guide-label"><code>alg</code></h3>
-                    <p class="guide-text" data-i18n-html="guide.ext.alg"><code>ed25519</code> は実装必須。<code>webauthn-es256</code>・<code>openpgp</code>・<code>rfc3161</code> は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code> は予約済み。未対応のアルゴリズムは unsupported として報告。</p>
+                    <p class="guide-text" data-i18n-html="fl.other.alg"><code>alg</code> は必須で、省略時の既定はありません。<code>ed25519</code> は実装必須。<code>webauthn-es256</code>・<code>openpgp</code>・<code>rfc3161</code> は検証の実装を推奨。<code>ml-dsa-44</code>・<code>ml-dsa-65</code>・<code>slh-dsa-sha2-128s</code>・<code>ed25519+ml-dsa-65</code> は予約済み。未対応のアルゴリズムは unsupported として報告します。</p>
                 </div>
                 <div class="guide-col">
                     <h3 class="guide-label"><code>x_*</code></h3>
@@ -310,7 +436,7 @@ signer: example.com
 
                 <nav class="docs-pager" aria-label="ページ送り" data-i18n-attr="aria-label:docs.nav.label">
                     <a class="prev" href="../../docs/archive/"><span data-i18n="docs.prev">前へ</span><b data-i18n="docs.nav.archive">長期保存</b></a>
-                    <span></span>
+                    <a class="next" href="../../docs/agents/"><span data-i18n="docs.next">次へ</span><b data-i18n="docs.nav.agents">エージェント間の合意記録</b></a>
                 </nav>
             </article>
         </div>

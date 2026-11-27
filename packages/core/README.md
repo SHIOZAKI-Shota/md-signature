@@ -6,7 +6,7 @@ TypeScript implementation of [md-signature](../../README.md), a signature format
 
 - Runs in browsers, Node.js 22 or later, Deno, Bun, and Cloudflare Workers. No `node:*` modules are used.
 - Install it with `npm install @mdsig/core`. Releases share the version number of the `mdsig` CLI.
-- This is a draft. It signs with format `0.0.4` and verifies `0.0.1`, `0.0.2`, and `0.0.4`. The API may change before 1.0.
+- This is a draft. It signs with format `0.1` and verifies only `0.1` (`0.0.x` documents are `unsupported-version`; verify them with 0.0.5). The API may change before 1.0.
 
 ## Verifying
 
@@ -15,10 +15,10 @@ import { verifyDocument } from "@mdsig/core";
 
 const result = await verifyDocument(text);
 
-result.ok;          // true when there is no document-level error, every block is valid, and agreement is not violated
+result.ok;          // true when there is no document-level error, every block is valid, and agreement is not violated, undetermined, or unsupported
 result.error;       // a problem with the document as a whole (no signature, unsigned content after the last signature, ...)
 result.signatures;  // one result per block
-result.agreement;   // co-signatures asked for with `require`: none / complete / pending / violated
+result.agreement;   // co-signatures asked for with `require`: none / complete / pending / violated / undetermined / unsupported
 ```
 
 Each block result has these fields.
@@ -29,7 +29,8 @@ Each block result has these fields.
 | `code` | Why it failed: `hash-mismatch`, `bad-signature`, `expired`, `revoked`, `key-changed`, `network`, `not-found`, and others |
 | `message` | Explanation in English |
 | `fields` | The values written in the block (`signer`, `method`, `role`, `ts`, ...) |
-| `tsa` | Result of the timestamp check. `genTime` is present only when `verified` is `true` |
+| `tsa` | `tsa` blocks only: the check of the token. `genTime` is present only when `verified` is `true` |
+| `time` | The block's time `T(k)`: the earliest `genTime` plus accuracy of a valid `tsa` block after it (format specification, section 4.6). Absent when there is none |
 | `revocation`, `resources`, `partial`, `pgp`, `webauthn` | Present when they apply |
 | `warnings` | Things a user should be told although the block is valid |
 
@@ -42,7 +43,7 @@ A pending agreement leaves `result.ok` `true`; check `agreement.status` (the CLI
 | Option | Meaning |
 | --- | --- |
 | `fetch` | Function used for outbound requests. Set it to go through a relay, or to replace the network in tests |
-| `offline` | Do not use the network. `tofu` blocks are checked as usual and `tsa` blocks and `tsa_token` checks need no network. A `dns` or `git-hosting` block with an embedded `pubkey` is still `invalid` when the signature does not match it. Other blocks become `unresolved` (code `offline`) |
+| `offline` | Do not use the network. `tofu` blocks are checked as usual and `tsa` blocks need no network. A `dns` or `git-hosting` block with an embedded `pubkey` is still `invalid` when the signature does not match it. Other blocks become `unresolved` (code `offline`) |
 | `resolvers` | Replace how keys are found, per method (`dns`, `git-hosting`, `tofu`, `pgp`) |
 | `tofuStore` | Where the signer-to-key bindings of `tofu` are kept. A key that differs from the stored one is invalid with `key-changed` |
 | `acceptNewTofuKey` | Accept a changed `tofu` key and replace the stored binding |
@@ -56,7 +57,7 @@ A pending agreement leaves `result.ok` `true`; check `agreement.status` (the CLI
 
 ## Trust for timestamps (TSA)
 
-A `tsa_token` yields a time (`genTime`) only when the TSA's signature and certificate chain verify up to a trusted root certificate. A token that cannot be verified is reported as `status: "error"` with a warning and no time. It does not change whether the signature itself is valid.
+A `tsa` block is valid and yields a time (`genTime`) only when the TSA's signature and certificate chain verify up to a trusted root certificate. Otherwise it is `unresolved` and shows no time. It does not change whether the signature blocks before it are valid; they just get no `time`.
 
 A browser has no trust store a page can read, so the root certificates of public TSAs are built in (`DEFAULT_TSA_ROOTS`).
 
@@ -73,7 +74,7 @@ await verifyDocument(text, { tsaRoots: [pemText] });
 const roots = await readTsaRoots(pemText);
 ```
 
-A value is DER (`Uint8Array`) or PEM text, and PEM text may hold several certificates. `signDocument` takes the same options and uses them to check the response it gets from `tsaUrl`.
+A value is DER (`Uint8Array`) or PEM text, and PEM text may hold several certificates. `signDocument` takes the same options and uses them to check the `tsa` block it appends for `tsaUrl`.
 
 The built-in list is chosen from the roots that Microsoft's root program (CCADB) trusts for time-stamping. Certificate revocation (CRL, OCSP) is not checked.
 
@@ -89,23 +90,24 @@ const { text } = await signDocument(markdown, {
   signer,
   method: "tofu",           // dns / git-hosting / tofu / pgp
   signerId: "bob@laptop",
+  displayName: "Bob",       // shown in the signature table, as declared
   role: "reviewer",
   reason: "Reviewed",
 });
 ```
 
-Pass `require` one line per string. Steps, thresholds, and the order handling are lines too (format specification, section 5.8).
+Pass `require` one line per string. Steps (`step`, `step any=2`) and the order handling (`order mode=…`) are lines too, and the lines of a step are written indented below it (format specification, section 5.8).
 
 ```ts
 await signDocument(markdown, {
   signer, method: "git-hosting", signerId: "github.com/alice",
-  require: ["order strict", "step 1", "dns:example.com approver", "step 2 any 2", "git-hosting:github.com/bob", "git-hosting:github.com/carol", "git-hosting:github.com/dave"],
+  require: ["order mode=strict", "step", "dns:example.com role=approver", "step any=2", "git-hosting:github.com/bob role=reviewer", "git-hosting:github.com/carol role=reviewer", "git-hosting:github.com/dave role=reviewer"],
 });
 ```
 
-In the result, `agreement.missing` tells what each step still lacks (`step`, `need`, `blockedBy`, `early`) and `agreement.violations` lists order violations. An `order strict` violation makes `agreement.status` `violated` and `result.ok` `false`.
+In the result, `agreement.missing` lists the lines not yet satisfied (`step`, `need`, `blockedBy`, and `rejected`: blocks that were not counted, with the reason), `agreement.next` tells who has to sign next, and `agreement.violations` lists order violations. An `order mode=strict` violation makes `agreement.status` `violated` and `result.ok` `false`. When a roster (`member_of`) cannot be consulted, the status is `undetermined`. `explainRequire(value, "en")` describes a value before you sign.
 
-Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `expires`, `scope`, `require`, `resources`, `revocationUrl`, `tsaUrl`, and `embedKey` (embed the public key with `dns` and `git-hosting`). Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
+Called on a document that already has signatures, it appends a co-signature. The main options are `selector` (for `dns`), `displayName`, `expires`, `scope`, `require`, `resources`, `revocationUrl`, `tsaUrl` (append a `tsa` block after the signature block), and `embedKey` (embed the public key with `dns`, `git-hosting`, and `directory`). Their meaning is in chapter 5 of the [format specification](../../SPEC.md).
 
 A signer is made from an OpenSSH private key with `parseOpenSshPrivateKey`, from an OpenPGP secret key with `readPgpSecretKey` and `unlockPgpSecretKey`, and from a passkey with `registerPasskey` and `passkeySigner`.
 

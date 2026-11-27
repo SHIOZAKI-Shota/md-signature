@@ -1,5 +1,7 @@
 export * from "./encoding.js";
 export * from "./canonical.js";
+export * from "./identity.js";
+export * from "./listline.js";
 export * from "./crypto.js";
 export * from "./parser.js";
 export * from "./resolvers.js";
@@ -8,6 +10,9 @@ export * from "./tsa.js";
 export * from "./scope.js";
 export * from "./resources.js";
 export * from "./agreement.js";
+export * from "./signed-list.js";
+export * from "./signature-table.js";
+export * from "./explain.js";
 export * from "./webauthn.js";
 export * from "./sign.js";
 export * from "./handoff.js";

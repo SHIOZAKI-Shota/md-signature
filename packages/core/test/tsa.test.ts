@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { DEFAULT_TSA_ROOTS, checkTsaToken, concat, p1363ToDer, readTsaRoots, requestTimestamp, sha256, signDocument, signerFromSeed, timestampDocument, toBase64, toHex, utf8, verifyDocument } from "../src/index.ts";
+import { genTimeMs, formatTimeMs, parseDocument, toJsonResult } from "../src/index.ts";
+import { exampleOptions } from "./harness.ts";
 import { parseDer } from "../src/der.ts";
 import { derSet, parseCertificate } from "../src/x509.ts";
 
@@ -118,6 +120,7 @@ interface TokenSpec {
   chain?: Uint8Array[];
   sig: Uint8Array;
   genTime?: Date;
+  accuracy?: Uint8Array;
   nonce?: Uint8Array;
   digestAlg?: Uint8Array;
   signingCert?: "v2" | "v1" | "none" | "wrong";
@@ -131,7 +134,7 @@ interface TokenSpec {
 
 async function token(s: TokenSpec): Promise<string> {
   const mi = s.imprint ? seq(s.imprint.hashAlgId, octets(s.imprint.value)) : seq(SHA256, octets(await sha256(s.sig)));
-  const tst = seq(int(1), oid("1.2.3.4"), mi, int(7), genTimeDer(s.genTime ?? new Date("2026-11-16T10:00:00Z")), ...(s.nonce ? [int(s.nonce)] : []));
+  const tst = seq(int(1), oid("1.2.3.4"), mi, int(7), genTimeDer(s.genTime ?? new Date("2026-11-16T10:00:00Z")), ...(s.accuracy ? [s.accuracy] : []), ...(s.nonce ? [int(s.nonce)] : []));
   const c = parseCertificate(s.leaf);
   const attrs = [seq(oid("1.2.840.113549.1.9.3"), set(oid(TSTINFO))), seq(oid("1.2.840.113549.1.9.4"), set(octets(await sha256(tst))))];
   const mode = s.signingCert ?? "v2";
@@ -317,28 +320,24 @@ test("tsa: built-in roots are self-issued, unexpired and match their fingerprint
 
 test("tsa: the example token verifies with the built-in roots and not with an empty set", async () => {
   const text = readFileSync(new URL("../../../examples/valid-cosigned.md", import.meta.url), "utf8");
-  if (!/^tsa_token:/m.test(text)) return;
-  const keys = JSON.parse(readFileSync(new URL("../../../examples/keys.json", import.meta.url), "utf8"));
-  const dns: Record<string, string> = Object.fromEntries(Object.entries(keys.dns as Record<string, { txt: string }>).map(([k, v]) => [k, v.txt]));
-  const fetch = (async (url: string) => {
-    const n = new URL(url).searchParams.get("name")!;
-    return new Response(JSON.stringify({ Status: 0, Answer: dns[n] ? [{ type: 16, data: `"${dns[n]}"` }] : [] }));
-  }) as typeof globalThis.fetch;
-  const ok = await verifyDocument(text, { fetch, now: new Date(keys.now) });
-  const tsa = ok.signatures.find((s) => s.tsa)!.tsa!;
+  if (!/^method: tsa$/m.test(text)) return;
+  const o = exampleOptions();
+  const ok = await verifyDocument(text, o);
+  const tsa = ok.signatures[2]!.tsa!;
   assert.equal(tsa.verified, true, tsa.detail);
-  assert.match(tsa.signer!, /SSL\.com/);
+  assert.match(tsa.signer!, /SSL.com/);
   assert.ok(tsa.genTime);
+  assert.equal(ok.signatures[1]!.time!.block, 3);
 
-  const extra = await verifyDocument(text, { fetch, now: new Date(keys.now), extraTsaRoots: [DEFAULT_TSA_ROOTS[0]!.der] });
-  assert.equal(extra.signatures.find((x) => x.tsa)!.tsa!.verified, true);
+  const extra = await verifyDocument(text, { ...o, extraTsaRoots: [DEFAULT_TSA_ROOTS[0]!.der] });
+  assert.equal(extra.signatures[2]!.tsa!.verified, true);
 
-  const none = await verifyDocument(text, { fetch, now: new Date(keys.now), tsaRoots: [] });
-  const s = none.signatures.find((x) => x.tsa)!;
-  assert.equal(s.status, "valid");
+  const none = await verifyDocument(text, { ...o, tsaRoots: [] });
+  const s = none.signatures[2]!;
+  assert.deepEqual([s.status, s.code], ["unresolved", "not-found"]);
   assert.equal(s.tsa!.verified, false);
   assert.equal(s.tsa!.genTime, undefined);
-  assert.ok(s.warnings.some((w) => /timestamp could not be checked/.test(w)));
+  assert.equal(none.signatures[1]!.time, undefined);
 });
 
 // --- requesting
@@ -423,4 +422,36 @@ test("tsa block: never satisfies require, cannot be required", async () => {
   const stamped = (await timestampDocument(declared, { tsaUrl: "https://tsa.test/", fetch: tsa, tsaRoots: [p.root] })).text;
   assert.equal((await verifyDocument(stamped, { offline: true, tsaRoots: [p.root] })).agreement.status, "pending");
   await assert.rejects(timestampDocument("# no signature\n", { fetch: tsa }), /no signature to timestamp/);
+});
+
+test("tsa: signDocument with tsaUrl appends a tsa block; T(k) is the earliest genTime + accuracy after k", async () => {
+  const p = await pki();
+  let next: { genTime: Date; accuracy?: Uint8Array } = { genTime: new Date("2026-11-16T10:00:00Z") };
+  const tsa = (async (_url: string, init: RequestInit) => {
+    const req = parseDer(new Uint8Array(init.body as ArrayBuffer)).node.children!;
+    const mi = req[1]!;
+    const nonce = req.find((n, i) => i > 1 && n.tag === 0x02)!.content;
+    const b64 = (await token({ leaf: p.leaf, key: p.leafKey, chain: [p.ca], sig: SIG, nonce, ...next, imprint: { hashAlgId: mi.children![0]!.bytes, value: mi.children![1]!.content } })).slice(7);
+    return new Response(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+  }) as unknown as typeof globalThis.fetch;
+  const roots = { tsaRoots: [p.root] };
+  const a = await signerFromSeed(new Uint8Array(32).fill(1));
+  next = { genTime: new Date("2026-11-16T10:00:00Z"), accuracy: seq(int(2), tlv(0x80, new Uint8Array([0x01, 0xf4]))) };
+  const s1 = await signDocument("# Doc\n", { signer: a, method: "tofu", signerId: "alice", ts: "2026-11-16T09:00:00Z", tsaUrl: "https://tsa.test/", fetch: tsa, ...roots });
+  assert.ok(s1.tsaBlock);
+  assert.equal(parseDocument(s1.text).chain.length, 2);
+  next = { genTime: new Date("2026-11-16T09:59:00Z") };
+  const s2 = await timestampDocument(s1.text, { tsaUrl: "https://tsa.test/", fetch: tsa, ...roots });
+  const v = await verifyDocument(s2.text, { offline: true, ...roots });
+  assert.deepEqual(v.signatures.map((x) => x.status), ["valid", "valid", "valid"]);
+  assert.equal(v.signatures[1]!.tsa!.accuracyMs, 2500);
+  assert.deepEqual([v.signatures[0]!.time!.at, v.signatures[0]!.time!.block], ["2026-11-16T09:59:00Z", 3]);
+  assert.deepEqual([v.signatures[1]!.time!.at, v.signatures[1]!.time!.block], ["2026-11-16T09:59:00Z", 3]);
+  assert.equal(v.signatures[2]!.time, undefined);
+  const j = toJsonResult(v);
+  assert.deepEqual([j.signatures[0]!.tsa!.time, j.signatures[0]!.tsa!.block, j.signatures[0]!.tsa!.verified], ["2026-11-16T09:59:00Z", 3, true]);
+  const only = await verifyDocument(s1.text, { offline: true, ...roots });
+  assert.equal(only.signatures[0]!.time!.at, "2026-11-16T10:00:02.500Z");
+  assert.equal(genTimeMs("2026-11-16T10:00:00.0001Z"), Date.parse("2026-11-16T10:00:00.001Z"));
+  assert.equal(formatTimeMs(Date.parse("2026-11-16T10:00:00Z")), "2026-11-16T10:00:00Z");
 });

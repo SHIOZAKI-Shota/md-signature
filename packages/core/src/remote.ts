@@ -1,6 +1,7 @@
 import { toBase64 } from "./encoding.ts";
 import { tsaFromJson, toJsonResult, type JsonResult, type JsonTsa } from "./json.ts";
 import type { TsaCheck } from "./tsa.ts";
+import type { HashAlg } from "./crypto.ts";
 import type { VerifyResult } from "./verify.ts";
 
 // --- client for the HTTP API (CLI_SPEC 3.6) served by `mdsig serve` and createVerifyHandler
@@ -30,10 +31,12 @@ export function remoteVerify(baseUrl: string, document: string, o: RemoteOptions
 }
 
 // for VerifyOptions.tsaVerifier: the server's trust store decides, this side reports its verdict
-export function remoteTsaVerifier(baseUrl: string, o: RemoteOptions = {}): (tsaToken: string, sigBytes: Uint8Array) => Promise<TsaCheck> {
-  return async (tsaToken, sigBytes) => {
+// the token's imprint is H(data), H = opts.hash (sha256 when absent); the server receives data as "sig" and the hash as "hash"
+export function remoteTsaVerifier(baseUrl: string, o: RemoteOptions = {}): (tsaToken: string, data: Uint8Array, opts?: { hash?: HashAlg }) => Promise<TsaCheck> {
+  return async (tsaToken, data, opts = {}) => {
     try {
-      return tsaFromJson(await post<JsonTsa>(endpoint(baseUrl, "/v1/tsa"), { tsa_token: tsaToken, sig: toBase64(sigBytes) }, o));
+      const body = { token: tsaToken, sig: toBase64(data), ...(opts.hash && opts.hash !== "sha256" ? { hash: opts.hash } : {}) };
+      return tsaFromJson(await post<JsonTsa>(endpoint(baseUrl, "/v1/tsa"), body, o));
     } catch (e) {
       return { status: "error", verified: false, detail: (e as Error).message };
     }

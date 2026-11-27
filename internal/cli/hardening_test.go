@@ -90,14 +90,14 @@ func TestPrintVerifyHumanEscapesResultText(t *testing.T) {
 			Index: 1, Status: mdsig.StatusValid, KeySource: "keyserver https://k.example/\x1b]0;t\x07",
 			Fields:    map[string]string{"signer": "a@example.com", "method": "pgp", "alg": "webauthn-es256", "rp_id": "rp\x1b[1m"},
 			PGP:       &mdsig.PGPInfo{Fpr: "AB", UID: "Evil\x1b[2K\u202e <a@example.com>", KeySource: "keyserver", Created: "2026\x1b[1m"},
-			TSA:       &mdsig.TSACheck{Status: mdsig.TSAOK, Verified: true, GenTime: "\x1b[1G\x1b[2Kfake"},
+			Time:      &mdsig.BlockTime{At: "\x1b[1G\x1b[2Kfake", Block: 2},
 			Resources: []mdsig.ResourceResult{{Ref: "img\u202e.png", Status: mdsig.ResourceOK}},
 			Partial:   []string{"s\x1b[1m"},
 			Warnings:  []string{"warn\u009b2K"},
 		}},
 	})
 	assertPrintable(t, buf.String())
-	for _, want := range []string{`Evil\u{001B}[2K\u{202E} <a@example.com>`, `TSA \u{001B}[1G`, `img\u{202E}.png`, `warn\u{009B}2K`} {
+	for _, want := range []string{`Evil\u{001B}[2K\u{202E} <a@example.com>`, `by \u{001B}[1G`, `img\u{202E}.png`, `warn\u{009B}2K`} {
 		if !strings.Contains(buf.String(), want) {
 			t.Fatalf("output lacks %s:\n%s", want, buf.String())
 		}

@@ -4,11 +4,11 @@
 
 [English](CLI_SPEC.md) · [形式仕様](SPEC.ja.md)
 
-- **バージョン：** 0.0.5（ドラフト。形式のバージョンは 0.0.4）
+- **バージョン：** 0.1.0（ドラフト。形式のバージョンは 0.1）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
 - **形式仕様：** [SPEC.ja.md](SPEC.ja.md)
 
-本書におけるキーワード「MUST」「MUST NOT」「REQUIRED」「SHOULD」「MAY」は、BCP 14 [RFC2119] [RFC8174] の記述に従って解釈する。
+本書におけるキーワード「MUST」「MUST NOT」「REQUIRED」「SHOULD」「SHOULD NOT」「MAY」は、BCP 14 [RFC2119] [RFC8174] の記述に従って解釈する。
 
 ## 1. 名称
 
@@ -28,7 +28,7 @@
 | --- | --- |
 | `--lang <code>` | UI 言語：`en` または `ja`。7 節を参照。 |
 | `-h, --help` | ヘルプ。 |
-| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.0.5 (format 0.0.4)`）。CLI は SPEC が定める形式の `0.0.1`、`0.0.2`、`0.0.4` を検証し、`0.0.4` で署名する。 |
+| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.1.0 (format 0.1)`）。CLI は SPEC が定める形式 `0.1` のみを検証し、`0.1` で署名する。`0.0.x` の文書は `unsupported-version` となり、CLI は v0.0.5 で検証するよう案内する。 |
 
 ## 3. コマンド
 
@@ -40,22 +40,23 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | フラグ | 既定 | 説明 |
 | --- | --- | --- |
 | `-m, --method <m>` | `git-hosting` | `git-hosting`、`dns`、`tofu`、`pgp`、または `directory`。 |
-| `-s, --signer <id>` | — | 必須（REQUIRED）。`github.com/alice`、`example.com`、`bob@laptop`、`alice@example.com` など。`directory` ではメールアドレスを指定し、小文字に変換して書き込む。`pgp` では省略でき、鍵のユーザ ID のメールアドレスから決定する（3.1.2 節）。 |
+| `-s, --signer <id>` | — | 必須（REQUIRED）。`github.com/alice`、`example.com`、`bob@laptop`、`alice@example.com` など。`tofu` 以外では ASCII の英大文字を小文字に変換して書き込み、SPEC 3.4 節の正規の形でない値は終了コード 2 とする。`pgp` では省略でき、鍵のユーザ ID のメールアドレスから決定する（3.1.2 節）。 |
 | `-k, --key <path>` | 自動 | OpenSSH Ed25519 秘密鍵ファイル。3.1.1 節を参照。 |
 | `--selector <sel>` | — | `dns` のみ。 |
 | `-u, --local-user <id>` | gpg の既定鍵 | `pgp` のみ。gpg に渡す鍵の指定（フィンガープリントまたはユーザ ID）。 |
 | `--pgp-key <path>` | — | `pgp` のみ。ASCII armor 形式の OpenPGP 秘密鍵ファイル。指定した場合は gpg を使用せず、CLI が直接署名する。 |
-| `-r, --role <role>` | — | `author`、`reviewer`、`approver`、`witness`、または任意の値。 |
+| `-r, --role <role>` | — | `author`、`reviewer`、`approver`、`witness`、または `[a-z0-9][a-z0-9._-]*` に一致する任意の語（SPEC 3.3 節）。 |
+| `--display-name <name>` | — | 署名欄などに示す表示名（SPEC 3.3 節）。RFC 8266 の Nickname プロファイルの強制の処理を施して書き込む。64 コードポイントを超える値は終了コード 2。 |
 | `--reason <text>` | — | 自由記述のテキスト。 |
-| `--tsa [url]` | オフ | 時刻認証局（TSA）に RFC 3161 タイムスタンプを要求する。値を省略した場合は `http://ts.ssl.com` を使用する。 |
+| `--tsa [url]` | オフ | 署名ブロックの直後に `tsa` ブロック（SPEC 4.6 節）を追記する。値を省略した場合は `http://ts.ssl.com` を使用する。手順は 3.7 節の `mdsig timestamp` と同じである。 |
 | `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。繰り返し指定できる。`--tsa` と併せて指定する。 |
 | `--stdout` | オフ | ファイルを変更せず、署名済み文書を stdout に出力する。 |
 | `--embed-key` | オフ | `dns`、`git-hosting`、`directory` のみ。署名に用いた公開鍵を `pubkey` としてブロックに含める（SPEC 4.5 節）。鍵が削除された後も、署名が成立することを確認できる。`directory` では既定で含める。他の方式で指定した場合は終了コード 2。 |
 | `--no-embed-key` | オフ | `directory` のみ。`pubkey` を含めない。他の方式で指定した場合は終了コード 2。 |
 | `--force` | オフ | ファイルに署名ブロックがあり、その後に未署名の内容が続く場合でも署名する。この場合、ファイル全体が新しい文書として署名される。 |
-| `--scope <ids>` | — | 指定したセクションのみに署名する。カンマ区切りで指定する：`--scope terms,fees`（SPEC 5.6 節）。 |
-| `--require <line>` | — | `require` の値の 1 行を指定する。複数回指定でき、指定した順に行を並べる。要件行 `<method>:<signer>[ <role>]` のほか、段階行 `step <n>[ any <m>]` と順序行 `order pending\|guide\|strict` を使用できる（SPEC 5.8 節）。例：`--require "step 1" --require "dns:example.com approver" --require "step 2 any 2" …`。値全体を SPEC 5.8 節の規則で検査する。 |
-| `--resource <ref>` | — | ファイル（文書からの相対パス）または `https://` URL を、その SHA-256 で固定する。複数回指定できる。URL は署名時に 1 回だけ取得する（SPEC 5.7 節）。 |
+| `--scope <ids>` | — | 指定したセクションのみに署名する。カンマ区切りまたは繰り返しで指定する：`--scope terms,fees`（SPEC 5.6 節）。`scope` は 1 行に 1 つの ID を書くリストとして出力する。 |
+| `--require <line>` | — | `require` の値の 1 行を指定する。複数回指定でき、指定した順に行を並べる。要件行 `<method>:<signer\|pattern>[ <attr>…]`（属性は `role=`、`user_verified`、`member_of=`、`pubkey=`）のほか、段階行 `step[ any=<m>]` と順序行 `order mode=pending\|guide\|strict` を使用できる（SPEC 5.8 節）。例：`--require "step" --require "dns:example.com role=approver" --require "step any=2" --require "directory:*@example.com member_of=dns:example.com"`。各行の行頭の空白は除き、段階行の下の要件行は 2 つのスペースで字下げして出力する。値全体を SPEC 5.8 節の規則で検査し、形式不正の場合は終了コード 2 とする。 |
+| `--resource <ref>` | — | ファイル（文書からの相対パス）または `https://` URL を、その SHA-256 で固定する。複数回指定できる。URL は署名時に 1 回だけ取得する。ローカルのパスは先頭の `./` を除き、空白などをパーセントエンコードして `<ref> hash=sha256:<hex>` の行として出力する（SPEC 5.7 節）。 |
 | `--auto-resources` | オフ | コードフェンスの外で `![..](..)` または `<img src>` によって参照されているすべてのローカル画像も固定する。 |
 | `--expires <time>` | — | `YYYY-MM-DDTHH:MM:SSZ`、または現在からの期間：`30d`、`12h`（SPEC 5.9 節）。 |
 | `--revocation-url <url>` | — | 署名者の撤回リストの `https://` URL（SPEC 5.9 節）。 |
@@ -63,7 +64,9 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 動作：
 
 - ファイルはアトミックに更新する（同一ディレクトリ内の一時ファイルに書き込んでからリネームする）。改行コード（LF または CRLF）は維持する。
-- `--` または改行を含むフィールド値は、終了コード 2 で拒否しなければならない（MUST）。無効な `--scope`、`--require`、`--resource`、`--expires`、`--revocation-url` の値も同様に拒否しなければならない（MUST）。
+- `-->`、`--!>`、`<!--`、改行、または SPEC 3.2 節の規則 4 が禁止する文字を含むフィールド値は、終了コード 2 で拒否しなければならない（MUST）。無効な `--signer`、`--role`、`--display-name`、`--scope`、`--require`、`--resource`、`--expires`、`--revocation-url` の値も同様に拒否しなければならない（MUST）。
+- 本文がコードフェンスの途中で終わる文書（SPEC 5.5 節）への署名は、終了コード 1 で拒否する。`--force` でも署名しない。
+- `--tsa` の要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない（署名ブロックも追記しない）。
 - 存在しない `--resource` ファイルはファイルエラー（終了コード 4）、取得できない URL はネットワークエラー（終了コード 3）とする。
 - パスキー（`webauthn-es256`）による署名は Web ブラウザ（たとえばデモ）で行う。CLI はそのような署名を検証するが、作成はしない。ローカルのツールが署名ページに署名を依頼する手順は 8 節で定める。
 - 成功時は stderr に 1 行を出力する：`Signed <file> (signature #N, <method> <signer>)`。
@@ -95,24 +98,24 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 | --- | --- |
 | `--json` | JSON 形式の結果（5 節）を stdout に出力する。 |
 | `-q, --quiet` | 出力なし。終了コードのみ。 |
-| `--offline` | ネットワークを使用しない。ハッシュはすべてのブロックについて検査する。署名を検査できるのは、`tofu`（記録済みの鍵による）、`pgp`（ローカルの gpg 鍵束にある鍵による）、`tsa` ブロック、および `pubkey` を埋め込んだ `dns`・`git-hosting` のブロックである。`tsa_token` の CMS 署名と証明書チェーンもネットワークなしで検証する。埋め込まれた鍵で署名が成立しないブロックは invalid となる。それ以外のブロックは "not checked (offline)" と報告する。検査されなかったブロックが 1 つでもあるファイルは、終了コード 3 となる。リモートのリソースおよび撤回リストは取得しない。 |
+| `--offline` | ネットワークを使用しない。ハッシュはすべてのブロックについて検査する。署名を検査できるのは、`tofu`（記録済みの鍵による）、`pgp`（ローカルの gpg 鍵束にある鍵による）、`tsa` ブロック（CMS 署名と証明書チェーンをネットワークなしで検証する）、および `pubkey` を埋め込んだ `dns`・`git-hosting`・`directory` のブロックである。埋め込まれた鍵で署名が成立しないブロックは invalid となる。それ以外のブロックは "not checked (offline)" と報告する。検査されなかったブロックが 1 つでもあるファイルは、終了コード 3 となる。リモートのリソース、撤回リスト、名簿は取得せず、名簿に依存する合意は `undetermined` となる。 |
 | `--fetch-resources` | `https://` のリソースを取得し、そのハッシュを検査する。取得することで文書が検証されていることがサーバに伝わるため、既定ではオフである（SPEC 9.8 節）。 |
 | `--no-revocation` | 撤回リストを取得しない。オンライン時は既定で取得し、取得できない、または信頼できない場合、そのブロックは unresolved（終了コード 3）となる。 |
 | `--accept-new-key` | `tofu` の `signer` に記録済みの鍵と異なる鍵を受け入れ、記録を更新する。指定しない場合、鍵が変更されたブロックは invalid（code `key-changed`）となる。 |
 | `--no-keyring` | `pgp` の鍵の取得で、ローカルの gpg 鍵束を使用しない（WKD と鍵サーバのみ）。 |
 | `--keyserver <url>` | `pgp` の鍵を取得する鍵サーバの `https://` URL。既定：`https://keys.openpgp.org`。鍵サーバは検証者が選択するものであり、ブロックからは取得しない（SPEC 4.3 節）。メールアドレスを確認する鍵サーバを指定すること。 |
 | `--key-directory <url>` | `directory` の鍵の取得で、この実行に限り信頼する鍵ディレクトリの `https://` URL。繰り返し指定できる。既定の一覧と `mdsig directory trust`（3.8 節）で追加したディレクトリの後に問い合わせる。`signer` のドメインが `_mdsig` の `dir` でディレクトリを指定している場合は、そのディレクトリのみを使用する（SPEC 4.7 節）。`https://` でない URL は終了コード 2。 |
-| `--tsa-root <file>` | タイムスタンプトークン（`tsa_token` と `tsa` ブロック）の検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。PEM は複数の証明書を含んでよい。繰り返し指定できる。読み込めないファイルは使用方法の誤り（終了コード 2）となる。 |
+| `--tsa-root <file>` | `tsa` ブロックのタイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（PEM または DER のファイル）。PEM は複数の証明書を含んでよい。繰り返し指定できる。読み込めないファイルは使用方法の誤り（終了コード 2）となる。 |
 
 `dns` の名前解決はシステムのリゾルバを使用すべきである（SHOULD）。`git-hosting` は
 `https://<signer>.keys` を取得する。`pgp` は、`gpg` が利用可能であれば `gpg --export <fpr>` で
-ローカルの鍵束から鍵を取得し、続いて WKD、鍵サーバの順に試みる（SPEC 4.3 節）。`directory` は、`signer` のドメインの `_mdsig` の `dir`、なければ信頼する鍵ディレクトリの一覧（既定の `https://keys.mdsig.dev`、`<user config dir>/mdsig/key_directories.json`、`--key-directory` の順）から鍵を取得する（SPEC 4.7 節）。TOFU のバインディングは
+ローカルの鍵束から鍵を取得し、続いて WKD、鍵サーバの順に試みる（SPEC 4.3 節）。`directory` は、`signer` のドメインの `_mdsig` の `dir`、なければ信頼する鍵ディレクトリの一覧（既定の `https://keys.mdsig.dev`、`<user config dir>/mdsig/key_directories.json`、`--key-directory` の順）から鍵を取得する（SPEC 4.7 節）。`member_of` の名簿は、オンライン時は常に取得する。https の名簿は SPEC 5.10 節のとおり取得して検証し、DNS の名簿はシステムのリゾルバで問い合わせる（SPEC 5.8.8 節）。TOFU のバインディングは
 `<user config dir>/mdsig/known_signers.json` に保存する。バインディングは、そのブロックの検証が
 成功した後にのみ保存し、撤回リスト内のブロックからは保存しない。
 ローカルのリソースは、検証対象ファイルのディレクトリを基準として常に検査する。シンボリックリンクを
 解決した結果がそのディレクトリの外になるパス、通常ファイルでないもの、50 MB を超えるファイルは
-読み込まない。URL（リソース、撤回リスト、`git-hosting` の鍵一覧、DoH、WKD、鍵サーバ）を取得する際、CLI はプライベート・ループバック・リンクローカルアドレス、および
-50 MB（リソース）または 5 MB（撤回リスト）を超える応答を拒否しなければならない（MUST）。
+読み込まない。URL（リソース、撤回リスト、名簿、`git-hosting` の鍵一覧、DoH、WKD、鍵サーバ）を取得する際、CLI はプライベート・ループバック・リンクローカルアドレス、および
+50 MB（リソース）または 10 MB（撤回リストと名簿）を超える応答を拒否しなければならない（MUST）。
 実際に接続する先のアドレスを検査するため、これらのリクエストには HTTP プロキシを使用しない。
 
 `--json` を指定しない場合の出力では、文書やサーバに由来する文字列（フィールドの値、ユーザ ID、
@@ -123,26 +126,48 @@ Markdown ファイルに署名する。ファイルがすでに署名チェー�
 
 ```
 docs/contract.md
-  ✓ #1 author    github.com/alice     2026-11-16T09:00:00Z  git-hosting
+  ✓ #1 author    github.com/alice     2026-11-16T09:00:00Z  git-hosting  "Alice Example" (declared)
       partial: terms, fees
-      resources: ✓ ./diagram.png  - https://example.com/chart.png (not checked)
-  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ TSA 2026-11-16T09:46:02Z (SSL.com Timestamping Unit 2026 E1)
-      TSA: imprint matched; TSA signature and certificate chain verified
-  Verified: 2 signatures
-  Agreement: pending (missing dns:partner.example witness)
+      resources: ✓ diagram.png  - https://example.com/chart.png (not checked)
+  ✓ #2 approver  example.com          2026-11-16T09:46:00Z  dns  ⏱ by 2026-11-16T09:46:03Z (#3)
+  ✓ #3 tsa       http://ts.ssl.com    TSA 2026-11-16T09:46:02Z ±1s (SSL.com Timestamping Unit 2026 E1)
+  Verified: 3 signatures
+  Agreement: pending
+    next: step 2 needs 2 more (any 2 of 3)
+      git-hosting:github.com/bob role=reviewer
+      git-hosting:github.com/carol role=reviewer
+      git-hosting:github.com/dave role=reviewer
 ```
 
-`require` が段階を持つ場合、欠けている連署は段階ごとに表示する。順番より前に署名したため数えられなかった署名者には、その旨を付記する。
-`order guide` の順序違反は警告として、`order strict` の順序違反は合意ステータス `violated` として表示する。
+`display_name` は、検証済みの署名者の識別子の後に `(declared)`（日本語 UI では「（申告）」）を付けて表示する。
+`⏱` は SPEC 4.6 節の `T(k)` であり、それを与えた `tsa` ブロックの番号を併記する。
+
+合意が成立していない場合は、`next`（SPEC 5.8.9 節）の内容を、段階の構造に合わせて字下げして表示する。
+数えられなかった署名には、その理由（`rejected`）を付記する。`order mode=guide` の順序違反は警告として、
+`order mode=strict` の順序違反は合意ステータス `violated` として表示する。名簿を取得できないなどの理由で
+判定できない場合は `undetermined` と、その原因を表示する。
 
 ```
-  Agreement: pending (step 2 needs 1 more of: git-hosting:github.com/carol reviewer, git-hosting:github.com/dave reviewer (after step 1))
-  Agreement: violated (#2 git-hosting:github.com/bob reviewer signed for step 2 before step 1 was complete)
+  Agreement: pending
+    next: step 2 needs 1 more (after step 1)
+      git-hosting:github.com/carol role=reviewer
+      git-hosting:github.com/dave role=reviewer
+    not counted: #2 git-hosting:github.com/bob (early: signed before step 1 was complete)
+  Agreement: violated (#2 git-hosting:github.com/bob signed for step 2 before step 1 was complete)
+  Agreement: undetermined (roster https://example.org/members.md could not be fetched)
 ```
 
-パスキーによる署名では、その `rp_id` も表示する。例：`passkey (rp_id mdsig.dev)`。
+`require` の値が SPEC 5.8 節の旧記法（`0.0.x` の段階行、位置で書いた役割など）や、字下げと段階の構造が
+一致しない書き方を含む場合、CLI は改善の手がかりを警告として表示してよい（MAY）。判定は変えない。
+同様に、ハッシュ不一致が空白の違いだけによると推定される場合は、SPEC 付録 B を案内してよい（MAY）。
+
+パスキーによる署名では、その `rp_id` と、利用者確認（UV）の有無、同期されたパスキーかどうか（BS）も表示する。
+例：`passkey (rp_id mdsig.dev, user verified, synced)`。
 `pgp` による署名では、フィンガープリント、ユーザ ID、鍵の取得元、および署名パケットの作成時刻を表示する。
-作成時刻は `ts` と同じく署名者の申告であり、TSA の時刻とは区別して表示する。
+作成時刻は `ts` と同じく署名者の申告であり、`T(k)` とは区別して表示する。
+
+本文がコードフェンスの途中で終わる場合（SPEC 5.5 節）と、署名欄のマーカーが複数ある場合（SPEC 5.11 節）は、
+警告を表示する。
 
 ### 3.3 `mdsig inspect <file>`
 
@@ -159,7 +184,7 @@ docs/contract.md
   "stray_marker_line": null,
   "warnings": [],
   "signatures": [
-    { "index": 1, "line": 16, "fields": { "v": "0.0.4", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
+    { "index": 1, "line": 16, "fields": { "v": "0.1", "...": "..." }, "errors": [], "hash_ok": true, "computed_hash": "sha256:..." }
   ]
 }
 ```
@@ -204,9 +229,9 @@ SSH fingerprint (key_fp):
 
 動作：
 
-1. 選択した各ブロックについて撤回の識別子 `SHA-256(signed payload)`（SPEC 5.9 節）を計算し、リスト本文に `revoked: sha256:<hex>` の行を追加する（重複は追加しない）。
+1. 選択した各ブロックについて撤回の識別子 `SHA-256(signed payload)`（SPEC 5.9 節）を計算し、リスト本文の `mdsig-list` のフェンス（SPEC 5.10 節）に `revoked: sha256:<hex>` の行を追加する（重複は追加しない）。リストが存在しない場合は、`type: revocation` の行を持つフェンスを含む本文を作成する。既存のリストのフェンスが SPEC 5.10 節の形式に従わない場合は、終了コード 1 で失敗し、リストを変更しない。
 2. リストの古い署名チェーンを削除し、更新後のリストを指定された鍵で新しい文書として署名する。このコマンドによってリストに `revocation_url` を付与してはならない（MUST NOT）。
-3. 署名鍵と撤回されたブロックの鍵を照合する。`tofu` の場合、署名鍵が撤回されたブロックの `pubkey` と一致しないときは、終了コード 2 で失敗し、リストを変更しない（検証者は、同一の鍵で署名された `tofu` のリストのみを信頼するため）。`git-hosting` の場合、署名鍵のフィンガープリントが撤回されたブロックの `key_fp` と異なるとき、`pgp` の場合、署名鍵の `fpr` が撤回されたブロックの `fpr` と異なるときは、警告を表示する（リストは `method` と `signer` で照合されるため、引き続き信頼される）。
+3. 署名鍵と撤回されたブロックの鍵を照合する。`tofu` の場合、署名鍵が撤回されたブロックの `pubkey` と一致しないときは、終了コード 2 で失敗し、リストを変更しない（検証者は、同一の鍵で署名された `tofu` のリストのみを信頼するため）。`git-hosting` の場合、署名鍵のフィンガープリントが撤回されたブロックの `key_fp` と異なるとき、`pgp` の場合、署名鍵の `fpr` が撤回されたブロックの `fpr` と異なるときは、警告を表示する（リストは署名者の識別子で照合されるため、引き続き信頼される）。
 4. リストを公開すべき場所、すなわち撤回されたブロックの `revocation_url` を表示する。それらが `revocation_url` を持たない場合は、検証者がリストを見つけられない旨の警告を表示する。
 
 ### 3.6 `mdsig serve`
@@ -229,7 +254,7 @@ SSH fingerprint (key_fp):
 | メソッドとパス | 要求 | 応答 |
 | --- | --- | --- |
 | `POST /v1/verify` | `{ "document": "<文書の全文>" }` | 5 節の `files` の 1 要素から `file` を除いたオブジェクト |
-| `POST /v1/tsa` | `{ "tsa_token": "<tsa_token の値>", "sig": "<署名バイト列の base64>" }` | 5 節の `tsa` オブジェクト |
+| `POST /v1/tsa` | `{ "token": "<tsa ブロックの sig の値>", "sig": "<tsa ブロックの署名対象ペイロードの base64>", "hash": "<sha256 または sha512>" }`。`hash` は `tsa` ブロックの `hash` のアルゴリズムであり、省略時は `sha256`。サーバは `sig` をデコードしたバイト列のダイジェストを `messageImprint` と照合する | 5 節の `tsa` オブジェクト |
 | `GET /v1/health` | — | `{ "name", "version", "api": "v1" }` |
 
 サーバは次の規則に従わなければならない（MUST）。
@@ -256,7 +281,7 @@ SSH fingerprint (key_fp):
 | `--tsa-root <file>` | — | タイムスタンプトークンの検証で、システムのトラストストアに加えて信頼するルート証明書（3.2 節と同じ）。 |
 | `--stdout` | オフ | ファイルを変更せず、結果を stdout に出力する。 |
 
-TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない。
+TSA の応答は、追記する `tsa` ブロックとして SPEC 4.6 節の検証者の手順で検証し、有効とならない場合は追記しない。要求または検証に失敗した場合は終了コード 3 とし、ファイルは変更しない。
 
 ### 3.8 `mdsig directory`
 
@@ -267,7 +292,7 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 | `trust add <url>` | 鍵ディレクトリを信頼する一覧に追加する。一覧は `<user config dir>/mdsig/key_directories.json` に保存し、`verify` と `serve` が既定の一覧の後に使用する。`https://` でない URL は終了コード 2。 |
 | `trust remove <url>` | 一覧から削除する。一覧にない URL は終了コード 2。既定の一覧は削除できない。 |
 | `trust list` | 既定の一覧と、追加した一覧を出力する。 |
-| `register --email <addr>` | Ed25519 鍵をメールアドレスに結び付けて公開するよう、鍵ディレクトリに依頼する。鍵は 3.1.1 節の手順で検出し（`-k` で指定可）、ディレクトリが発行したチャレンジに署名して所持を示す。鍵が公開されるのは、ディレクトリから届く確認メールのリンクを開いた後である。 |
+| `register --email <addr>` | Ed25519 鍵をメールアドレスに結び付けて公開するよう、鍵ディレクトリに依頼する。鍵は 3.1.1 節の手順で検出し（`-k` で指定可）、ディレクトリが発行したチャレンジに署名して所持を示す。鍵が公開されるのは、ディレクトリから届く確認メールのリンクを開いた後である。`--label <name>` を指定すると、確認メールに表示する鍵の名前をディレクトリに送信する。 |
 | `remove --email <addr>` | そのアドレスの鍵（`--key <base64>` を指定した場合はその鍵のみ）の削除を依頼する。削除は確認メールで完了する。 |
 
 `register` と `remove` の送信先は、`--directory <url>` を指定した場合はその URL、指定しない場合は、アドレスのドメインが `_mdsig` の `dir` で指定するディレクトリ、それもなければ `https://keys.mdsig.dev` とする。依頼が受け付けられない場合は終了コード 3。
@@ -293,16 +318,85 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 
 利用者が操作するツールは、初めて検出した鍵を記録する前に、フィンガープリントを示して利用者の確認を求めてもよい（MAY）（SPEC 4.4 節）。`mdsig verify` は確認を求めず、検証が成功した時点で記録する。
 
+### 3.10 `mdsig render <file>`
+
+文書を検証し、本文と署名欄を 1 つの HTML ファイルとして出力する（SPEC 5.11 節、9.5 節）。
+
+| フラグ | 既定 | 説明 |
+| --- | --- | --- |
+| `--lang <code>` | UI 言語（7 節） | 署名欄と検証結果の表示に使う言語。`ja` または `en`。 |
+| `-o, --out <path>` | stdout | 出力先の HTML ファイル。既存のファイルは上書きする。 |
+| `--offline`、`--fetch-resources`、`--no-revocation`、`--keyserver`、`--key-directory`、`--tsa-root` | — | `verify` と同じ。 |
+
+出力は次に従わなければならない（MUST）。
+
+1. 検証結果の要約（文書の状態と合意ステータス）を、本文の外側の、本文の内容が入り込めない領域に置く。
+2. 本文は、スクリプト、イベント属性、フォームの要素、`style` 属性を除いて描画する。
+3. 署名欄は、本文を描画した DOM の外で作成する。本文に署名欄のマーカーがある場合は、最初のマーカー（コードフェンスの外のもの）の位置で本文を分割して別々に描画し、その間に署名欄を置く。マーカーがない場合は、本文の後に置く。
+
+署名欄は、チェーンの各ブロック（`tsa` ブロックを除く）について 1 行を持つ。
+
+| 列 | 内容 |
+| --- | --- |
+| 番号 | チェーンでの位置（`#1` など）。 |
+| 表示名 | `display_name`。「（申告）」または "(declared)" を添える。ない場合は空欄。 |
+| 署名者 | 署名者の識別子（`method:signer`）。 |
+| 確認方法 | 身元の確認方法。例：`dns` は「DNS TXT（example.com）」、`directory` は鍵を返したディレクトリと、`dir` と信頼する一覧のどちらで選択したか、`tofu` は「埋め込み鍵（初回信頼）」とフィンガープリント。 |
+| 役割 | `role`。 |
+| 申告時刻 | `ts`。 |
+| 時刻証明 | `T(k)`（SPEC 4.6 節）。定まらない場合は空欄。 |
+| 利用者確認 | `webauthn-es256` の場合、UV の有無。 |
+| 状態 | `valid` などの状態。部分署名の場合はその旨と、セクションの ID。 |
+
+合意が成立していない場合は、続けて `next`（5 節）から作った未署名の行を置く。未署名の行は、
+段階の番号、必要な人数、候補の要件行（対象と属性）を示し、署名欄の上で署名済みの行と区別する。
+
+終了コードは、同じファイルに対する `verify` と同じとする。検証に失敗した文書も、その結果を示した
+HTML を出力する。出力先に書き込めない場合は終了コード 4 とする。
+
+### 3.11 `mdsig require explain <value>`
+
+`require` の値（SPEC 5.8 節）を検査し、その意味を文章で表示する。署名の前に要件を確認するために使う。
+
+- `<value>` は、改行を含む `require` の値全体である。`-` を指定した場合は stdin から読む。
+- 出力は、段階ごとに字下げした説明である（UI 言語は 7 節による）。例：
+
+  ```
+  $ mdsig require explain "$(printf 'step\n  dns:example.com role=approver\nstep any=2\n  dns:*.example.com member_of=dns:example.com')"
+  order: pending (signatures before their turn are not counted)
+  step 1: all of
+    dns:example.com with role approver
+  step 2: any 2 different signers of
+    any subdomain of example.com (not example.com itself), on the DNS roster of example.com
+  ```
+
+- 警告（`tofu` の行に `pubkey=` がない、字下げと段階の構造が一致しない、など）は stderr に出力する。
+- `--json` を指定した場合は、`{ "order", "steps": [{ "step", "any", "lines": [{ "line", "method", "signer", "pattern", "attributes" }] }], "warnings" }` を出力する。各キーの意味は 5 節の `required` と同じである。
+- 値が形式不正の場合は、該当する行と理由を表示して終了コード 2 とする。値に未知の方式や属性がある場合は、その旨を警告して終了コード 0 とする。
+
+### 3.12 `mdsig member-record <id> <domain>`
+
+DNS の名簿（SPEC 5.8.8 節）で、署名者の識別子 `<id>`（`method:signer`）を `<domain>` の構成員として示すために設定すべき TXT レコードを表示する。
+
+```
+$ mdsig member-record directory:alice@example.com example.com
+<52 文字のラベル>._member._mdsig.example.com. IN TXT "v=mdsig1; m=directory:alice@example.com"
+```
+
+- `<id>` の `signer` は、`tofu` 以外では ASCII の英大文字を小文字にそろえてから使う。SPEC 3.4 節の正規の形でない `<id>`、パターン、および `ldh-domain` でない `<domain>` は、終了コード 2 とする。
+- このコマンドはネットワークを使用しない。`--check` を指定した場合は、システムのリゾルバでレコードを問い合わせ、SPEC 5.8.8 節の分類（構成員である、構成員でない、判定不能）を表示する。判定不能の場合は終了コード 3、構成員でない場合は終了コード 1 とする。
+
 ## 4. 終了コード
 
 | コード | 意味 |
 | --- | --- |
 | 0 | 成功。`verify` の場合：すべての署名が有効。 |
-| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未対応のアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、ファイルが有効な UTF-8 でない、または合意ステータスが `violated`（`order strict` の順序違反、SPEC 5.8 節）。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）。 |
+| 1 | 検証失敗：ハッシュ不一致、不正な署名、形式不正のブロック、未対応のアルゴリズムまたは方式、タイムスタンプの不一致、署名なし、最後の署名の後に未署名の内容がある、ファイルが有効な UTF-8 でない、または合意ステータスが `violated`（`order mode=strict` の順序違反）か `unsupported`（未知の方式や属性。SPEC 5.8.9 節）。`sign` の場合：`--force` なしでの連署の拒否（ブロックの後に未署名の内容がある、または既存の署名が形式不正）、および本文がコードフェンスの途中で終わる文書への署名の拒否。 |
 | 2 | 使い方の誤り：未知のフラグ、引数の欠落、無効なフィールド値。 |
-| 3 | ネットワークまたは公開鍵の解決のエラー、および `--offline` により検査されなかった署名がある場合（終了コード 1 となる失敗がない場合）。`sign` の場合：TSA リクエストの失敗（ファイルは変更されない）。 |
+| 3 | ネットワークまたは公開鍵の解決のエラー、`--offline` により検査されなかった署名がある場合、および合意ステータスが `undetermined` の場合（いずれも終了コード 1 となる失敗がない場合）。`sign` と `timestamp` の場合：TSA リクエストの失敗（ファイルは変更されない）。 |
 | 4 | ファイル I/O またはパーミッションのエラー。鍵ファイルが存在しない・読み取れない場合、および `keygen` が上書きを拒否した場合を含む。 |
-| 5 | `verify` の場合：すべての署名は有効だが、`require` によって要求された連署が欠けている（合意ステータス `pending`、SPEC 5.8 節）。 |
+| 5 | `verify` の場合：すべての署名は有効だが、`require` によって要求された連署が欠けている（合意ステータス `pending`、SPEC 5.8.9 節）。 |
+| 130 | 対話型の入力（ランチャーなど）を利用者が中断した。 |
 
 複数のファイルを検証した場合、終了コードは全ファイルのうち最も重大なものとし、重大度の順序は 1 > 4 > 3 > 5 > 0 とする。
 
@@ -320,9 +414,25 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
       "warnings": [],
       "agreement": {
         "status": "pending",
-        "required": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1 }],
-        "missing": [{ "method": "dns", "signer": "example.com", "role": "approver", "declared_by": 1, "step": 1, "any": 1, "need": 1 }],
-        "violations": []
+        "required": [
+          { "declared_by": 1, "step": 1, "any": null, "line": 2, "method": "dns", "signer": "example.com", "pattern": false,
+            "attributes": { "role": "approver" } },
+          { "declared_by": 1, "step": 2, "any": 2, "line": 4, "method": "git-hosting", "signer": "github.com/bob", "pattern": false,
+            "attributes": { "role": "reviewer" } }
+        ],
+        "missing": [
+          { "declared_by": 1, "step": 2, "any": 2, "line": 4, "method": "git-hosting", "signer": "github.com/bob", "pattern": false,
+            "attributes": { "role": "reviewer" }, "need": 2,
+            "rejected": [{ "index": 2, "reason": "early" }] }
+        ],
+        "next": [
+          { "declared_by": 1, "step": 2, "need": 2,
+            "candidates": [{ "declared_by": 1, "step": 2, "any": 2, "line": 4, "method": "git-hosting", "signer": "github.com/bob", "pattern": false, "attributes": { "role": "reviewer" } }],
+            "later": [{ "step": 3, "need": 1, "lines": [] }] }
+        ],
+        "violations": [],
+        "satisfied": [{ "declared_by": 1, "step": 1, "line": 2, "index": 2 }],
+        "declarations": [{ "declared_by": 1, "order": "pending", "status": "pending", "detail": null }]
       },
       "signatures": [
         {
@@ -331,7 +441,8 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
           "status": "valid",
           "code": null,
           "message": null,
-          "fields": { "v": "0.0.4", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "fields": { "v": "0.1", "method": "git-hosting", "signer": "github.com/alice", "...": "..." },
+          "display_name": "Alice Example",
           "hash_ok": true,
           "partial": { "sections": ["terms", "fees"] },
           "key_source": "https://github.com/alice.keys (SHA256:...)",
@@ -339,11 +450,12 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
           "webauthn": null,
           "pgp": null,
           "resources": [
-            { "ref": "./diagram.png", "status": "ok", "detail": null },
+            { "ref": "diagram.png", "status": "ok", "detail": null },
             { "ref": "https://example.com/chart.png", "status": "not-checked", "detail": "remote resources are fetched only on request" }
           ],
           "revocation": { "status": "not-revoked", "detail": null },
-          "tsa": { "status": "ok", "verified": true, "signer": "SSL.com Timestamping Unit 2026 E1", "gen_time": "2026-11-16T09:46:02Z", "detail": "imprint matched; TSA signature verified (SSL.com Timestamping Unit 2026 E1)" },
+          "tsa": { "status": "ok", "verified": true, "signer": "SSL.com Timestamping Unit 2026 E1", "gen_time": "2026-11-16T09:46:02Z",
+                   "detail": "covered by tsa block #3", "time": "2026-11-16T09:46:03Z", "block": 3 },
           "warnings": []
         }
       ]
@@ -352,16 +464,20 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 }
 ```
 
-ファイルの `ok` は、そのファイル単独で終了コード 0 または 5 となる場合に限り `true` となる。合意ステータスが `violated` のファイルは `false` となる。
-両者は `agreement.status` によって区別する。`--offline` 指定時、検査されなかったブロックは
+ファイルの `ok` は、そのファイル単独で終了コード 0 または 5 となる場合に限り `true` となる。合意ステータスが
+`violated`、`unsupported`、`undetermined` のファイルは `false` となる。`--offline` 指定時、検査されなかったブロックは
 `status: "unresolved"` および `code: "offline"` を持ち、`ok` は false となる。
 
-- `partial`、`tofu`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`tofu` は `{ "status", "fingerprint" }` であり、`tofu` のブロックを鍵の記録（3.9 節）と照合した場合に値を持つ。`status` は `known`（記録と一致）、`new`（初めて検出した鍵）、`replaced`（`--accept-new-key` により記録を置き換えた）のいずれか、`fingerprint` は 3.9 節の鍵のフィンガープリントである。`webauthn` は `{ "rp_id", "origin", "user_verified" }` である。`pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
-- `agreement.status` は `none`、`complete`、`pending`、`violated` のいずれか。要件に役割がない場合、`role` は省略する。
-- `required` と `missing` の各要素は、段階の番号 `step` と、その段階で必要な人数 `any` を持つ。段階行のない `require` では `step` は 1、`any` は要件行の件数となる。`missing` の各要素はさらに、その段階であと何件必要かを示す `need` を持ち、前の段階が成立していないため待機中の場合は `blocked_by`（その段階の番号）を、順番より前に署名したため数えられなかった場合は `early: true` を持つ。
-- `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "index", "method", "signer", "role", "order" }` である。`index` は違反したブロックの番号、`order` は宣言の順序行の値（`guide` または `strict`）である。`order guide` の違反も一覧に含むが、合意ステータスには影響しない。
+**署名ごとの値。**
+
+- `partial`、`tofu`、`webauthn`、`pgp`、`resources`、`revocation`、`tsa` は、該当しない場合は `null` となる。`display_name` は、ブロックが `display_name` を持たない場合は `null` となる。値は署名者の申告であり、表示する際は SPEC 3.3 節に従う。
+- `tofu` は `{ "status", "fingerprint" }` であり、`tofu` のブロックを鍵の記録（3.9 節）と照合した場合に値を持つ。`status` は `known`（記録と一致）、`new`（初めて検出した鍵）、`replaced`（`--accept-new-key` により記録を置き換えた）のいずれか、`fingerprint` は 3.9 節の鍵のフィンガープリントである。
+- `webauthn` は `{ "rp_id", "origin", "user_verified", "backup_eligible", "backed_up" }` である。後の 3 つは `authenticatorData` のフラグ UV、BE、BS（SPEC 6.1 節）の真偽値である。
+- `pgp` は `{ "fpr", "uid", "key_alg", "key_source", "created" }` であり、`key_alg` は `rsa2048`、`ecdsa-p256`、`ed25519` などの文字列、`key_source` は `keyring`、`wkd`、`keyserver` のいずれか、`created` は署名パケットの作成時刻（RFC 3339）である。
 - リソースの `status` は `ok`、`mismatch`、`missing`、`unreachable`、`not-checked` のいずれか。撤回の `status` は `not-revoked`、`revoked`、`not-checked` のいずれか。
-- `tsa` は `{ "status", "verified", "signer", "gen_time", "detail" }` である。`status` は `ok`、`mismatch`、`error` のいずれか。CLI は、トークンの CMS 署名と TSA 証明書チェーンを、システムのトラストストアおよび `--tsa-root` で指定したルート証明書に照らして検証する。`verified` は検証に成功した場合に限り `true` となり、`gen_time` と `signer`（TSA 証明書の名前）はその場合にのみ値を持つ。検証できないトークンは `status: "error"` となり、警告として表示する。
+- `tsa` は `{ "status", "verified", "signer", "gen_time", "detail", "time", "block" }` である。`time` はそのブロックの時刻 `T(k)`（SPEC 4.6 節）、`block` はそれを与えた `tsa` ブロックの番号であり、`T(k)` が定まらない場合はともに `null` となる。
+  - 署名ブロックでは、`tsa` は `T(k)` が定まる場合に限り値を持ち、`signer`（TSA 証明書の名前）と `gen_time` は `block` が示す `tsa` ブロックのトークンの値である。
+  - `method` が `tsa` のブロックでは、`status`、`verified`、`signer`、`gen_time`、`detail` はそのブロック自身のトークンの検査結果である。`status` は `ok`、`mismatch`、`error` のいずれか。CLI は、トークンの CMS 署名と TSA 証明書チェーンを、システムのトラストストアおよび `--tsa-root` で指定したルート証明書に照らして検証する。`verified` は検証に成功した場合に限り `true` となり、`gen_time` と `signer` はその場合にのみ値を持つ。
 
 `status` は `valid`、`invalid`、`malformed`、`unresolved`、`unsupported` のいずれか。
 `code` は `malformed`、`unknown-field`、`hash-mismatch`、
@@ -370,6 +486,17 @@ TSA の応答は 3.1 節の `--tsa` と同じ手順で検証する。要求ま�
 `unsupported-hash`、`unsupported-method`、`network`、`not-found`、`offline`、
 または `null` のいずれか。
 
+**合意。**
+
+- `agreement.status` は `none`、`complete`、`pending`、`undetermined`、`violated`、`unsupported` のいずれか（SPEC 5.8.9 節）。
+- `required` は、すべての宣言のすべての要件行である。各要素は、宣言したブロックの番号 `declared_by`、段階の番号 `step`、その段階の `any` の値（`any` のない段階では `null`）、`require` の値の中での行番号 `line`（1 から数え、順序行と段階行も数える）、対象の `method` と `signer`（パターンの行では `*.example.com` などのパターン）、パターンの行かどうかを示す `pattern`、および属性 `attributes` を持つ。
+- `attributes` は、属性の名前をキーとするオブジェクトである。値を取る属性は文字列、値を取らない属性（`user_verified`）は `true` とする。将来の属性も同じオブジェクトに入るため、JSON の形は変わらない。
+- `satisfied` は、報告する割り当て（SPEC 5.8.5 節）の一覧であり、各要素は `{ "declared_by", "step", "line", "index" }` である。`index` は、その要件行に割り当てられたブロックの番号である。
+- `missing` は、成立していない段階の、割り当てのない要件行である。`required` の要素のキーに加えて、その段階であと何者必要かを示す `need` と、数えられなかったブロックの一覧 `rejected` を持ち、前の段階が成立していないため待機中の場合はその段階の番号 `blocked_by` を持つ。`rejected` の各要素は `{ "index", "reason" }` であり、`reason` は SPEC 5.8.9 節の語彙（`early`、`blocked`、`not-member`、`roster-unavailable`、`not-user-verified`、`key-mismatch`、`self`、`scoped`、`not-valid`）である。この語彙は署名の `code` とは別のものである。
+- `next` は、成立していない宣言ごとに 1 つの要素を持つ。各要素は、成立していない最初の段階の番号 `step`、あと何者必要か `need`、候補の要件行 `candidates`（`required` の要素）、および後に続く段階の概要 `later`（`{ "step", "need", "lines" }` の一覧）を持つ。
+- `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "line", "index", "method", "signer", "order" }` である。`index` は違反したブロックの番号、`line` は割り当てられた要件行、`order` は宣言の順序行の値（`guide` または `strict`）である。`order mode=guide` の違反も一覧に含むが、合意ステータスには影響しない。
+- `declarations` は宣言ごとの状態であり、各要素は `{ "declared_by", "order", "status", "detail" }` である。`status` は `agreement.status` と同じ語彙（`none` を除く）である。`detail` は、`unsupported` の場合は理解できなかった方式または属性を、`undetermined` の場合はその原因（オフライン、通信の失敗、名簿を取得できない、SPEC 5.8.10 節の上限）を示し、それ以外は `null` となる。
+
 ## 6. 対話型ランチャー
 
 TTY 上で引数なしで `mdsig` を実行すると、インラインの矢印キーメニューが起動する
@@ -377,7 +504,7 @@ TTY 上で引数なしで `mdsig` を実行すると、インラインの矢印�
 JavaScript では `@clack/prompts` を使用する。
 
 1. 操作を選択する：sign / verify / inspect / keygen。
-2. **sign：** カレントディレクトリツリー内の `.md` ファイル（深さ 3 まで、`node_modules` およびドットディレクトリを除く）からファイルを選択するか、パスを入力する。すでに署名を持つファイルには `(N existing signatures → will co-sign)` と表示する。続いて、方式、署名者、役割（プリセット、自由記述、またはスキップ）、理由（任意）、TSA の有無を指定する。
+2. **sign：** カレントディレクトリツリー内の `.md` ファイル（深さ 3 まで、`node_modules` およびドットディレクトリを除く）からファイルを選択するか、パスを入力する。すでに署名を持つファイルには `(N existing signatures → will co-sign)` と表示する。続いて、方式、署名者、表示名（任意）、役割（プリセット、`[a-z0-9][a-z0-9._-]*` の自由記述、またはスキップ）、理由（任意）、`tsa` ブロックの追記の有無を指定する。署名者と役割は入力の時点で SPEC 3.3 節と 3.4 節の規則で検査し、誤りがあれば再入力を求める。文書に満たされていない `require` がある場合は、`next` の候補を表示する。
 3. **verify / inspect：** ファイルを選択し、結果を表示する。
 4. **keygen：** 出力プレフィックスと、任意でドメイン／セレクタの入力を求める。
 5. 最後に、同じ操作を行う 1 行のコマンドを表示し、利用者がフラグを覚えられるようにする。
@@ -389,7 +516,7 @@ JavaScript では `@clack/prompts` を使用する。
    ```
    $ mdsig
 
-     md-signature v0.0.5：対話モード
+     md-signature v0.1.0：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）
@@ -411,6 +538,9 @@ JavaScript では `@clack/prompts` を使用する。
    ? 署名者 ID（signer）を入力してください：
      > github.com/alice
 
+   ? 表示名（display_name）を入力してください（任意、Enter でスキップ）：
+     > Alice Example
+
    ? 役割（role）を選択してください：
      ❯ author   （作成者）
        reviewer （確認者）
@@ -422,14 +552,14 @@ JavaScript では `@clack/prompts` を使用する。
    ? 署名理由（reason）を入力してください（任意、Enter でスキップ）：
      > 初版確定
 
-   ? RFC 3161 タイムスタンプ（TSA）を付与しますか？
+   ? 署名の後に RFC 3161 タイムスタンプ（tsa ブロック）を追記しますか？
      ❯ いいえ（軽量な通常署名）
        はい  （既定の無料 TSA：http://ts.ssl.com を使用）
 
    ✓ 署名を追記しました：docs/contract.md
 
    次回から同じ設定で素早く実行するには：
-     $ mdsig sign docs/contract.md -m git-hosting -s github.com/alice -r author --reason "初版確定"
+     $ mdsig sign docs/contract.md -m git-hosting -s github.com/alice --display-name "Alice Example" -r author --reason "初版確定"
    ```
 
 英語 UI も同じ構成とする（例："Choose a verification method (method):"、"Next time, run the same thing in one line:"）。
@@ -471,7 +601,8 @@ UI 言語は次の順序で決定する：
 | `state` | ツールが生成した 128 ビット以上の乱数を base64url で表したもの。応答にそのまま含まれる。 |
 | `payload` | `op=sign` の場合のみ。署名対象ペイロード（SPEC 5.3 節）の base64url。 |
 | `credential` | `op=sign` の場合に任意。使用するパスキーの credential ID（base64url）。 |
-| `name` | 任意。文書の表示名。 |
+| `name` | 任意。文書の表示名。ブロックの `display_name`（署名者の表示名、SPEC 3.3 節）とは別のものである。 |
+| `user_verification` | `op=sign` の場合に任意。`required` を指定すると、署名ページは利用者確認（UV）を伴うアサーションを求める。ツールは、署名する文書に満たされていない `user_verified` の要件行（SPEC 5.8.7 節）がある場合、これを指定すべきである（SHOULD）。 |
 
 ツールは、文書の本文を送信してはならない（MUST NOT）。署名ページが受け取るのは、署名対象ペイロード（フィールドとハッシュ）のみである。
 
@@ -484,9 +615,9 @@ UI 言語は次の順序で決定する：
 1. `payload` が `md-signature/v1` の行で始まり、SPEC 5.3 節の形式として解析できる。
 2. `alg` が `webauthn-es256` であり、`rp_id` が署名ページの RP ID と一致する。
 3. `pubkey` を含む場合、それが使用するパスキーの公開鍵と一致する。
-4. 署名の前に、ペイロードのフィールド（少なくとも `method`、`signer`、`role`、`reason`、`expires`、`scope`、`require`、`hash`）、`name`（ツールの申告であることを示して）、`return` の送信先を表示し、利用者の明示的な操作を得る。
+4. 署名の前に、ペイロードのフィールド（少なくとも `method`、`signer`、`display_name`、`role`、`reason`、`expires`、`scope`、`require`、`hash`）、`name`（ツールの申告であることを示して）、`return` の送信先を表示し、利用者の明示的な操作を得る。
 
-署名ページは、チャレンジを SHA-256(payload) としてアサーションを取得し（SPEC 6.1 節）、8.4 節の応答を返す。署名ページは、ペイロードや署名を自身のサーバに送信すべきではない（SHOULD NOT）。
+署名ページは、チャレンジを SHA-256(payload) としてアサーションを取得し（SPEC 6.1 節）、8.4 節の応答を返す。`user_verification=required` の要求では、`userVerification` に `"required"` を指定してアサーションを取得し、得られた `authenticatorData` の UV フラグ（ビット 2）が立っていない場合は、完了を拒否して `error=unsupported` を返さなければならない（MUST）。署名ページは、ペイロードや署名を自身のサーバに送信すべきではない（SHOULD NOT）。
 
 ### 8.4 応答
 
@@ -506,4 +637,5 @@ UI 言語は次の順序で決定する：
 - ツールは、未完了の要求の `state` に一致する応答に限り受け付けなければならず（MUST）、各 `state` を 1 回だけ使用しなければならない（MUST）。一致しない応答は無視する。
 - `op=key` の応答では、`rp_id` が署名ページのホスト名と一致するか、その上位のドメインであることを確認する。
 - `op=sign` の応答では、要求したペイロードと `op=key` で得た公開鍵に対して、SPEC 6.1 節の手順で署名を検証しなければならず（MUST）、成立した場合に限りブロックを追記しなければならない（MUST）。
+- `user_verification=required` を指定した要求への応答で、`authenticatorData` の UV フラグが立っていない場合、ツールはブロックを追記してはならない（MUST NOT）。
 - 要求から応答までの間に文書が変更された場合、ツールは応答を破棄しなければならない（MUST）。

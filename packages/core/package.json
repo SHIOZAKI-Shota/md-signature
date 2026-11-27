@@ -1,6 +1,6 @@
 {
   "name": "@mdsig/core",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "description": "Embedded, append-only signatures for Markdown documents. Zero dependencies, Web-standard APIs only.",
   "license": "MIT",
   "type": "module",

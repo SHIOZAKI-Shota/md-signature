@@ -6,7 +6,7 @@ Markdown 文書に埋め込む署名形式 [md-signature](../../README.ja.md) �
 
 - ブラウザ、Node.js 22 以降、Deno、Bun、Cloudflare Workers で動作します。`node:*` のモジュールは使用していません。
 - `npm install @mdsig/core` で導入できます。バージョンは `mdsig` CLI のリリースと共通です。
-- ドラフト版です。署名は形式 `0.0.4` で作成し、`0.0.1`、`0.0.2`、`0.0.4` を検証します。API は 1.0 までに変更する可能性があります。
+- ドラフト版です。形式 `0.1` で署名し、`0.1` だけを検証します（`0.0.x` の文書は `unsupported-version`。0.0.5 で検証してください）。API は 1.0 までに変更する可能性があります。
 
 ## 検証
 
@@ -15,10 +15,10 @@ import { verifyDocument } from "@mdsig/core";
 
 const result = await verifyDocument(text);
 
-result.ok;          // 文書全体のエラーがなく、すべてのブロックが valid で、合意が violated でないとき true
+result.ok;          // 文書全体のエラーがなく、すべてのブロックが valid で、合意が violated、undetermined、unsupported のいずれでもないとき true
 result.error;       // 文書全体の問題（署名なし、最後の署名の後に未署名の内容がある、など）
 result.signatures;  // ブロックごとの結果
-result.agreement;   // require による連署の状況（none / complete / pending / violated）
+result.agreement;   // require による連署の状況（none / complete / pending / violated / undetermined / unsupported）
 ```
 
 ブロックごとの結果は次のとおりです。
@@ -29,7 +29,8 @@ result.agreement;   // require による連署の状況（none / complete / pend
 | `code` | 失敗の理由。`hash-mismatch`、`bad-signature`、`expired`、`revoked`、`key-changed`、`network`、`not-found` など |
 | `message` | 英語の説明 |
 | `fields` | ブロックに書かれた値（`signer`、`method`、`role`、`ts` など） |
-| `tsa` | タイムスタンプの検査結果。`verified` が `true` のときだけ `genTime` を持つ |
+| `tsa` | `tsa` ブロックのみ。トークンの検査結果で、`verified` が `true` のときだけ `genTime` を持つ |
+| `time` | ブロックの時刻 `T(k)`：後続の有効な `tsa` ブロックの `genTime` に誤差を加えた値の最小値（形式仕様 4.6 節）。定まらない場合はない |
 | `revocation`、`resources`、`partial`、`pgp`、`webauthn` | 該当する場合のみ |
 | `warnings` | 有効ではあるが利用者に伝えるべき事項 |
 
@@ -42,7 +43,7 @@ result.agreement;   // require による連署の状況（none / complete / pend
 | オプション | 内容 |
 | --- | --- |
 | `fetch` | 外部への取得に使用する関数。中継サーバを経由させる場合や、テストで差し替える場合に指定する |
-| `offline` | ネットワークを使用しない。`tofu` のブロックは通常どおり検査し、`tsa` ブロックと `tsa_token` の検査もネットワークを必要としない。`pubkey` を埋め込んだ `dns`・`git-hosting` のブロックは、署名が一致しなければ `invalid` になる。それ以外のブロックは `unresolved`（code `offline`）になる |
+| `offline` | ネットワークを使用しない。`tofu` のブロックは通常どおり検査し、`tsa` ブロックの検査もネットワークを必要としない。`pubkey` を埋め込んだ `dns`・`git-hosting` のブロックは、署名が一致しなければ `invalid` になる。それ以外のブロックは `unresolved`（code `offline`）になる |
 | `resolvers` | 方式（`dns`、`git-hosting`、`tofu`、`pgp`）ごとの鍵の取得処理を差し替える |
 | `tofuStore` | `tofu` の署名者と鍵の対応を記録する場所。記録済みの鍵と異なる場合は `key-changed` で無効になる |
 | `acceptNewTofuKey` | 変更された `tofu` の鍵を受け入れ、記録を更新する |
@@ -56,7 +57,7 @@ result.agreement;   // require による連署の状況（none / complete / pend
 
 ## タイムスタンプ（TSA）の信頼設定
 
-`tsa_token` は、TSA の署名と証明書チェーンが信頼するルート証明書まで検証できた場合に限り、時刻（`genTime`）を報告します。検証できないトークンは `status: "error"` と警告になり、時刻は報告しません。署名自体の有効、無効には影響しません。
+`tsa` ブロックは、TSA の署名と証明書チェーンが信頼するルート証明書まで検証できた場合に限り有効となり、時刻（`genTime`）を報告します。検証できない場合は `unresolved` となり、時刻は報告しません。前にある署名ブロックの有効、無効には影響しません（その `time` が定まらなくなるだけです）。
 
 ブラウザには読み取れるトラストストアがないため、公開 TSA のルート証明書を同梱しています（`DEFAULT_TSA_ROOTS`）。
 
@@ -73,7 +74,7 @@ await verifyDocument(text, { tsaRoots: [pemText] });
 const roots = await readTsaRoots(pemText);
 ```
 
-値は DER（`Uint8Array`）または PEM の文字列です。PEM は複数の証明書を含められます。`signDocument` も同じオプションを持ち、`tsaUrl` で取得した応答の検証に使用します。
+値は DER（`Uint8Array`）または PEM の文字列です。PEM は複数の証明書を含められます。`signDocument` も同じオプションを持ち、`tsaUrl` で追記する `tsa` ブロックの検証に使用します。
 
 同梱の一覧は、Microsoft のルートプログラム（CCADB）でタイムスタンプ用途として信頼されているものから選択しています。証明書の失効確認（CRL、OCSP）は行いません。
 
@@ -89,23 +90,24 @@ const { text } = await signDocument(markdown, {
   signer,
   method: "tofu",           // dns / git-hosting / tofu / pgp
   signerId: "bob@laptop",
+  displayName: "Bob",       // 署名欄に示す表示名（申告）
   role: "reviewer",
   reason: "内容を確認",
 });
 ```
 
-`require` には1行ずつ文字列を渡します。段階と人数、順序の扱いも行で指定します（形式仕様 5.8 節）。
+`require` には1行ずつ文字列を渡します。段階（`step`、`step any=2`）と順序の扱い（`order mode=…`）も行で指定し、段階の下の行は字下げして書き込まれます（形式仕様 5.8 節）。
 
 ```ts
 await signDocument(markdown, {
   signer, method: "git-hosting", signerId: "github.com/alice",
-  require: ["order strict", "step 1", "dns:example.com approver", "step 2 any 2", "git-hosting:github.com/bob", "git-hosting:github.com/carol", "git-hosting:github.com/dave"],
+  require: ["order mode=strict", "step", "dns:example.com role=approver", "step any=2", "git-hosting:github.com/bob role=reviewer", "git-hosting:github.com/carol role=reviewer", "git-hosting:github.com/dave role=reviewer"],
 });
 ```
 
-検証結果の `agreement.missing` は段階ごとの不足（`step`、`need`、`blockedBy`、`early`）を、`agreement.violations` は順序違反を示します。`order strict` の違反があると `agreement.status` は `violated` となり、`result.ok` は `false` になります。
+検証結果の `agreement.missing` は満たされていない行（`step`、`need`、`blockedBy`、数えなかったブロックとその理由 `rejected`）を、`agreement.next` は次に必要な署名を、`agreement.violations` は順序違反を示します。`order mode=strict` の違反があると `agreement.status` は `violated` となり、`result.ok` は `false` になります。名簿（`member_of`）を参照できずに判定できない場合は `undetermined` です。署名する前に `explainRequire(value, "ja")` で値の意味を確認できます。
 
-すでに署名がある文書に対して呼び出すと、連署として末尾に追記します。主なオプションは `selector`（`dns`）、`expires`、`scope`、`require`、`resources`、`revocationUrl`、`tsaUrl`、`embedKey`（`dns` と `git-hosting` で公開鍵を埋め込む）です。意味は[形式仕様](../../SPEC.ja.md)の5章を参照してください。
+すでに署名がある文書に対して呼び出すと、連署として末尾に追記します。主なオプションは `selector`（`dns`）、`displayName`、`expires`、`scope`、`require`、`resources`、`revocationUrl`、`tsaUrl`（署名ブロックの後に `tsa` ブロックを追記する）、`embedKey`（`dns`、`git-hosting`、`directory` で公開鍵を埋め込む）です。意味は[形式仕様](../../SPEC.ja.md)の5章を参照してください。
 
 OpenSSH の秘密鍵は `parseOpenSshPrivateKey`、OpenPGP の秘密鍵は `readPgpSecretKey` と `unlockPgpSecretKey`、パスキーは `registerPasskey` と `passkeySigner` で署名者を作成します。
 

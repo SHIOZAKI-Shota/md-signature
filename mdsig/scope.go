@@ -16,7 +16,6 @@ var (
 	sectionBeginRe  = regexp.MustCompile(`^<!-- mdsig:section ([a-z0-9-]+) -->[ \t]*$`)
 	sectionEndRe    = regexp.MustCompile(`^<!-- /mdsig:section -->[ \t]*$`)
 	sectionLookLike = regexp.MustCompile(`^<!-- /?mdsig:section`)
-	scopeRe         = regexp.MustCompile(`^section:[a-z0-9-]+(,section:[a-z0-9-]+)*$`)
 	sectionIDRe     = regexp.MustCompile(`^[a-z0-9-]+$`)
 )
 
@@ -73,32 +72,28 @@ func FindSections(text string) (map[string]Section, []string) {
 	return sections, errs
 }
 
+// SPEC 5.6: one section id per line, leading spaces ignored, ids unique
 func ParseScope(value string) ([]string, bool) {
-	if !scopeRe.MatchString(value) {
-		return nil, false
-	}
-	parts := strings.Split(value, ",")
-	ids := make([]string, len(parts))
+	var ids []string
 	seen := map[string]bool{}
-	for i, p := range parts {
-		ids[i] = strings.TrimPrefix(p, "section:")
-		if seen[ids[i]] {
+	for _, raw := range strings.Split(value, "\n") {
+		l, _ := parseListLine(raw, nil)
+		if l == nil || len(l.attrs) > 0 || !sectionIDRe.MatchString(l.target) || seen[l.target] {
 			return nil, false
 		}
-		seen[ids[i]] = true
+		seen[l.target] = true
+		ids = append(ids, l.target)
 	}
 	return ids, true
 }
 
 func FormatScope(ids []string) (string, bool) {
-	parts := make([]string, len(ids))
-	for i, id := range ids {
+	for _, id := range ids {
 		if !sectionIDRe.MatchString(id) {
 			return "", false
 		}
-		parts[i] = "section:" + id
 	}
-	return strings.Join(parts, ","), true
+	return strings.Join(ids, "\n"), true
 }
 
 type ScopeError struct {
@@ -110,7 +105,7 @@ func (e *ScopeError) Error() string { return e.Msg }
 func scopedHashInput(slice, scope string) (string, []string, *ScopeError) {
 	ids, ok := ParseScope(scope)
 	if !ok {
-		return "", nil, &ScopeError{Code: "malformed", Msg: fmt.Sprintf("invalid scope %s (expected section:<id>[,section:<id>...] with unique ids)", jsonString(scope))}
+		return "", nil, &ScopeError{Code: "malformed", Msg: fmt.Sprintf("invalid scope %s (expected one section id per line, each id unique)", jsonString(scope))}
 	}
 	sections, errs := FindSections(slice)
 	if len(errs) > 0 {

@@ -115,8 +115,8 @@ func TestRequestRules(t *testing.T) {
 		{"not JSON", "POST", "/v1/verify", "application/json", "", "document=x", 400},
 		{"no document", "POST", "/v1/verify", "application/json", "", `{"doc":"x"}`, 400},
 		{"too large", "POST", "/v1/verify", "application/json", "", verifyBody(strings.Repeat("a", 4096)), 413},
-		{"tsa without fields", "POST", "/v1/tsa", "application/json", "", `{"tsa_token":"base64:AA=="}`, 400},
-		{"tsa bad sig", "POST", "/v1/tsa", "application/json", "", `{"tsa_token":"base64:AA==","sig":"***"}`, 400},
+		{"tsa without fields", "POST", "/v1/tsa", "application/json", "", `{"token":"base64:AA=="}`, 400},
+		{"tsa bad sig", "POST", "/v1/tsa", "application/json", "", `{"token":"base64:AA==","sig":"***"}`, 400},
 	}
 	for _, c := range cases {
 		rec := call(t, h, c.method, c.path, c.ct, c.origin, c.body)
@@ -175,11 +175,8 @@ func TestTSAEndpoint(t *testing.T) {
 	var token string
 	var sig []byte
 	for _, b := range mdsig.ParseDocument(string(text)).Chain {
-		if tok := b.Fields["tsa_token"]; tok != "" {
-			token = tok
-			if sig, err = mdsig.DecodePrefixedBinary(mdsig.UnfoldBinary(b.Fields["sig"])); err != nil {
-				t.Fatal(err)
-			}
+		if b.Fields["method"] == "tsa" {
+			token, sig = mdsig.UnfoldBinary(b.Fields["sig"]), mdsig.SignedPayload(b.Fields)
 		}
 	}
 	if token == "" {
@@ -192,7 +189,7 @@ func TestTSAEndpoint(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(pem)
 	post := func(h http.Handler, sig []byte) mdsig.JSONTSA {
-		body, _ := json.Marshal(map[string]string{"tsa_token": token, "sig": base64.StdEncoding.EncodeToString(sig)})
+		body, _ := json.Marshal(map[string]string{"token": token, "sig": base64.StdEncoding.EncodeToString(sig)})
 		rec := call(t, h, "POST", "/v1/tsa", "application/json", "", string(body))
 		var out mdsig.JSONTSA
 		if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &out) != nil {
@@ -207,7 +204,15 @@ func TestTSAEndpoint(t *testing.T) {
 	if none := post(NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: x509.NewCertPool()}}), sig); none.Verified || none.GenTime != nil {
 		t.Errorf("no roots: %+v", none)
 	}
-	if other := post(NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: roots}}), []byte("another signature")); other.Status != mdsig.TSAMismatch {
-		t.Errorf("another signature: %+v", other)
+	if other := post(NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: roots}}), []byte("another payload")); other.Status != mdsig.TSAMismatch {
+		t.Errorf("another payload: %+v", other)
+	}
+	body, _ := json.Marshal(map[string]string{"token": token, "sig": base64.StdEncoding.EncodeToString(sig), "hash": "sha512"})
+	if rec := call(t, NewHandler(Options{TSA: mdsig.TSAVerifyOptions{Roots: roots}}), "POST", "/v1/tsa", "application/json", "", string(body)); !strings.Contains(rec.Body.String(), `"verified":false`) {
+		t.Errorf("sha512 imprint: %s", rec.Body.String())
+	}
+	body, _ = json.Marshal(map[string]string{"token": token, "sig": base64.StdEncoding.EncodeToString(sig), "hash": "md5"})
+	if rec := call(t, NewHandler(Options{}), "POST", "/v1/tsa", "application/json", "", string(body)); rec.Code != 400 {
+		t.Errorf("md5: %d", rec.Code)
 	}
 }

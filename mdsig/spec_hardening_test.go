@@ -122,13 +122,13 @@ func TestTSATokenBounds(t *testing.T) {
 }
 
 func TestGitHostingSignerHost(t *testing.T) {
-	for _, s := range []string{"127.0.0.1/a", "localhost/a", "2130706433/a", "[::1]/a", "github.com./a", "-x.com/a"} {
-		if isValidGitHostingSigner(s) {
+	for _, s := range []string{"127.0.0.1/a", "localhost/a", "2130706433/a", "[::1]/a", "github.com./a", "-x.com/a", "GitLab.com/x", "github.com/Alice"} {
+		if isGitHostingID(s) {
 			t.Errorf("%q accepted", s)
 		}
 	}
-	for _, s := range []string{"github.com/alice", "git.example.co.jp/bob_1", "GitLab.com/x"} {
-		if !isValidGitHostingSigner(s) {
+	for _, s := range []string{"github.com/alice", "git.example.co.jp/bob_1"} {
+		if !isGitHostingID(s) {
 			t.Errorf("%q rejected", s)
 		}
 	}

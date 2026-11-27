@@ -53,7 +53,7 @@ func ParsePrivateKey(data []byte, passphrase func() ([]byte, error)) (mdsig.KeyS
 	case *ed25519.PrivateKey:
 		return mdsig.KeySigner{Key: *k}, nil
 	default:
-		return mdsig.KeySigner{}, fmt.Errorf("unsupported key type %T: md-signature 0.0.1 needs an Ed25519 key", raw)
+		return mdsig.KeySigner{}, fmt.Errorf("unsupported key type %T: md-signature needs an Ed25519 key", raw)
 	}
 }
 

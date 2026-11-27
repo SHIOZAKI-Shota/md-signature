@@ -1,4 +1,5 @@
 import { fromBase64 } from "./encoding.ts";
+import { isGitHostingId } from "./identity.ts";
 import { rawEd25519PublicKey, sshFingerprint, parseSshPublicKeys } from "./crypto.ts";
 import { es256Spki } from "./webauthn.ts";
 import { describeAttempts, lookupPgpKey } from "./pgp-verify.ts";
@@ -77,7 +78,7 @@ export function parseDnsRecord(txt: string): { k: string; p: string } | null {
 }
 
 export function dnsName(fields: Record<string, string>): string {
-  const domain = fields.signer!.toLowerCase().replace(/\.$/, "");
+  const domain = fields.signer!;
   return fields.selector ? `${fields.selector}._mdsig.${domain}` : `_mdsig.${domain}`;
 }
 
@@ -106,7 +107,7 @@ export function joinTxt(data: string): string {
   return parts.map((p) => p.slice(1, -1).replace(/\\(.)/g, "$1")).join("");
 }
 
-const alg = (f: Record<string, string>) => f.alg ?? "ed25519";
+const alg = (f: Record<string, string>) => f.alg ?? "";
 const keyType = (f: Record<string, string>) => keyTypeFor(alg(f)) ?? alg(f);
 
 export const resolveDns: Resolver = async (fields, opts) => {
@@ -129,8 +130,8 @@ export const resolveDns: Resolver = async (fields, opts) => {
   };
 };
 
-// SPEC 4.2: the host is a domain name of two or more labels, never an IP address
-export const GIT_HOSTING_SIGNER_RE = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?\/[A-Za-z0-9._-]+$/i;
+// SPEC 4.2, 3.4: lower-case domain host and user name; isGitHostingId adds the length and all-digit checks
+export const GIT_HOSTING_SIGNER_RE = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9][a-z0-9._-]*$/;
 
 export function keysUrl(signer: string): string {
   return `https://${signer}.keys`;
@@ -139,7 +140,7 @@ export function keysUrl(signer: string): string {
 export const resolveGitHosting: Resolver = async (fields, opts) => {
   if (opts.offline) throw new ResolutionError("offline mode", "offline");
   const signer = fields.signer!;
-  if (!GIT_HOSTING_SIGNER_RE.test(signer)) throw new ResolutionError(`invalid git-hosting signer "${signer}"`, "malformed");
+  if (!isGitHostingId(signer)) throw new ResolutionError(`invalid git-hosting signer "${signer}"`, "malformed");
   const f = opts.fetch ?? globalThis.fetch;
   const url = keysUrl(signer);
   let text: string;

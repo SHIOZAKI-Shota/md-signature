@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 )
 
 type ParsedBlock struct {
@@ -24,18 +23,17 @@ type ParsedDocument struct {
 	Chain           []*ParsedBlock
 	StrayMarker     bool
 	StrayMarkerLine int
+	// SPEC 5.5: the body ends inside an open code fence, so a renderer shows every block as code
+	UnclosedFence bool
 }
 
-var requiredKeys = []string{"v", "method", "signer", "ts", "hash", "sig"}
+var requiredKeys = []string{"v", "method", "signer", "ts", "alg", "hash", "sig"}
 
 func isBlank(l string) bool { return strings.Trim(l, " \t") == "" }
 func isOpen(l string) bool  { return strings.TrimRight(l, " \t") == openLine }
 func isClose(l string) bool { return strings.TrimRight(l, " \t") == closeLine }
 
-func noLineTerminator(s string) bool {
-	return !strings.ContainsFunc(s, isJSLineTerminator)
-}
-
+// a value with U+2028 or U+2029 is still read as one line, and then rejected by rule 4
 func matchFieldLine(l string) (key, value string, ok bool) {
 	if l == "" || l[0] < 'a' || l[0] > 'z' {
 		return "", "", false
@@ -47,23 +45,15 @@ func matchFieldLine(l string) (key, value string, ok bool) {
 	if !strings.HasPrefix(l[i:], ": ") {
 		return "", "", false
 	}
-	value = l[i+2:]
-	if !noLineTerminator(value) {
-		return "", "", false
-	}
-	return l[:i], value, true
+	return l[:i], l[i+2:], true
 }
 
+// SPEC 3.2: cont-line = 2SP *SP vchar ...; spaces after the first two belong to the value
 func matchContLine(l string) (string, bool) {
-	if !strings.HasPrefix(l, "  ") || len(l) < 3 {
+	if !strings.HasPrefix(l, "  ") || strings.TrimLeft(l, " ") == "" {
 		return "", false
 	}
-	rest := l[2:]
-	r, _ := utf8.DecodeRuneInString(rest)
-	if isJSSpace(r) || !noLineTerminator(rest) {
-		return "", false
-	}
-	return rest, true
+	return l[2:], true
 }
 
 func isFieldish(l string) bool {
@@ -104,7 +94,7 @@ func parseFields(lines []string) (map[string]string, []string, []string) {
 				if !ok {
 					break
 				}
-				parts = append(parts, strings.TrimRight(c, " \t"))
+				parts = append(parts, c)
 				i++
 			}
 			if len(parts) == 0 {
@@ -120,8 +110,10 @@ func parseFields(lines []string) (map[string]string, []string, []string) {
 			unknown = append(unknown, key)
 			errs = append(errs, fmt.Sprintf("unknown field %q (extension fields must start with \"x_\")", key))
 		}
-		if ve := validateValue(value, folded); ve != "" {
-			errs = append(errs, key+": "+ve)
+		if !folded || value != "" {
+			if ve := validateValue(value, folded); ve != "" {
+				errs = append(errs, key+": "+ve)
+			}
 		}
 		fields[key] = value
 	}
@@ -178,56 +170,70 @@ func ParseDocument(input string) *ParsedDocument {
 	body := text[:bodyEnd]
 
 	stray := 0
-	fence := ""
-	for k, l := range strings.Split(body, "\n") {
-		if f := fenceOpen(l); f != "" {
-			if fence == "" {
-				fence = f
-			} else if f[0] == fence[0] && len(f) >= len(fence) && isFenceClose(l) {
-				fence = ""
-			}
-			continue
-		}
-		if fence == "" && isOpen(l) {
-			stray = k + 1
+	for _, fl := range linesWithFence(body) {
+		if !fl.InFence && isOpen(fl.Line) {
+			stray = fl.Index + 1
 		}
 	}
-	return &ParsedDocument{Text: text, Body: body, Chain: chain, StrayMarker: stray != 0, StrayMarkerLine: stray}
+	return &ParsedDocument{Text: text, Body: body, Chain: chain, StrayMarker: stray != 0, StrayMarkerLine: stray, UnclosedFence: endsInOpenFence(body)}
 }
 
 type fenceLine struct {
 	Line          string
 	Index, Offset int
 	InFence       bool
+	// set on the opening line of a fence: its info string, trimmed
+	Info   string
+	IsOpen bool
+	Close  bool
 }
 
+// SPEC 5.5: a line scan, not a full CommonMark parse; a fence closes with the same character at least as many times
 func linesWithFence(text string) []fenceLine {
 	var out []fenceLine
 	fence := ""
 	offset := 0
 	for k, l := range strings.Split(text, "\n") {
-		inFence := fence != ""
-		if f := fenceOpen(l); f != "" {
-			if fence == "" {
+		if fence == "" {
+			if f, info, ok := fenceOpen(l); ok {
 				fence = f
-			} else if f[0] == fence[0] && len(f) >= len(fence) && isFenceClose(l) {
+				out = append(out, fenceLine{Line: l, Index: k, Offset: offset, InFence: true, Info: info, IsOpen: true})
+			} else {
+				out = append(out, fenceLine{Line: l, Index: k, Offset: offset})
+			}
+		} else {
+			closes := fenceCloses(l, fence)
+			if closes {
 				fence = ""
 			}
-			inFence = true
+			out = append(out, fenceLine{Line: l, Index: k, Offset: offset, InFence: true, Close: closes})
 		}
-		out = append(out, fenceLine{Line: l, Index: k, Offset: offset, InFence: inFence})
 		offset += len(l) + 1
 	}
 	return out
 }
 
-func fenceOpen(l string) string {
+func endsInOpenFence(text string) bool {
+	fence := ""
+	for _, l := range strings.Split(text, "\n") {
+		if fence == "" {
+			if f, _, ok := fenceOpen(l); ok {
+				fence = f
+			}
+		} else if fenceCloses(l, fence) {
+			fence = ""
+		}
+	}
+	return fence != ""
+}
+
+func fenceRun(l string) (int, string) {
 	i := 0
 	for i < len(l) && i < 3 && l[i] == ' ' {
 		i++
 	}
 	if i >= len(l) || (l[i] != '`' && l[i] != '~') {
-		return ""
+		return 0, ""
 	}
 	c := l[i]
 	j := i
@@ -235,22 +241,21 @@ func fenceOpen(l string) string {
 		j++
 	}
 	if j-i < 3 {
-		return ""
+		return 0, ""
 	}
-	return l[i:j]
+	return j, l[i:j]
 }
 
-func isFenceClose(l string) bool {
-	i := 0
-	for i < len(l) && i < 3 && l[i] == ' ' {
-		i++
+// SPEC 5.5 (CommonMark 4.5): a backtick fence's info string cannot contain a backtick
+func fenceOpen(l string) (fence, info string, ok bool) {
+	j, f := fenceRun(l)
+	if f == "" || (f[0] == '`' && strings.Contains(l[j:], "`")) {
+		return "", "", false
 	}
-	j := i
-	for j < len(l) && (l[j] == '`' || l[j] == '~') {
-		j++
-	}
-	if j == i {
-		return false
-	}
-	return strings.Trim(l[j:], " \t") == ""
+	return f, strings.TrimFunc(l[j:], isJSSpace), true
+}
+
+func fenceCloses(l, fence string) bool {
+	j, f := fenceRun(l)
+	return f != "" && f[0] == fence[0] && len(f) >= len(fence) && strings.Trim(l[j:], " \t") == ""
 }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,8 @@ type verifyOptions struct {
 	keyDirectories               []string
 	tsaRoots                     []string
 	acceptNewKey                 bool
+	lookupTXT                    func(ctx context.Context, name string) ([]string, error)
+	dohEndpoints                 []string
 }
 
 func newVerifyCmd() *cobra.Command {
@@ -90,12 +93,16 @@ func fileExitCode(r *mdsig.VerifyResult) int {
 			return exitFail
 		}
 	}
-	// SPEC 5.8: a violated "order strict" is a failure; pending is not
-	if r.Agreement.Status == mdsig.AgreementViolated {
+	// CLI_SPEC 4: violated and unsupported fail; undetermined is like an unchecked block; pending is not a failure
+	switch r.Agreement.Status {
+	case mdsig.AgreementViolated, mdsig.AgreementUnsupported:
 		return exitFail
-	}
-	if code == exitOK && r.Agreement.Status == mdsig.AgreementPending {
-		code = exitPending
+	case mdsig.AgreementUndetermined:
+		code = worse(code, exitNetwork)
+	case mdsig.AgreementPending:
+		if code == exitOK {
+			code = exitPending
+		}
 	}
 	return code
 }
@@ -173,55 +180,79 @@ func (s *fileTofuStore) save() error {
 
 // --- verify ---
 
-func runVerify(o *verifyOptions, files []string) error {
-	ctx := context.Background()
+type verifyEnv struct {
+	o                          *verifyOptions
+	store                      *fileTofuStore
+	keyring                    func(ctx context.Context, fpr string) ([]byte, error)
+	fetchClient, resolveClient *http.Client
+	resolvers                  map[string]mdsig.Resolver
+	tsaRoots                   []*x509.Certificate
+	keyDirs                    []string
+}
+
+func newVerifyEnv(o *verifyOptions) (*verifyEnv, error) {
 	tsaRoots, err := mdsig.LoadTSARoots(o.tsaRoots)
 	if err != nil {
-		return exitf(exitUsage, "%s", i18n.T("tsa.bad_root", err))
+		return nil, exitf(exitUsage, "%s", i18n.T("tsa.bad_root", err))
 	}
 	if o.keyserver != "" && !mdsig.IsValidRevocationURL(o.keyserver) {
-		return exitf(exitUsage, "%s", i18n.T("verify.bad_keyserver", o.keyserver))
+		return nil, exitf(exitUsage, "%s", i18n.T("verify.bad_keyserver", o.keyserver))
 	}
 	keyDirs, err := trustedDirectories(o.keyDirectories)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	store := openTofuStore()
-	var keyring func(ctx context.Context, fpr string) ([]byte, error)
+	e := &verifyEnv{o: o, store: openTofuStore(), tsaRoots: tsaRoots, keyDirs: keyDirs, resolvers: cachedResolvers(o.resolvers)}
 	if !o.noKeyring {
-		keyring = o.pgpKeyring
-		if keyring == nil {
-			keyring = gpgKeyring()
+		e.keyring = o.pgpKeyring
+		if e.keyring == nil {
+			e.keyring = gpgKeyring()
 		}
 	}
-	fetchClient := o.fetchClient
-	if fetchClient == nil {
-		fetchClient = mdsig.SafeHTTPClient(30 * time.Second)
+	e.fetchClient = o.fetchClient
+	if e.fetchClient == nil {
+		e.fetchClient = mdsig.SafeHTTPClient(30 * time.Second)
 	}
 	// SSRF: git-hosting hosts and DoH go through the same dial-time address check as other fetches
-	resolveClient := o.fetchClient
-	if resolveClient == nil {
-		resolveClient = mdsig.SafeHTTPClient(15 * time.Second)
+	e.resolveClient = o.fetchClient
+	if e.resolveClient == nil {
+		e.resolveClient = mdsig.SafeHTTPClient(15 * time.Second)
 	}
-	resolvers := cachedResolvers(o.resolvers)
+	return e, nil
+}
+
+func (e *verifyEnv) options(file string) *mdsig.VerifyOptions {
+	o := e.o
+	vo := &mdsig.VerifyOptions{
+		ResolveOptions: mdsig.ResolveOptions{
+			Offline: o.offline, TofuStore: e.store, AcceptNewTofuKey: o.acceptNewKey, HTTPClient: e.resolveClient,
+			PGPKeyring: e.keyring, PGPClient: e.fetchClient, Keyserver: o.keyserver, KeyDirectories: e.keyDirs,
+			LookupTXT: o.lookupTXT, DoHEndpoints: o.dohEndpoints,
+		},
+		ResourceCheckOptions: mdsig.ResourceCheckOptions{
+			LoadResource:   mdsig.DirResourceLoader(filepath.Dir(file)),
+			FetchResources: o.fetchResources && !o.offline,
+			FetchClient:    e.fetchClient,
+		},
+		Resolvers:    e.resolvers,
+		TSA:          mdsig.TSAVerifyOptions{ExtraRoots: e.tsaRoots},
+		NoRevocation: o.noRevocation,
+		Now:          o.now,
+	}
+	return vo
+}
+
+func runVerify(o *verifyOptions, files []string) error {
+	ctx := context.Background()
+	env, err := newVerifyEnv(o)
+	if err != nil {
+		return err
+	}
+	store := env.store
 	exit := exitOK
 	var out []jsonFile
 	for _, file := range files {
-		vo := &mdsig.VerifyOptions{
-			ResolveOptions: mdsig.ResolveOptions{
-				Offline: o.offline, TofuStore: store, AcceptNewTofuKey: o.acceptNewKey, HTTPClient: resolveClient,
-				PGPKeyring: keyring, PGPClient: fetchClient, Keyserver: o.keyserver, KeyDirectories: keyDirs,
-			},
-			ResourceCheckOptions: mdsig.ResourceCheckOptions{
-				LoadResource:   mdsig.DirResourceLoader(filepath.Dir(file)),
-				FetchResources: o.fetchResources && !o.offline,
-				FetchClient:    fetchClient,
-			},
-			Resolvers:    resolvers,
-			TSA:          mdsig.TSAVerifyOptions{ExtraRoots: tsaRoots},
-			NoRevocation: o.noRevocation,
-			Now:          o.now,
-		}
+		vo := env.options(file)
 		jf := jsonFile{File: file, JSONResult: mdsig.ToJSON(nil)}
 		data, err := os.ReadFile(file)
 		var code int
@@ -314,16 +345,30 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 		case s.Status == mdsig.StatusUnresolved:
 			sym = mark("?")
 		}
-		role := safeText(f["role"])
-		if role == "" {
-			role = "-"
-		}
-		line := fmt.Sprintf("  %s #%d %s %s %s  %s", sym, s.Index, pad(role, 9), pad(safeText(f["signer"]), 20), pad(safeText(f["ts"]), 20), safeText(f["method"]))
-		if rp, ok := f["rp_id"]; ok && f["alg"] == "webauthn-es256" {
-			line += "  " + i18n.T("verify.passkey", safeText(rp))
-		}
-		if s.TSA != nil && s.TSA.Verified {
-			line += "  ⏱ TSA " + safeText(s.TSA.GenTime) + " (" + safeText(s.TSA.Signer) + ")"
+		var line string
+		if f["method"] == "tsa" {
+			line = fmt.Sprintf("  %s #%d %s %s", sym, s.Index, pad("tsa", 9), pad(safeText(f["signer"]), 20))
+			if s.TSA != nil && s.TSA.Verified {
+				line += " TSA " + safeText(s.TSA.GenTime) + accuracyText(s.TSA.AccuracyMs) + " (" + safeText(s.TSA.Signer) + ")"
+			} else {
+				line += " " + safeText(f["ts"])
+			}
+		} else {
+			role := safeText(f["role"])
+			if role == "" {
+				role = "-"
+			}
+			line = fmt.Sprintf("  %s #%d %s %s %s  %s", sym, s.Index, pad(role, 9), pad(safeText(f["signer"]), 20), pad(safeText(f["ts"]), 20), safeText(f["method"]))
+			// CLI_SPEC 3.2: a display name is the signer's claim and follows the verified identity
+			if dn := f["display_name"]; dn != "" {
+				line += "  \"" + safeText(dn) + "\"" + i18n.T("verify.declared")
+			}
+			if rp, ok := f["rp_id"]; ok && f["alg"] == "webauthn-es256" {
+				line += "  " + passkeyText(rp, s.WebAuthn)
+			}
+			if s.Time != nil {
+				line += "  " + i18n.T("verify.time", safeText(s.Time.At), s.Time.Block)
+			}
 		}
 		fmt.Fprintln(w, strings.TrimRight(line, " "))
 		if s.Status != mdsig.StatusValid {
@@ -351,9 +396,6 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 		}
 		if s.Revocation != nil && s.Revocation.Status == mdsig.RevocationNotRevoked {
 			fmt.Fprintf(w, "      %s\n", i18n.T("verify.not_revoked"))
-		}
-		if s.TSA != nil && s.TSA.Verified {
-			fmt.Fprintf(w, "      %s\n", i18n.T("verify.tsa_note"))
 		}
 		for _, wn := range s.Warnings {
 			if !humanHiddenWarning(wn) {
@@ -395,66 +437,115 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 	default:
 		fmt.Fprintf(w, "  %s\n", i18n.N("verify.verified", total, total))
 	}
-	switch r.Agreement.Status {
-	case mdsig.AgreementComplete:
-		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_complete"))
-	case mdsig.AgreementPending:
-		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_pending", describeMissing(r.Agreement)))
-	case mdsig.AgreementViolated:
-		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_violated", describeViolations(r.Agreement.Violations)))
+	printAgreementHuman(w, r.Agreement)
+}
+
+func accuracyText(ms int64) string {
+	switch {
+	case ms == 0:
+		return ""
+	case ms%1000 == 0:
+		return fmt.Sprintf(" ±%ds", ms/1000)
 	}
-	if r.Agreement.Status != mdsig.AgreementViolated && len(r.Agreement.Violations) > 0 {
-		fmt.Fprintf(w, "  ! %s\n", i18n.T("verify.order_not_followed", describeViolations(r.Agreement.Violations)))
+	return fmt.Sprintf(" ±%dms", ms)
+}
+
+func passkeyText(rpID string, w *mdsig.WebAuthnInfo) string {
+	parts := []string{"rp_id " + safeText(rpID)}
+	if w != nil && w.UserVerified {
+		parts = append(parts, i18n.T("verify.passkey_uv"))
+	}
+	if w != nil && w.BackedUp {
+		parts = append(parts, i18n.T("verify.passkey_synced"))
+	}
+	return i18n.T("verify.passkey", strings.Join(parts, i18n.T("list.sep")))
+}
+
+// CLI_SPEC 3.2: the content of next, indented by the structure of the steps, and the blocks that were not counted
+func printAgreementHuman(w io.Writer, a mdsig.Agreement) {
+	if a.Status == mdsig.AgreementNone {
+		return
+	}
+	detail := func(status string) string {
+		var parts []string
+		for _, d := range a.Declarations {
+			if d.Status == status && d.Detail != "" {
+				parts = append(parts, safeText(d.Detail))
+			}
+		}
+		return strings.Join(parts, "; ")
+	}
+	switch a.Status {
+	case mdsig.AgreementViolated:
+		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_violated", describeViolations(a, mdsig.OrderStrict)))
+	case mdsig.AgreementUndetermined, mdsig.AgreementUnsupported:
+		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_"+a.Status, detail(a.Status)))
+	default:
+		fmt.Fprintf(w, "  %s\n", i18n.T("verify.agreement_"+a.Status))
+	}
+	stepSize := func(declaredBy, step int) int {
+		n := 0
+		for _, r := range a.Required {
+			if r.DeclaredBy == declaredBy && r.Step == step {
+				n++
+			}
+		}
+		return n
+	}
+	for _, n := range a.Next {
+		head := i18n.T("verify.next", n.Step, n.Need)
+		if len(n.Candidates) > 0 && n.Candidates[0].Any != 0 {
+			head += i18n.T("verify.next_any", n.Candidates[0].Any, stepSize(n.DeclaredBy, n.Step))
+		}
+		fmt.Fprintf(w, "    %s\n", head)
+		for _, c := range n.Candidates {
+			fmt.Fprintf(w, "      %s\n", safeText(c.String()))
+		}
+		for _, l := range n.Later {
+			if l.Need == 0 && len(l.Lines) == 0 {
+				continue
+			}
+			fmt.Fprintf(w, "    %s\n", i18n.T("verify.next_later", l.Step, l.Need))
+			for _, c := range l.Lines {
+				fmt.Fprintf(w, "      %s\n", safeText(c.String()))
+			}
+		}
+	}
+	seen := map[string]bool{}
+	for _, m := range a.Missing {
+		for _, x := range m.Rejected {
+			key := fmt.Sprintf("%d %s %s", x.Index, x.Reason, m.Method+":"+m.Signer)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			reason := i18n.T("reject." + x.Reason)
+			if x.Reason == mdsig.RejectEarly && m.Step > 1 {
+				reason = i18n.T("reject.early_step", m.Step-1)
+			}
+			fmt.Fprintf(w, "    %s\n", i18n.T("verify.not_counted", x.Index, safeText(m.Method+":"+m.Signer), reason))
+		}
+	}
+	if a.Status != mdsig.AgreementViolated {
+		if v := describeViolations(a, mdsig.OrderGuide); v != "" {
+			fmt.Fprintf(w, "  ! %s\n", i18n.T("verify.order_not_followed", v))
+		}
 	}
 }
 
-// a declaration with one step that needs everyone reads as a plain list, as before steps existed
-func describeMissing(a mdsig.Agreement) string {
-	stepsOf := map[int]int{}
-	for _, r := range a.Required {
-		stepsOf[r.DeclaredBy] = max(stepsOf[r.DeclaredBy], r.Step)
-	}
-	type group struct {
-		declaredBy, step, need, blockedBy int
-		names                             []string
-		plain                             bool
-	}
-	var groups []*group
-	for _, m := range a.Missing {
-		g := (*group)(nil)
-		if n := len(groups); n > 0 && groups[n-1].declaredBy == m.DeclaredBy && groups[n-1].step == m.Step {
-			g = groups[n-1]
-		} else {
-			g = &group{declaredBy: m.DeclaredBy, step: m.Step, need: m.Need, blockedBy: m.BlockedBy, plain: stepsOf[m.DeclaredBy] == 1}
-			groups = append(groups, g)
-		}
-		name := safeText(m.String())
-		if m.Early {
-			name += i18n.T("verify.agreement_early")
-		}
-		g.names = append(g.names, name)
-		g.plain = g.plain && m.Need == len(g.names) && m.Any == m.Need
-	}
-	parts := make([]string, 0, len(groups))
-	for _, g := range groups {
-		list := strings.Join(g.names, ", ")
-		if g.plain && g.need == len(g.names) {
-			parts = append(parts, i18n.T("verify.agreement_missing", list))
+func describeViolations(a mdsig.Agreement, order string) string {
+	var parts []string
+	for _, v := range a.Violations {
+		if v.Order != order {
 			continue
 		}
-		s := i18n.T("verify.agreement_step", g.step, g.need, list)
-		if g.blockedBy > 0 {
-			s += i18n.T("verify.agreement_after", g.blockedBy)
+		target := v.Method + ":" + v.Signer
+		for _, r := range a.Required {
+			if r.DeclaredBy == v.DeclaredBy && r.Line == v.Line {
+				target = mdsig.Requirement{Method: v.Method, Signer: v.Signer, Attributes: r.Attributes}.String()
+			}
 		}
-		parts = append(parts, s)
-	}
-	return strings.Join(parts, "; ")
-}
-
-func describeViolations(vs []mdsig.OrderViolation) string {
-	parts := make([]string, len(vs))
-	for i, v := range vs {
-		parts[i] = i18n.T("verify.order_violation", v.Index, safeText(mdsig.Requirement{Method: v.Method, Signer: v.Signer, Role: v.Role}.String()), v.Step, v.Step-1)
+		parts = append(parts, i18n.T("verify.order_violation", v.Index, safeText(target), v.Step, v.Step-1))
 	}
 	return strings.Join(parts, ", ")
 }

@@ -58,7 +58,7 @@ export interface HandoffRequest {
   state: string;
 }
 
-export function createHandoffRequest(page: string, o: { op: HandoffOp; returnUrl: string; payload?: Uint8Array; credential?: string; name?: string; state?: string }): HandoffRequest {
+export function createHandoffRequest(page: string, o: { op: HandoffOp; returnUrl: string; payload?: Uint8Array; credential?: string; name?: string; state?: string; userVerification?: "required" | "preferred" }): HandoffRequest {
   if (!isSigningPageUrl(page)) throw new HandoffError("invalid-request", "the signing page must be an https:// URL");
   if (!isHandoffReturnUrl(o.returnUrl)) throw new HandoffError("invalid-request", "the return URL must use its own scheme or a loopback address");
   if (o.op === "sign" && !o.payload) throw new HandoffError("invalid-request", "op=sign needs a payload");
@@ -71,6 +71,8 @@ export function createHandoffRequest(page: string, o: { op: HandoffOp; returnUrl
   if (o.op === "sign") u.searchParams.set("payload", toBase64Url(o.payload!));
   if (o.credential) u.searchParams.set("credential", o.credential);
   if (o.name) u.searchParams.set("name", o.name);
+  // CLI_SPEC 8.2: the page asks the authenticator for user verification and refuses an assertion without UV
+  if (o.op === "sign" && o.userVerification === "required") u.searchParams.set("user_verification", "required");
   return { url: u.toString(), state };
 }
 
@@ -114,7 +116,7 @@ export function parseHandoffResponse(url: string, op: HandoffOp): HandoffRespons
 // opens the request in the user's browser and resolves with the answer URL for that state
 export type HandoffTransport = (request: HandoffRequest) => Promise<string>;
 
-async function exchange(page: string, transport: HandoffTransport, op: HandoffOp, o: { returnUrl: string; payload?: Uint8Array; credential?: string; name?: string }) {
+async function exchange(page: string, transport: HandoffTransport, op: HandoffOp, o: { returnUrl: string; payload?: Uint8Array; credential?: string; name?: string; userVerification?: "required" | "preferred" }) {
   const req = createHandoffRequest(page, { op, ...o });
   const res = parseHandoffResponse(await transport(req), op);
   // security: an answer is accepted only for the state of this request (CLI_SPEC 8.5)
@@ -143,7 +145,7 @@ export async function signViaPage(text: string, o: SignViaPageOptions): Promise<
   if (!HANDOFF_METHODS.has(o.method)) throw new HandoffError("invalid-request", `passkeys sign with method tofu, dns, or directory, not ${o.method}`);
   const { passkey, returnUrl, transport, name, ...rest } = o;
   const p = await prepareSignature(text, { ...rest, signer: { alg: "webauthn-es256", publicKey: passkey.key, rpId: passkey.rpId } });
-  const res = await exchange(passkey.page, transport, "sign", { returnUrl, payload: p.payload, credential: passkey.credential, name });
+  const res = await exchange(passkey.page, transport, "sign", { returnUrl, payload: p.payload, credential: passkey.credential, name, userVerification: p.userVerification });
   if (!("assertion" in res)) throw new HandoffError("bad-response", "the signing page answered with the wrong operation");
   return p.finish(res.assertion);
 }
@@ -178,7 +180,7 @@ export function parseSignedPayload(payload: Uint8Array): Record<string, string> 
 
 export type PageRequest =
   | { ok: true; op: "key"; returnUrl: string; state: string }
-  | { ok: true; op: "sign"; returnUrl: string; state: string; payload: Uint8Array; fields: Record<string, string>; credential?: string; name?: string }
+  | { ok: true; op: "sign"; returnUrl: string; state: string; payload: Uint8Array; fields: Record<string, string>; credential?: string; name?: string; userVerification: "required" | "preferred" }
   | { ok: false; error: "invalid-request" | "unsupported"; message: string; returnUrl?: string; state?: string };
 
 export function checkHandoffRequest(url: string, rpId: string): PageRequest {
@@ -203,7 +205,10 @@ export function checkHandoffRequest(url: string, rpId: string): PageRequest {
   if (fields.rp_id !== rpId) return { ok: false, error: "invalid-request", message: `rp_id ${fields.rp_id} is not ${rpId}`, ...back };
   const credential = q.get("credential") ?? undefined;
   const name = q.get("name") ?? undefined;
-  return { ok: true, op, returnUrl, state, payload, fields, ...(credential ? { credential } : {}), ...(name ? { name } : {}) };
+  const uv = q.get("user_verification");
+  if (uv !== null && uv !== "required") return { ok: false, error: "invalid-request", message: `unknown user_verification ${uv}`, ...back };
+  const userVerification = uv === "required" ? "required" : "preferred";
+  return { ok: true, op, returnUrl, state, payload, fields, userVerification, ...(credential ? { credential } : {}), ...(name ? { name } : {}) };
 }
 
 // CLI_SPEC 8.3 check 3: a payload that names a key must name the passkey in use

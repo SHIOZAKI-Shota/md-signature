@@ -1,4 +1,5 @@
 import { fromBase64 } from "./encoding.js";
+import { isGitHostingId } from "./identity.js";
 import { rawEd25519PublicKey, sshFingerprint, parseSshPublicKeys } from "./crypto.js";
 import { es256Spki } from "./webauthn.js";
 import { describeAttempts, lookupPgpKey } from "./pgp-verify.js";
@@ -44,7 +45,7 @@ export function parseDnsRecord(txt) {
     return { k: tags.k || "ed25519", p: tags.p };
 }
 export function dnsName(fields) {
-    const domain = fields.signer.toLowerCase().replace(/\.$/, "");
+    const domain = fields.signer;
     return fields.selector ? `${fields.selector}._mdsig.${domain}` : `_mdsig.${domain}`;
 }
 export async function dohTxt(name, opts = {}) {
@@ -75,7 +76,7 @@ export function joinTxt(data) {
         return data;
     return parts.map((p) => p.slice(1, -1).replace(/\\(.)/g, "$1")).join("");
 }
-const alg = (f) => f.alg ?? "ed25519";
+const alg = (f) => f.alg ?? "";
 const keyType = (f) => keyTypeFor(alg(f)) ?? alg(f);
 export const resolveDns = async (fields, opts) => {
     if (opts.offline)
@@ -100,8 +101,8 @@ export const resolveDns = async (fields, opts) => {
         warnings: ["key resolved from current DNS; it may differ from the key at signing time"],
     };
 };
-// SPEC 4.2: the host is a domain name of two or more labels, never an IP address
-export const GIT_HOSTING_SIGNER_RE = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?\/[A-Za-z0-9._-]+$/i;
+// SPEC 4.2, 3.4: lower-case domain host and user name; isGitHostingId adds the length and all-digit checks
+export const GIT_HOSTING_SIGNER_RE = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\/[a-z0-9][a-z0-9._-]*$/;
 export function keysUrl(signer) {
     return `https://${signer}.keys`;
 }
@@ -109,7 +110,7 @@ export const resolveGitHosting = async (fields, opts) => {
     if (opts.offline)
         throw new ResolutionError("offline mode", "offline");
     const signer = fields.signer;
-    if (!GIT_HOSTING_SIGNER_RE.test(signer))
+    if (!isGitHostingId(signer))
         throw new ResolutionError(`invalid git-hosting signer "${signer}"`, "malformed");
     const f = opts.fetch ?? globalThis.fetch;
     const url = keysUrl(signer);

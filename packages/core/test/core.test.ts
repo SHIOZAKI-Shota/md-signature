@@ -36,21 +36,21 @@ test("RFC 8032 test vector 1 public key", async () => {
 });
 
 test("normalization: CRLF, CR, BOM and trailing whitespace", () => {
-  assert.equal(normalizeDocument("﻿a\r\nb\rc\n\n  \t\n"), "a\nb\nc\n");
+  assert.equal(normalizeDocument("\ufeffa\r\nb\rc\n\n  \t\n"), "a\nb\nc\n");
   assert.equal(normalizeDocument("a"), "a\n");
   assert.equal(normalizeDocument(""), "\n");
   assert.notEqual(normalizeDocument("a  \nb"), normalizeDocument("a\nb"));
 });
 
-test("payload is sorted, excludes sig/tsa fields and has domain prefix", () => {
-  const p = new TextDecoder().decode(signedPayload({ v: "0.0.1", sig: "x", tsa_url: "u", tsa_token: "t", b: "2", a: "1" }));
-  assert.equal(p, "md-signature/v1\na=1\nb=2\nv=0.0.1");
+test("payload is sorted, excludes sig and webauthn data, and has domain prefix", () => {
+  const p = new TextDecoder().decode(signedPayload({ v: "0.1", sig: "x", webauthn_client_data: "c", webauthn_authenticator_data: "d", b: "2", a: "1" }));
+  assert.equal(p, "md-signature/v1\na=1\nb=2\nv=0.1");
 });
 
 test("tofu sign + verify", async () => {
   const signer = await signerFromSeed(SEED_A);
   const r = await signDocument(DOC, { signer, method: "tofu", signerId: "alice@laptop", role: "author", ts: TS });
-  assert.match(r.text, /^# Contract\n\nThe parties agree.\n\n<!-- md-signature\nv: 0.0.4\nmethod: tofu\n/);
+  assert.match(r.text, /^# Contract\n\nThe parties agree.\n\n<!-- md-signature\nv: 0.1\nmethod: tofu\n/);
   const v = await verifyDocument(r.text, { offline: true });
   assert.equal(v.ok, true, JSON.stringify(v));
   assert.equal(v.signatures[0]!.status, "valid");
@@ -118,7 +118,7 @@ test("CRLF documents verify and keep CRLF; converting line endings keeps signatu
   assert.ok(!/[^\r]\n/.test(s.text), "output must be pure CRLF");
   assert.equal((await verifyDocument(s.text)).ok, true);
   assert.equal((await verifyDocument(s.text.replace(/\r\n/g, "\n"))).ok, true);
-  assert.equal((await verifyDocument("﻿" + s.text + "\r\n\r\n")).ok, true);
+  assert.equal((await verifyDocument("\ufeff" + s.text + "\r\n\r\n")).ok, true);
   const lf = await signDocument(DOC, { signer: a, method: "tofu", signerId: "alice", ts: TS });
   assert.equal(lf.fields.hash, s.fields.hash);
 });
@@ -133,11 +133,13 @@ test("example blocks inside code fences are body content", async () => {
   assert.equal((await verifyDocument(s.text)).ok, true);
 });
 
-test("parser rejects blank lines, duplicates, double hyphen", async () => {
+test("parser rejects blank lines, duplicates, comment delimiters", async () => {
   assert.match(parseFields(["v: 1", "v: 2"]).errors.join(), /duplicate/);
-  assert.match(parseFields(["reason: a -- b"]).errors.join(), /--/);
+  assert.doesNotMatch(parseFields(["reason: a -- b"]).errors.join(), /--/);
+  for (const v of ["a --> b", "a --!> b", "a <!-- b"]) assert.match(parseFields([`reason: ${v}`]).errors.join(), /must not contain/, v);
   const a = await signerFromSeed(SEED_A);
-  await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "a", reason: "x -- y", ts: TS }), /--/);
+  await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "a", reason: "x --> y", ts: TS }), /-->/);
+  assert.equal((await verifyDocument((await signDocument(DOC, { signer: a, method: "tofu", signerId: "a", reason: "x -- y", ts: TS })).text)).ok, true);
   await assert.rejects(signDocument(DOC, { signer: a, method: "tofu", signerId: "a", reason: "line\nbreak", ts: TS }), /control/);
   const s = await signDocument(DOC, { signer: a, method: "tofu", signerId: "a", ts: TS });
   const broken = s.text.replace("method: tofu\n", "method: tofu\n\n");
@@ -147,11 +149,11 @@ test("parser rejects blank lines, duplicates, double hyphen", async () => {
 
 test("folded values round-trip", async () => {
   const long = "base64:" + "A".repeat(200);
-  const block = serializeBlock({ v: "0.0.1", method: "tofu", signer: "a", ts: TS, hash: "sha256:00", sig: "base64:x", tsa_token: long });
-  assert.match(block, /tsa_token: \|\n {2}base64:A/);
+  const block = serializeBlock({ v: "0.1", method: "tofu", signer: "a", ts: TS, alg: "ed25519", hash: "sha256:00", sig: long });
+  assert.match(block, /sig: \|\n {2}base64:A/);
   const p = parseDocument("x\n\n" + block + "\n");
-  assert.equal(unfoldBinary(p.chain[0]!.fields.tsa_token!), long);
-  assert.ok(p.chain[0]!.fields.tsa_token!.includes("\n"), "folded value keeps LF");
+  assert.equal(unfoldBinary(p.chain[0]!.fields.sig!), long);
+  assert.ok(p.chain[0]!.fields.sig!.includes("\n"), "folded value keeps LF");
   assert.deepEqual(p.chain[0]!.errors, []);
 });
 

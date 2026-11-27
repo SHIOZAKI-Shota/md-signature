@@ -30,6 +30,12 @@ import {
   MemoryTofuStore,
   readPgpSecretKey,
   unlockPgpSecretKey,
+  explainRequire,
+  ROLE_RE,
+  checkSignerId,
+  canonicalSignerInput,
+  checkDisplayName,
+  DEFAULT_TSA_URL,
 } from "./vendor/core/index.js";
 import { EXAMPLES, TEST_KEYS } from "./examples.js";
 import { registerStrings, t, onLangChange, getLang } from "./i18n.js";
@@ -39,8 +45,7 @@ import APP_STRINGS from "./strings-app.js";
 registerStrings(APP_STRINGS);
 
 // Rendered document content must never answer an id lookup or a delegated click.
-const userContent = document.querySelector(".md-preview");
-const inUserContent = (n) => !!userContent && n instanceof Node && userContent.contains(n);
+const inUserContent = (n) => n instanceof Element && !!n.closest(".md-preview");
 export const $ = (id) => {
   const n = document.getElementById(id);
   if (!inUserContent(n)) return n;
@@ -513,16 +518,19 @@ async function runVerify() {
       resolvers: useTestKeys ? testResolvers : pgpTestResolvers,
     });
   } catch (e) {
-    result = { ok: false, signatures: [], warnings: [], agreement: { status: "none", required: [], missing: [], violations: [] }, error: String(e?.message ?? e) };
+    result = { ok: false, signatures: [], warnings: [], agreement: { status: "none", required: [], missing: [], violations: [], next: [], satisfied: [], declarations: [] }, error: String(e?.message ?? e) };
   }
   if (id !== runId) return;
   for (const s of result.signatures) s.needsHosts = permissionHosts(s, run.blocked);
   lastResult = result;
   if (serverUrl) serverState = { pending: true };
   render(result);
+  // preview.js draws the signature table from this result (SPEC 9.5: built from the blocks, never from the body)
+  document.dispatchEvent(new CustomEvent("mdsig:verified", { detail: { text, result } }));
   askServer(text, id);
   renderCosignSections(text);
   renderCosignResources();
+  renderUvNote();
 }
 
 const STATUS_KEYS = new Set(["valid", "invalid", "malformed", "unresolved", "unsupported"]);
@@ -559,6 +567,12 @@ const WARNING_TEXT = [
   [/^ts "(.*)" is not in YYYY-MM-DDTHH:MM:SSZ form$/, "warn.ts-format", (m) => ({ ts: m[1] })],
   [/^timestamp could not be checked: (.*)$/s, "warn.tsa-unchecked", (m) => ({ detail: tsaDetail(m[1]) })],
   [/^line (\d+): an md-signature marker inside the body is treated as document content/, "warn.stray-marker", (m) => ({ line: m[1] })],
+  [/^the body ends inside an open code fence/, "warn.unclosed-fence"],
+  [/^line (\d+): <!-- mdsig:signatures --> inside a code fence is ignored$/, "warn.marker-fenced", (m) => ({ line: m[1] })],
+  [/^line (\d+): only the first <!-- mdsig:signatures --> is used/, "warn.marker-extra", (m) => ({ line: m[1] })],
+  [/^member_of: rosters not consulted \(offline\)$/, "warn.roster-offline"],
+  [/^member_of: roster (\S+) cannot be used: (.*)$/s, "warn.roster-unusable", (m) => ({ url: m[1], error: m[2] })],
+  [/^hint: (.*)$/s, "warn.hint", (m) => ({ hint: m[1] })],
 ];
 const REVOCATION_DETAIL = [
   [/^revocation list not fetched \(offline\)$/, "rev.detail.offline"],
@@ -673,36 +687,40 @@ function renderInitialSummary() {
   setStatusLine(initialSummaryKey === "summary.no-webcrypto" ? "bad" : "idle", t(initialSummaryKey));
 }
 
-// SPEC 5.8: one plain list for a declaration with a single step that needs everyone, per-step text otherwise
-function missingText(a) {
-  const stepsOf = new Map();
-  for (const q of a.required) stepsOf.set(q.declaredBy, Math.max(stepsOf.get(q.declaredBy) ?? 0, q.step ?? 1));
-  const groups = [];
-  for (const m of a.missing) {
-    let g = groups[groups.length - 1];
-    if (!g || g.declaredBy !== m.declaredBy || g.step !== m.step) groups.push((g = { declaredBy: m.declaredBy, step: m.step ?? 1, need: m.need ?? 1, any: m.any ?? 1, blockedBy: m.blockedBy, names: [] }));
-    g.names.push(visible(`${m.method}:${m.signer}${m.role ? " " + m.role : ""}`) + (m.early ? t("summary.early") : ""));
-  }
-  return groups
-    .map((g) => {
-      const list = g.names.join(", ");
-      if (stepsOf.get(g.declaredBy) === 1 && g.any === g.need && g.need === g.names.length) return list;
-      return t("summary.step-missing", { step: g.step, need: g.need, list }) + (g.blockedBy ? t("summary.step-after", { step: g.blockedBy }) : "");
-    })
-    .join(t("list.sep"));
+// ------------------------------------------------------------------ agreement
+// SPEC 5.8.2: generators write role, user_verified, member_of, pubkey in this order
+const ATTR_ORDER = ["role", "user_verified", "member_of", "pubkey"];
+const attrText = (attrs) =>
+  Object.entries(attrs ?? {})
+    .sort(([x], [y]) => (ATTR_ORDER.indexOf(x) + 1 || 99) - (ATTR_ORDER.indexOf(y) + 1 || 99))
+    .map(([k, v]) => (v === true ? k : `${k}=${v}`))
+    .join(" ");
+const reqLine = (q) => visible([`${q.method}:${q.signer}`, attrText(q.attributes)].filter(Boolean).join(" "));
+const REJECT_KEYS = new Set(["early", "blocked", "not-member", "roster-unavailable", "not-user-verified", "key-mismatch", "self", "scoped", "not-valid"]);
+const rejectText = (x) => t("reject.item", { index: x.index, reason: REJECT_KEYS.has(x.reason) ? t(`reject.${x.reason}`) : visible(x.reason, false) });
+
+function nextSummary(a) {
+  return (a.next ?? []).map((n) => t("summary.next-item", { decl: n.declaredBy, step: n.step, need: n.need })).join(t("list.sep"));
 }
 
-const violationText = (vs) => vs.map((v) => t("summary.violation-item", { index: v.index, who: visible(`${v.method}:${v.signer}${v.role ? " " + v.role : ""}`), step: v.step })).join(t("list.sep"));
+const violationText = (vs) => vs.map((v) => t("summary.violation-item", { index: v.index, who: visible(`${v.method}:${v.signer}`), step: v.step })).join(t("list.sep"));
 
-// signatures still needed in total: a step that needs any m counts m
+// signatures still needed in total: a step with any=m counts m, a step without it counts its lines
 function agreementTally(a) {
-  const steps = new Map();
-  for (const q of a.required) steps.set(`${q.declaredBy}/${q.step ?? 1}`, q.any ?? 1);
+  const lines = new Map();
+  for (const q of a.required) {
+    const k = `${q.declaredBy}/${q.step ?? 1}`;
+    const cur = lines.get(k) ?? { any: q.any, n: 0 };
+    cur.n++;
+    lines.set(k, cur);
+  }
   const short = new Map();
   for (const m of a.missing) short.set(`${m.declaredBy}/${m.step ?? 1}`, m.need ?? 1);
-  const req = [...steps.values()].reduce((x, y) => x + y, 0);
+  const req = [...lines.values()].reduce((x, y) => x + (y.any ?? y.n), 0);
   return { req, got: req - [...short.values()].reduce((x, y) => x + y, 0) };
 }
+
+const declDetails = (a, status) => [...new Set((a.declarations ?? []).filter((d) => d.status === status && d.detail).map((d) => visible(d.detail, false)))].join(t("list.sep"));
 
 function renderSummary(r) {
   const n = r.signatures.length;
@@ -710,7 +728,14 @@ function renderSummary(r) {
   const bad = n - valid;
   const sep = t("list.sep");
   const dot = " · ";
-  if (!r.ok && n > 0 && valid === n && r.agreement?.status === "violated") {
+  const ag = r.agreement ?? { status: "none", required: [], missing: [], violations: [], next: [] };
+  if (!r.ok && n > 0 && valid === n && (ag.status === "undetermined" || ag.status === "unsupported")) {
+    const u = ag.status === "undetermined";
+    const detail = declDetails(ag, ag.status);
+    setStatusLine(u ? "warn" : "bad", t(u ? "summary.undetermined" : "summary.unsupported"), detail ? t("summary.agreement-detail", { detail }) : null, t("tally.valid", { ok: valid, n }) + dot + t(u ? "tally.undetermined" : "tally.unsupported"));
+    return;
+  }
+  if (!r.ok && n > 0 && valid === n && ag.status === "violated") {
     setStatusLine("bad", t("summary.violated"), t("summary.violations", { list: violationText(r.agreement.violations) }), t("tally.valid", { ok: valid, n }) + dot + t("tally.violated"));
     return;
   }
@@ -730,7 +755,7 @@ function renderSummary(r) {
     const tallyValid = t("tally.valid", { ok: valid, n });
     if (a.violations?.length) sub.push(t("summary.order-warning", { list: violationText(a.violations) }));
     if (a.status === "pending") {
-      sub.unshift(t("summary.pending-missing", { list: missingText(a) }));
+      sub.unshift(t("summary.pending-next", { list: nextSummary(a) }));
       setStatusLine("pending", t("summary.pending"), sub.join(" "), tallyValid + dot + t("tally.pending", { got, req }));
       return;
     }
@@ -804,6 +829,8 @@ function renderCard(s) {
       { class: "blk-head" },
       el("span", { class: "blk-idx" }, `#${s.index}`),
       el("span", { class: "blk-signer" }, f.signer != null ? shown(f.signer) : t("card.no-signer")),
+      // SPEC 3.3: a display name is the signer's claim, shown only next to the verified identity
+      f.display_name ? el("span", { class: "blk-dname" }, t("card.display-name", { name: visible(f.display_name, false) })) : null,
       f.role ? el("span", { class: "blk-role" }, shown(f.role, { max: 40 })) : null,
       el("span", { class: "blk-status" }, statusText),
     ),
@@ -823,7 +850,8 @@ function renderCard(s) {
   }
 
   const dl = el("dl", { class: "blk-defs" });
-  const warns = s.warnings.filter((w) => !SHOWN_ELSEWHERE.some((re) => re.test(w))).map(warningText);
+  const hints = s.warnings.filter((w) => w.startsWith("hint: ")).map(warningText);
+  const warns = s.warnings.filter((w) => !w.startsWith("hint: ") && !SHOWN_ELSEWHERE.some((re) => re.test(w))).map(warningText);
   if (s.pgp) {
     const p = s.pgp;
     if (p.fpr) dl.append(...defRow("def.fpr", el("span", { class: "blk-fpr" }, groupFpr(p.fpr))));
@@ -831,7 +859,7 @@ function renderCard(s) {
     const src = pgpSourceText(s);
     if (src) dl.append(...defRow("def.key-source", src));
     if (p.keyAlg) dl.append(...defRow("def.key-alg", pgpAlgName(p.keyAlg)));
-    // SPEC 6.2: the packet time is signer-set like ts; only tsa_token is third-party evidence
+    // SPEC 6.2: the packet time is signer-set like ts; only T(k) from a tsa block is third-party evidence
     if (p.created) dl.append(...defRow("def.pgp-created", p.created, el("span", { class: "blk-hint" }, " " + t("card.pgp-created-note"))));
     if (p.keySource && p.keySource !== "keyring") warns.push(t("warn.pgp-current-cert"));
   } else if (s.key) dl.append(...defRow("def.key", mapText(s.key.source, KEY_SOURCE)));
@@ -843,7 +871,8 @@ function renderCard(s) {
     dl.append(
       ...defRow(
         "def.passkey",
-        t("card.passkey.value", { rp: w.rpId, origin: w.origin || "?", uv: t(w.userVerified ? "card.passkey.uv-yes" : "card.passkey.uv-no") }),
+        t("card.passkey.value", { rp: w.rpId, origin: w.origin || "?", uv: t(w.userVerified ? "card.passkey.uv-yes" : "card.passkey.uv-no") }) +
+          (w.backupEligible ? " · " + t(w.backedUp ? "card.passkey.synced" : "card.passkey.syncable") : ""),
       ),
     );
     if (w.rpId === "localhost") warns.unshift(t("card.passkey.localhost"));
@@ -887,10 +916,13 @@ function renderCard(s) {
     const word = s.tsa.status === "mismatch" ? t("tsa.status.mismatch") : t("tsa.status.error");
     dl.append(...defRow("def.tsa", verified ? t("card.tsa-verified", { when: s.tsa.genTime, signer: visible(s.tsa.signer ?? "", false) }) : t("card.tsa", { when: word, detail: tsaDetail(s.tsa.detail) })));
   }
+  // SPEC 4.6: T(k), the earliest verified tsa block after this one
+  if (s.time) dl.append(...defRow("def.time", t("card.time", { at: s.time.at, block: s.time.block, signer: visible(s.time.signer ?? "", false) })));
   const fromServer = serverRow(s);
   if (fromServer) dl.append(...defRow("def.server", fromServer));
   if (dl.childNodes.length) li.append(dl);
   if (warns.length) li.append(el("ul", { class: "blk-warns" }, ...warns.map((w) => el("li", {}, visible(w, false)))));
+  if (hints.length) li.append(el("ul", { class: "blk-hints" }, ...hints.map((w) => el("li", {}, visible(w, false)))));
 
   const fields = el("dl", { class: "blk-fields" });
   const entries = Object.entries(f);
@@ -919,9 +951,35 @@ consentBox.addEventListener("click", (e) => {
   scheduleVerify(0);
 });
 
+const nextBox = el("section", { class: "agree-next", hidden: true });
+consentBox.after(nextBox);
+function renderNext(r) {
+  const a = r.agreement;
+  const next = a?.next ?? [];
+  nextBox.hidden = !next.length;
+  if (!next.length) return nextBox.replaceChildren();
+  const items = next.map((n) => {
+    const missing = a.missing.filter((m) => m.declaredBy === n.declaredBy && m.step === n.step);
+    const any = n.candidates.some((c) => c.any !== null) || n.candidates.some((c) => c.pattern);
+    const rejected = missing.flatMap((m) => m.rejected ?? []);
+    const seen = new Set();
+    const uniq = rejected.filter((x) => (seen.has(`${x.index}/${x.reason}`) ? false : seen.add(`${x.index}/${x.reason}`)));
+    return el(
+      "li",
+      {},
+      el("p", { class: "agree-next-head" }, t(any ? "next.head-any" : "next.head-all", { decl: n.declaredBy, step: n.step, need: n.need })),
+      el("ul", { class: "agree-next-lines" }, ...n.candidates.map((c) => el("li", {}, el("code", {}, reqLine(c))))),
+      uniq.length ? el("p", { class: "agree-next-rejected" }, t("next.rejected", { list: uniq.map(rejectText).join(t("list.sep")) })) : null,
+      n.later?.length ? el("p", { class: "agree-next-later" }, t("next.later", { list: n.later.map((l) => t(l.need ? "next.later-item" : "next.later-met", { step: l.step, need: l.need })).join(t("list.sep")) })) : null,
+    );
+  });
+  nextBox.replaceChildren(el("h4", {}, t("next.title")), el("ol", {}, ...items));
+}
+
 function render(r) {
   renderSummary(r);
   renderConsent(r);
+  renderNext(r);
   cards.className = "sigchain";
   cards.replaceChildren(...r.signatures.map(renderCard));
   docWarnings.textContent = visible(r.warnings.map(warningText).join(" "), false);
@@ -1054,12 +1112,64 @@ function syncMethod() {
   form.querySelector("label.only-passkey").hidden = !pk || !has;
   $("passkey-none").hidden = !pk || has;
   form.signer.placeholder = PLACEHOLDER[b];
+  renderUvNote();
   if (pk && b === "tofu" && !form.signer.value) {
     const p = passkeysHere().find((x) => x.credentialId === $("cosign-passkey").value);
     if (p?.label) form.signer.value = p.label;
   }
 }
 methodSel.addEventListener("change", syncMethod);
+
+// SPEC 5.8.7 / 6.1: a passkey signer that a pending require line asks for with user_verified
+function renderUvNote() {
+  const note = $("cosign-uv-note");
+  if (!note) return;
+  const m = methodSel.value;
+  const id = `${baseMethod(m)}:${form.signer.value.trim()}`;
+  const wants = isPasskey(m) && (lastResult?.agreement?.next ?? []).some((n) => n.candidates.some((c) => c.attributes?.user_verified && (c.pattern ? id.startsWith(c.method + ":") : `${c.method}:${c.signer}` === id)));
+  note.hidden = !wants;
+}
+form.signer.addEventListener("input", renderUvNote);
+
+// SPEC 5.8.1: generators indent requirement lines under a step line by two spaces
+function requireLines(v) {
+  let inStep = false;
+  return v
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      if (l === "step" || l.startsWith("step ")) {
+        inStep = true;
+        return l;
+      }
+      return inStep && !l.startsWith("order ") ? "  " + l : l;
+    });
+}
+function renderRequireExplain() {
+  const box = $("cosign-require-explain");
+  const lines = requireLines(form.require.value);
+  box.hidden = !lines.length;
+  if (!lines.length) return box.replaceChildren();
+  const x = explainRequire(lines.join("\n"), getLang());
+  const sep = t("list.sep");
+  const list = (cls, head, items) => (items.length ? el("div", { class: cls }, el("p", {}, head), el("ul", {}, ...items.map((i) => el("li", {}, visible(i, false))))) : null);
+  box.classList.toggle("is-bad", x.errors.length > 0);
+  box.replaceChildren(
+    ...[
+    el("p", { class: "req-explain-head" }, t(x.errors.length ? "req.head-error" : "req.head")),
+    x.errors.length ? list("req-errors", t("req.errors"), x.errors) : el("pre", { class: "req-text" }, visible(x.text, false)),
+    x.unsupported.length ? el("p", { class: "req-warn" }, t("req.unsupported", { list: x.unsupported.map((u) => visible(u, false)).join(sep) })) : null,
+    list("req-warns", t("req.warnings"), x.warnings),
+    list("req-hints", t("req.hints"), x.hints),
+    ].filter(Boolean),
+  );
+}
+form.require.addEventListener("input", renderRequireExplain);
+form.tsa.addEventListener("change", () => {
+  form.querySelector(".only-tsa").hidden = !form.tsa.checked;
+  form.tsaUrl.required = form.tsa.checked;
+});
 
 // ------------------------------------------------------------------ pgp secret key
 // SPEC 9.10: the key and passphrase live only in memory and are dropped after each signing attempt
@@ -1251,7 +1361,18 @@ form.addEventListener("submit", async (e) => {
     }
 
     const scope = [...form.querySelectorAll('input[name="scope"]:checked')].map((i) => i.value);
-    const require = form.require.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const require = requireLines(form.require.value);
+    // SPEC 3.4: ASCII capitals are lowered for every method but tofu; anything else non-canonical is refused
+    const signerId = method === "pgp" ? pgpUid.value || pgpInfo.emails[0] : canonicalSignerInput(method, form.signer.value.trim());
+    const signerError = checkSignerId(method, signerId);
+    if (signerError) throw new UiError("cosign.err.signer", { error: signerError });
+    const role = form.role.value.trim();
+    if (role && !ROLE_RE.test(role)) throw new UiError("cosign.err.role");
+    const displayName = form.displayName.value.trim();
+    const nameError = displayName ? checkDisplayName(displayName) : null;
+    if (nameError) throw new UiError("cosign.err.display-name", { error: nameError });
+    const tsaUrl = form.tsa.checked ? form.tsaUrl.value.trim() : "";
+    if (form.tsa.checked && !/^https:\/\/\S+$/.test(tsaUrl)) throw new UiError("cosign.err.tsa-url");
     const resources = [];
     for (const i of form.querySelectorAll('input[name="resource"]:checked')) {
       if (i.hasAttribute("data-folder")) {
@@ -1274,20 +1395,31 @@ form.addEventListener("submit", async (e) => {
     const res = await signDocument(editor.value, {
       signer,
       method,
-      signerId: method === "pgp" ? pgpUid.value || pgpInfo.emails[0] : form.signer.value.trim(),
+      signerId,
       selector: method === "dns" ? form.selector.value.trim() || undefined : undefined,
       embedKey: (method === "dns" || method === "git-hosting") && form.embedKey.checked ? true : undefined,
-      role: form.role.value.trim() || undefined,
+      role: role || undefined,
+      displayName: displayName || undefined,
       reason: form.reason.value.trim() || undefined,
       scope: scope.length ? scope : undefined,
       require: require.length ? require : undefined,
       resources: resources.length ? resources : undefined,
       expires: toUtcTs(form.expires.value),
       revocationUrl: form.revocation.value.trim() || undefined,
+      // SPEC 4.6: the timestamp is a tsa block appended right after the signature block
+      tsaUrl: tsaUrl || undefined,
+      tsaRoots,
+      extraTsaRoots: [...userTsaRoots.values()].map((r) => r.der),
+    }).catch((ex) => {
+      const msg = ex?.message ?? String(ex);
+      if (/user verification was required/.test(msg)) throw new UiError("cosign.err.uv");
+      if (tsaUrl && /tsa|timestamp|fetch/i.test(msg)) throw new UiError("cosign.err.tsa", { error: msg });
+      throw ex;
     });
     editor.value = res.text;
     form.privkey.value = "";
     form.reason.value = "";
+    form.displayName.value = "";
     editor.dispatchEvent(new Event("input", { bubbles: true }));
     selectTab($("tab-sigs"));
     scheduleVerify(0);
@@ -1474,5 +1606,6 @@ onLangChange((lang) => {
   renderAttached();
   renderPasskeyList();
   renderPgpInfo();
+  renderRequireExplain();
   for (const [node, entry] of shownErrors) node.textContent = entry.key ? t(entry.key, entry.vars) : entry.raw;
 });

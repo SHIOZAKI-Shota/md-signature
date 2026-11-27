@@ -67,6 +67,8 @@ type HandoffRequestOptions struct {
 	Credential string
 	Name       string
 	State      string
+	// op=sign: "required" asks the page for user verification (CLI_SPEC 8.2)
+	UserVerification string
 }
 
 func CreateHandoffRequest(page string, o HandoffRequestOptions) (*HandoffRequest, error) {
@@ -104,6 +106,10 @@ func CreateHandoffRequest(page string, o HandoffRequestOptions) (*HandoffRequest
 	}
 	if o.Name != "" {
 		q.Set("name", o.Name)
+	}
+	// CLI_SPEC 8.2: the page asks the authenticator for user verification and refuses an assertion without UV
+	if o.Op == "sign" && o.UserVerification == UserVerificationRequired {
+		q.Set("user_verification", UserVerificationRequired)
 	}
 	u.RawQuery = q.Encode()
 	return &HandoffRequest{URL: u.String(), State: state}, nil
@@ -213,7 +219,7 @@ func SignViaPage(ctx context.Context, text string, pk *HandoffPasskey, returnURL
 	if err != nil {
 		return nil, err
 	}
-	res, err := handoffExchange(ctx, pk.Page, t, HandoffRequestOptions{Op: "sign", ReturnURL: returnURL, Payload: p.Payload, Credential: pk.Credential, Name: name})
+	res, err := handoffExchange(ctx, pk.Page, t, HandoffRequestOptions{Op: "sign", ReturnURL: returnURL, Payload: p.Payload, Credential: pk.Credential, Name: name, UserVerification: p.UserVerification})
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +273,8 @@ type PageRequest struct {
 	Fields     map[string]string
 	Credential string
 	Name       string
+	// "required" or "preferred"
+	UserVerification string
 }
 
 var stateRe = regexp.MustCompile(`^[A-Za-z0-9_-]{22,}$`)
@@ -312,7 +320,14 @@ func CheckHandoffRequest(request, rpID string) *PageRequest {
 	if fields["rp_id"] != rpID {
 		return fail("invalid-request", fmt.Sprintf("rp_id %s is not %s", fields["rp_id"], rpID))
 	}
-	return &PageRequest{OK: true, Op: op, ReturnURL: ret, State: state, Payload: payload, Fields: fields, Credential: q.Get("credential"), Name: q.Get("name")}
+	uv := UserVerificationPreferred
+	if q.Has("user_verification") {
+		if q.Get("user_verification") != UserVerificationRequired {
+			return fail("invalid-request", "unknown user_verification "+q.Get("user_verification"))
+		}
+		uv = UserVerificationRequired
+	}
+	return &PageRequest{OK: true, Op: op, ReturnURL: ret, State: state, Payload: payload, Fields: fields, Credential: q.Get("credential"), Name: q.Get("name"), UserVerification: uv}
 }
 
 // CLI_SPEC 8.3 check 3: a payload that names a key must name the passkey in use

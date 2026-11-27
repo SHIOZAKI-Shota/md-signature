@@ -42,6 +42,8 @@ const fixedKeys =
     return { keys: [{ alg, key, source: "test" }], warnings: [] };
   };
 
+const revocationList = (ids: string[]) => ["# Revoked", "", "```mdsig-list", "type: revocation", ...ids.map((i) => `revoked: sha256:${i}`), "```", ""].join("\n");
+
 // --- UTF-8
 test("generators refuse text that has no UTF-8 encoding", async () => {
   const a = await signerFromSeed(SEED_A);
@@ -63,8 +65,8 @@ test("unknown fields are malformed; x_ fields are allowed and signed", async () 
 });
 
 test("payload escapes LF in folded values so lines cannot forge fields", () => {
-  const p = new TextDecoder().decode(signedPayload({ require: "dns:a.com\ndns:b.com", v: "0.0.1" }));
-  assert.equal(p, "md-signature/v1\nrequire=dns:a.com\n  dns:b.com\nv=0.0.1");
+  const p = new TextDecoder().decode(signedPayload({ require: "dns:a.com\ndns:b.com", v: "0.1" }));
+  assert.equal(p, "md-signature/v1\nrequire=dns:a.com\n  dns:b.com\nv=0.1");
   const q = new TextDecoder().decode(signedPayload({ require: "dns:a.com\nv=9" }));
   assert.ok(q.includes("\n  v=9"));
 });
@@ -78,8 +80,8 @@ test("resources: local files and remote URLs", async () => {
     signer: a, method: "tofu", signerId: "a", ts: TS,
     resources: [{ ref: "./diagram.png", bytes: png }, { ref: "https://example.com/chart.png", bytes: remote }],
   });
-  assert.match(s.block, /resources: \|\n {2}sha256:[0-9a-f]{64} \.\/diagram\.png\n {2}sha256:[0-9a-f]{64} https:\/\/example\.com\/chart\.png/);
-  const files: Record<string, Uint8Array> = { "./diagram.png": png };
+  assert.match(s.block, /resources: \|\n {2}diagram\.png hash=sha256:[0-9a-f]{64}\n {2}https:\/\/example\.com\/chart\.png hash=sha256:[0-9a-f]{64}/);
+  const files: Record<string, Uint8Array> = { "diagram.png": png };
   const loadResource = async (ref: string) => files[ref] ?? null;
   let fetched = 0;
   const fetch = (async () => {
@@ -93,12 +95,12 @@ test("resources: local files and remote URLs", async () => {
   assert.equal(fetched, 0);
   const v2 = await verifyDocument(s.text, { loadResource, fetch, fetchResources: true });
   assert.deepEqual(v2.signatures[0]!.resources!.map((r) => r.status), ["ok", "ok"]);
-  files["./diagram.png"] = utf8("EVIL");
+  files["diagram.png"] = utf8("EVIL");
   const v3 = await verifyDocument(s.text, { loadResource, fetch });
   assert.equal(v3.signatures[0]!.code, "resource-mismatch");
-  delete files["./diagram.png"];
+  delete files["diagram.png"];
   assert.equal((await verifyDocument(s.text, { loadResource })).signatures[0]!.code, "resource-missing");
-  files["./diagram.png"] = png;
+  files["diagram.png"] = png;
   const evilFetch = (async () => new Response("CHANGED")) as typeof globalThis.fetch;
   assert.equal((await verifyDocument(s.text, { loadResource, fetch: evilFetch, fetchResources: true })).signatures[0]!.code, "resource-mismatch");
   const deadFetch = (async () => new Response("", { status: 404 })) as typeof globalThis.fetch;
@@ -110,7 +112,7 @@ test("resources: local files and remote URLs", async () => {
 
 test("findLocalImages lists local images outside code fences", () => {
   const md = "![a](./a.png)\n<img src=\"img/b.jpg\">\n![r](https://x.com/r.png)\n```\n![c](./c.png)\n```\n![d](../d.png)\n";
-  assert.deepEqual(findLocalImages(md), ["./a.png", "img/b.jpg"]);
+  assert.deepEqual(findLocalImages(md), ["a.png", "img/b.jpg"]);
 });
 
 // --- Require
@@ -120,7 +122,7 @@ test("require: pending until the required parties co-sign", async () => {
   const resolvers = { dns: fixedKeys({ "example.com": b.publicKey }) };
   const s1 = await signDocument(DOC, {
     signer: a, method: "tofu", signerId: "alice", role: "author", ts: TS,
-    require: ["dns:example.com approver", { method: "tofu", signer: "carol" }],
+    require: ["dns:example.com role=approver", { method: "tofu", signer: "carol" }],
   });
   const v1 = await verifyDocument(s1.text, { resolvers });
   assert.equal(v1.ok, true);
@@ -143,13 +145,13 @@ test("require: steps run in order, any M counts distinct signers", async () => {
   const [a, b, c, d] = keys as [Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>, Awaited<ReturnType<typeof signerFromSeed>>];
   const sign = (text: string, signer: typeof a, id: string, extra: object = {}) => signDocument(text, { signer, method: "tofu", signerId: id, ts: TS, ...extra }).then((r) => r.text);
   const agree = async (text: string) => (await verifyDocument(text, { offline: true })).agreement;
-  const steps = (order?: string) => [...(order ? [`order ${order}`] : []), "step 1", "tofu:bob", "step 2 any 2", "tofu:carol", "tofu:dave", "tofu:erin"];
+  const steps = (order?: string) => [...(order ? [`order mode=${order}`] : []), "step", "  tofu:bob", "step any=2", "  tofu:carol", "  tofu:dave", "  tofu:erin"];
 
   const decl = await sign(DOC, a, "alice", { require: steps() });
   const pending1 = await agree(decl);
   assert.equal(pending1.status, "pending");
   assert.deepEqual(pending1.missing.map((m) => [m.signer, m.step, m.need, m.blockedBy ?? 0]), [["bob", 1, 1, 0], ["carol", 2, 2, 1], ["dave", 2, 2, 1], ["erin", 2, 2, 1]]);
-  assert.deepEqual(pending1.required.map((r) => [r.signer, r.step, r.any]), [["bob", 1, 1], ["carol", 2, 2], ["dave", 2, 2], ["erin", 2, 2]]);
+  assert.deepEqual(pending1.required.map((r) => [r.signer, r.step, r.any]), [["bob", 1, null], ["carol", 2, 2], ["dave", 2, 2], ["erin", 2, 2]]);
 
   const inOrder = await sign(await sign(await sign(decl, b, "bob"), c, "carol"), d, "dave");
   assert.equal((await agree(inOrder)).status, "complete");
@@ -161,7 +163,7 @@ test("require: steps run in order, any M counts distinct signers", async () => {
   const early = await sign(await sign(decl, c, "carol"), b, "bob");
   const pe = await agree(early);
   assert.equal(pe.status, "pending");
-  assert.equal(pe.missing.find((m) => m.signer === "carol")!.early, true);
+  assert.deepEqual(pe.missing.find((m) => m.signer === "carol")!.rejected, [{ index: 2, reason: "early" }]);
   assert.equal((await agree(await sign(await sign(early, c, "carol"), d, "dave"))).status, "complete");
 
   for (const [order, status] of [["guide", "complete"], ["strict", "violated"]] as const) {
@@ -174,12 +176,14 @@ test("require: steps run in order, any M counts distinct signers", async () => {
 
   // a scoped block never satisfies, also inside a step
   const scopedDoc = "# Deal\n\n<!-- mdsig:section terms -->\nTerms.\n<!-- /mdsig:section -->\n";
-  const sdecl = await sign(scopedDoc, a, "alice", { require: ["step 1", "tofu:bob"] });
-  assert.equal((await agree(await sign(sdecl, b, "bob", { scope: ["terms"] }))).status, "pending");
+  const sdecl = await sign(scopedDoc, a, "alice", { require: ["step", "tofu:bob"] });
+  const sc = await agree(await sign(sdecl, b, "bob", { scope: ["terms"] }));
+  assert.equal(sc.status, "pending");
+  assert.deepEqual(sc.missing[0]!.rejected, [{ index: 2, reason: "scoped" }]);
 
-  await assert.rejects(sign(DOC, a, "x", { require: ["step 1 any 3", "tofu:bob", "tofu:carol"] }), /any 3 of 2/);
-  await assert.rejects(sign(DOC, a, "x", { require: ["step 2", "tofu:bob"] }), /expected "step 1"/);
-  await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "order strict"] }), /first line/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["step any=3", "tofu:bob", "tofu:carol"] }), /any=3 of 2/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["step 2", "tofu:bob"] }), /invalid attribute/);
+  await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "order mode=strict"] }), /first line/);
   await assert.rejects(sign(DOC, a, "x", { require: ["tofu:bob", "tofu:bob"] }), /appears twice/);
 });
 
@@ -221,33 +225,19 @@ test("key snapshot: embedded key verifies, published key decides valid or key-no
   assert.deepEqual(await check(plain, "missing"), ["unresolved", "not-found"]);
 });
 
-test("require: format 0.0.1 blocks keep their rules", async () => {
-  const text = (name: string) => readFileSync(new URL(`../../../examples/${name}`, import.meta.url), "utf8");
-  const keys = JSON.parse(text("keys.json"));
-  const dns: Record<string, string> = Object.fromEntries(Object.entries(keys.dns as Record<string, { txt: string }>).map(([k, v]) => [k, v.txt]));
-  const fetch = (async (url: string) => {
-    const n = new URL(url).searchParams.get("name")!;
-    return new Response(JSON.stringify({ Status: 0, Answer: dns[n] ? [{ type: 16, data: `"${dns[n]}"` }] : [] }));
-  }) as typeof globalThis.fetch;
-  const mixed = await verifyDocument(text("mixed-versions.md"), { fetch, now: new Date(keys.now), tofuStore: new MemoryTofuStore() });
-  assert.deepEqual(mixed.signatures.map((s) => [s.fields.v, s.status]), [["0.0.1", "valid"], ["0.0.4", "valid"], ["0.0.2", "valid"]]);
-  assert.equal(mixed.agreement.status, "complete");
-  const bad = await verifyDocument(text("malformed-require-step-v001.md"), { offline: true });
-  assert.match(bad.signatures[0]!.message!, /need format 0\.0\.2/);
-  const future = text("legacy-v001.md").replace("v: 0.0.1", "v: 0.0.3");
-  assert.equal((await verifyDocument(future, { offline: true })).signatures[0]!.code, "unsupported-version");
-});
-
 test("version: an unknown version is reported before unknown fields", async () => {
   const signed = (await signDocument(DOC, { signer: await signerFromSeed(SEED_A), method: "tofu", signerId: "alice", ts: TS })).text;
   const code = async (t: string) => (await verifyDocument(t, { offline: true })).signatures[0]!;
-  const later = await code(signed.replace("v: 0.0.4\n", "v: 0.0.5\nnew_field: 1\n"));
+  const later = await code(signed.replace("v: 0.1\n", "v: 9.9.9\nnew_field: 1\n"));
   assert.deepEqual([later.status, later.code], ["unsupported", "unsupported-version"]);
-  const known = await code(signed.replace("v: 0.0.4\n", "v: 0.0.4\nnew_field: 1\n"));
+  const known = await code(signed.replace("v: 0.1\n", "v: 0.1\nnew_field: 1\n"));
   assert.deepEqual([known.status, known.code], ["malformed", "unknown-field"]);
-  const twice = await code(signed.replace("v: 0.0.4\n", "v: 0.0.4\nv: 0.0.5\n"));
+  const twice = await code(signed.replace("v: 0.1\n", "v: 0.1\nv: 9.9.9\n"));
   assert.deepEqual([twice.status, twice.code], ["malformed", "malformed"]);
-  const missing = await code(signed.replace("v: 0.0.4\n", ""));
+  const old = await code(signed.replace("v: 0.1\n", "v: 0.0.4\n"));
+  assert.deepEqual([old.status, old.code], ["unsupported", "unsupported-version"]);
+  assert.ok(old.warnings.some((w) => /mdsig v0\.0\.5/.test(w)));
+  const missing = await code(signed.replace("v: 0.1\n", ""));
   assert.deepEqual([missing.status, missing.code], ["malformed", "malformed"]);
 });
 
@@ -279,7 +269,7 @@ test("revocation lists: revoke, ignore lists by other signers, no recursion", as
   }) as typeof globalThis.fetch;
 
   const makeList = async (signer = a, signerId = "example.com", ids: string[] = []) =>
-    (await signDocument(`# Revoked\n\n${ids.map((i) => `revoked: sha256:${i}`).join("\n")}\n`, { signer, method: "dns", signerId, ts: TS, revocationUrl: URL_ })).text;
+    (await signDocument(revocationList(ids), { signer, method: "dns", signerId, ts: TS, revocationUrl: URL_ })).text;
 
   listText = await makeList(a, "example.com", []);
   const v0 = await verifyDocument(doc.text, { resolvers, fetch });
@@ -460,7 +450,7 @@ test("hardening: null clientData, unreadable resource, dns trailing dot, invalid
   const req = await signDocument(DOC, { signer: a, method: "dns", signerId: "example.com", ts: TS, require: ["tofu:bob"] });
   const off = await verifyDocument(req.text, { offline: true });
   assert.equal(off.signatures[0]!.status, "unresolved");
-  assert.equal(off.agreement.status, "pending");
+  assert.equal(off.agreement.status, "undetermined");
 });
 
 test("revocation survives a signature re-encoded without the key (ECDSA s -> n - s)", async () => {
@@ -468,7 +458,7 @@ test("revocation survives a signature re-encoded without the key (ECDSA s -> n -
   const URL_ = "https://example.com/revoked.md";
   const base = { signer: auth, method: "tofu" as const, signerId: "carol@passkey", ts: TS };
   const doc = await signDocument(DOC, { ...base, revocationUrl: URL_ });
-  const list = (await signDocument(`# Revoked\n\nrevoked: sha256:${await revocationId(doc.fields)}\n`, base)).text;
+  const list = (await signDocument(revocationList([await revocationId(doc.fields)]), base)).text;
   const fetch = (async () => new Response(list)) as typeof globalThis.fetch;
   assert.equal((await verifyDocument(doc.text, { fetch })).signatures[0]!.code, "revoked");
 

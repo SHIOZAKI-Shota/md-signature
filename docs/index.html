@@ -9,7 +9,7 @@
         content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/gsap@3.13.0/; style-src 'self' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-attr 'none'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <script src="./color-scheme.js?v=20261118b"></script>
+    <script src="./color-scheme.js?v=20261127"></script>
     <title>md-signature：Markdown にも電子署名を</title>
     <meta name="description"
         content="本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマット。署名は HTML コメントとして記述するため、表示に影響せず、ファイルは1つのまま。">
@@ -29,15 +29,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300..800&family=Geist+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="./style.css?v=20261118b">
-    <link rel="stylesheet" href="./chain.css?v=20261118b">
-    <link rel="stylesheet" href="./docs.css?v=20261118b">
+    <link rel="stylesheet" href="./style.css?v=20261127">
+    <link rel="stylesheet" href="./chain.css?v=20261127">
+    <link rel="stylesheet" href="./docs.css?v=20261127">
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" integrity="sha384-HOvlOYPIs/zjoIkWUGXkVmXsjr8GuZLV+Q+rcPwmJOVZVpvTSXQChiN4t9Euv9Vc" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" integrity="sha384-P8VzCVnT9NBUkMrpcIZrJbA7EBjJvh/fJS6PmP+4nLIM284DtsImIv8D0fFjIkeh" crossorigin="anonymous" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js" integrity="sha384-xb96EMJeax+NLXMC88ZBa1xAeAW+kn+horHh/zFlbMLG2UPWhMJJSlv7fi57hS+Q" crossorigin="anonymous" defer></script>
     <script src="./vendor/lucide/lucide.min.js" defer></script>
-    <script type="module" src="./site.js?v=20261118b"></script>
-    <script type="module" src="./motion.js?v=20261118b"></script>
+    <script type="module" src="./site.js?v=20261127"></script>
+    <script type="module" src="./motion.js?v=20261127"></script>
 </head>
 
 <body>
@@ -83,7 +83,6 @@
         <div class="intro" id="top" tabindex="-1">
             <section class="hero" aria-labelledby="hero-title">
                 <div class="hero-beam" aria-hidden="true"></div>
-                <div class="hero-texture" aria-hidden="true"></div>
                 <div class="hero-copy">
                     <h1 id="hero-title" data-i18n-html="hero.title">Markdown にも<br>電子署名を</h1>
                     <p class="lede" data-i18n="hero.lede">本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマットです。署名は HTML コメントとして記述するため、表示には影響せず、ファイルも1つのまま。あとから何人でも連署できます。</p>
@@ -111,9 +110,6 @@
 
                 <figure class="hero-figure chain-fig">
                     <div class="win cf-win">
-                        <div class="win-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span
-                                class="win-title">contract.md</span><span class="win-tag"
-                                data-i18n="fig.tagSource">ソース</span></div>
                         <div class="cf-body">
                             <ol class="cf-lines">
                                 <li class="b h"># <span data-i18n="fig.docTitle">業務委託契約書</span></li>
@@ -193,8 +189,7 @@
                     <i data-lucide="package" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.own.t">脱プラットフォーム・データの自己完結</h3>
-                        <p data-i18n="why.own.d">署名は文書の中にあります。サービスの解約や事業終了、アカウントの削除があっても、ファイルさえあれば検証を継続できます。仕様は
-                            CC0、実装はオープンソースです。</p>
+                        <p data-i18n="why.own.d">署名は文書の中にあります。サービスの解約や事業終了、アカウントの削除があっても、ファイルさえあれば検証を継続できます。仕様は CC0、実装はオープンソースです。</p>
                     </div>
                 </li>
                 <li>
@@ -208,9 +203,7 @@
                     <i data-lucide="badge-check" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.cert.t">発行元が署名した証明書</h3>
-                        <p data-i18n="why.cert.d">大学や企業が、自組織のドメインの DNS
-                            に公開した鍵で修了証や在籍証明に署名できます。受け取った側は、その組織が発行したものかを自分で確認できます。Verifiable Credentials を簡素にした使い方です。
-                        </p>
+                        <p data-i18n="why.cert.d">大学や企業が、自組織のドメインの DNS に公開した鍵で修了証や在籍証明に署名できます。受け取った側は、その組織が発行したものかを自分で確認できます。Verifiable Credentials を簡素にした使い方です。</p>
                     </div>
                 </li>
                 <li>
@@ -224,16 +217,14 @@
                     <i data-lucide="git-pull-request" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.git.t">Git で扱える合意記録</h3>
-                        <p data-i18n="why.git.d">署名の追加はファイル末尾への追記なので、差分が読みやすく、誰がいつ何に署名したかを PR
-                            でレビューできます。履歴の書き換えも署名の検証で検出されます。</p>
+                        <p data-i18n="why.git.d">署名の追加はファイル末尾への追記なので、差分が読みやすく、誰がいつ何に署名したかを PR でレビューできます。履歴の書き換えも署名の検証で検出されます。</p>
                     </div>
                 </li>
                 <li>
                     <i data-lucide="bot" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.ai.t">AI エージェント指示書の改ざん防止</h3>
-                        <p data-i18n="why.ai.d">CLAUDE.md や AGENTS.md に署名し、実行環境（フックや CI）が読み込み前に mdsig verify で照合します。PR
-                            や再配布の過程で書き換えられた指示書は、エージェントが読む前に拒否されます。ツールの出力や Web ページ経由の注入は対象外です。</p>
+                        <p data-i18n="why.ai.d">CLAUDE.md や AGENTS.md に署名し、実行環境（フックや CI）が読み込み前に mdsig verify で照合します。PR や再配布の過程で書き換えられた指示書は、エージェントが読む前に拒否されます。ツールの出力や Web ページ経由の注入は対象外です。</p>
                     </div>
                 </li>
                 <li>
@@ -247,8 +238,7 @@
                     <i data-lucide="database" aria-hidden="true"></i>
                     <div>
                         <h3 data-i18n="why.rag.t">RAG・ナレッジベースの汚染対策</h3>
-                        <p data-i18n="why.rag.d">取り込み処理で、承認者（role:
-                            approver）の有効な署名がある文書だけを索引に登録します。偽の文書や途中での改変は検知できます。承認者自身の判断の誤りまでは防げません。</p>
+                        <p data-i18n="why.rag.d">取り込み処理で、承認者（role: approver）の有効な署名がある文書だけを索引に登録します。偽の文書や途中での改変は検知できます。承認者自身の判断の誤りまでは防げません。</p>
                     </div>
                 </li>
                 <li>
@@ -263,6 +253,13 @@
                     <div>
                         <h3 data-i18n="why.local.t">機密文書を外部に出さない</h3>
                         <p data-i18n="why.local.d">検証も署名もブラウザ内またはローカルの CLI で完結し、文書をサーバへ送信しません。tofu 方式ならネットワーク接続なしでも検証できます。</p>
+                    </div>
+                </li>
+                <li>
+                    <i data-lucide="handshake" aria-hidden="true"></i>
+                    <div>
+                        <h3 data-i18n="why.agent.t">エージェント間の合意記録</h3>
+                        <p data-i18n="why.agent.d">AI エージェントどうしの取引で、売り手が署名した条件に買い手が連署します。条件のハッシュは x402 などの支払いに結び付けられます。</p>
                     </div>
                 </li>
             </ol>
@@ -291,14 +288,15 @@
                 </ol>
                 <div class="how-code">
                     <pre class="sig-example"><code><span class="c">&lt;!-- md-signature</span>
-v: 0.0.4
+v: 0.1
 method: git-hosting
 signer: github.com/alice
 key_fp: SHA256:Rx9i…
+display_name: Alice
 role: author
 ts: 2026-11-16T09:00:00Z
 require: |
-  dns:example.com approver
+  dns:example.com role=approver
 alg: ed25519
 hash: sha256:3a0d…
 sig: base64:q1Xv…
@@ -417,7 +415,7 @@ sig: base64:q1Xv…
                     <a href="./docs/">
                         <i data-lucide="book-open" aria-hidden="true"></i>
                         <h3 data-i18n="top.ex.docs.t">ドキュメント</h3>
-                        <p data-i18n="top.ex.docs.d">署名ブロックの形式、公開鍵の解決、検証手順、連署ワークフロー、長期保存を主題ごとに解説します。</p>
+                        <p data-i18n="top.ex.docs.d">署名ブロックの形式、公開鍵の解決、検証手順、連署ワークフロー、長期保存、エージェント間の合意記録を主題ごとに解説します。記法の早見表もあります。</p>
                         <span class="explore-go" aria-hidden="true"><i data-lucide="arrow-up-right"></i></span>
                     </a>
                 </li>
@@ -431,9 +429,9 @@ sig: base64:q1Xv…
                 </li>
             </ul>
             <ul class="explore-topics">
-                <li><a href="./docs/workflow/"><span data-i18n="docs.nav.workflow">連署ワークフロー</span><code>require · step · any · order</code></a></li>
+                <li><a href="./docs/workflow/"><span data-i18n="docs.nav.workflow">連署ワークフロー</span><code>require · step · member_of</code></a></li>
                 <li><a href="./docs/archive/"><span data-i18n="docs.nav.archive">長期保存</span><code>tsa · pubkey</code></a></li>
-                <li><a href="./docs/fields/"><span data-i18n="docs.nav.fields">拡張フィールド</span><code>scope · resources · expires</code></a></li>
+                <li><a href="./docs/fields/"><span data-i18n="docs.nav.fields">拡張フィールド</span><code>scope · resources · display_name</code></a></li>
                 <li><a href="./docs/verify/"><span data-i18n="docs.nav.verify">検証手順と結果</span><code>status · code · exit</code></a></li>
             </ul>
         </section>

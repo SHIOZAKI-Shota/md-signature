@@ -54,8 +54,10 @@ type verifyRequest struct {
 }
 
 type tsaRequest struct {
-	Token *string `json:"tsa_token"`
-	Sig   *string `json:"sig"`
+	Token *string `json:"token"`
+	// the data whose digest the token covers (the payload of a tsa block, SPEC 4.6)
+	Sig  *string `json:"sig"`
+	Hash *string `json:"hash"`
 }
 
 type errorBody struct {
@@ -200,11 +202,20 @@ func (h *handler) verify(ctx context.Context, body []byte) (any, error) {
 func (h *handler) tsa(_ context.Context, body []byte) (any, error) {
 	var req tsaRequest
 	if err := json.Unmarshal(body, &req); err != nil || req.Token == nil || req.Sig == nil {
-		return nil, errors.New(`body must be {"tsa_token": "<value>", "sig": "<base64>"}`)
+		return nil, errors.New(`body must be {"token": "<value>", "sig": "<base64>"}`)
 	}
 	sig, err := base64.StdEncoding.DecodeString(*req.Sig)
 	if err != nil || len(sig) == 0 || len(sig) > maxSigBytes {
 		return nil, errors.New("sig must be the base64 of the signature bytes")
 	}
-	return mdsig.ToJSONTSA(mdsig.CheckTSAToken(mdsig.UnfoldBinary(*req.Token), sig, &h.o.TSA)), nil
+	hash := "sha256"
+	if req.Hash != nil {
+		hash = *req.Hash
+	}
+	if hash != "sha256" && hash != "sha512" {
+		return nil, errors.New(`hash must be "sha256" or "sha512"`)
+	}
+	o := h.o.TSA
+	o.Hash = hash
+	return mdsig.ToJSONTSA(mdsig.CheckTSAToken(mdsig.UnfoldBinary(*req.Token), sig, &o)), nil
 }

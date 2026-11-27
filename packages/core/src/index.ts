@@ -1,5 +1,7 @@
 export * from "./encoding.ts";
 export * from "./canonical.ts";
+export * from "./identity.ts";
+export * from "./listline.ts";
 export * from "./crypto.ts";
 export * from "./parser.ts";
 export * from "./resolvers.ts";
@@ -8,6 +10,9 @@ export * from "./tsa.ts";
 export * from "./scope.ts";
 export * from "./resources.ts";
 export * from "./agreement.ts";
+export * from "./signed-list.ts";
+export * from "./signature-table.ts";
+export * from "./explain.ts";
 export * from "./webauthn.ts";
 export * from "./sign.ts";
 export * from "./handoff.ts";

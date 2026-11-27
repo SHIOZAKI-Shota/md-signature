@@ -104,12 +104,7 @@ func DefaultResolvers() map[string]Resolver {
 	}
 }
 
-func algOf(f map[string]string) string {
-	if a, ok := f["alg"]; ok {
-		return a
-	}
-	return "ed25519"
-}
+func algOf(f map[string]string) string { return f["alg"] }
 
 func keyTypeFor(alg string) string {
 	switch alg {
@@ -168,7 +163,7 @@ func parseDNSRecord(txt string) (k, p string, ok bool) {
 }
 
 func DNSName(fields map[string]string) string {
-	domain := strings.TrimSuffix(strings.ToLower(fields["signer"]), ".")
+	domain := fields["signer"]
 	if sel := fields["selector"]; sel != "" {
 		return sel + "._mdsig." + domain
 	}
@@ -297,9 +292,6 @@ func DNSKeysFromRecords(fields map[string]string, name string, records []string)
 func keysURL(signer string) string { return "https://" + signer + ".keys" }
 
 // SPEC 4.2: the host is a domain name of two or more labels, never an IP address
-var gitSignerRe = regexp.MustCompile(`(?i)^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z](?:[a-z0-9-]*[a-z0-9])?/[A-Za-z0-9._-]+$`)
-
-func isValidGitHostingSigner(s string) bool { return gitSignerRe.MatchString(s) }
 
 func FetchKeysFile(ctx context.Context, signer string, o *ResolveOptions) (string, error) {
 	u := keysURL(signer)
@@ -330,7 +322,7 @@ func resolveGitHosting(ctx context.Context, fields map[string]string, o *Resolve
 		return ResolveResult{}, resErr(KindOffline, "offline mode")
 	}
 	signer := fields["signer"]
-	if !gitSignerRe.MatchString(signer) {
+	if !isGitHostingID(signer) {
 		return ResolveResult{}, resErr(KindMalformed, "invalid git-hosting signer %q", signer)
 	}
 	text, err := FetchKeysFile(ctx, signer, o)

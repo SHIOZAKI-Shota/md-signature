@@ -103,6 +103,8 @@ type tstInfo struct {
 	Serial  string
 	// Nonce is the content of the INTEGER, nil when the token has none
 	Nonce []byte
+	// TSTInfo accuracy in milliseconds, rounded up; 0 when absent (SPEC 4.6)
+	AccuracyMs int64
 
 	token    []byte
 	eContent []byte
@@ -132,6 +134,30 @@ func parseGeneralizedTime(s string) (string, error) {
 		return "", errors.New("timestamp token: genTime is not a GeneralizedTime")
 	}
 	return fmt.Sprintf("%s-%s-%sT%s:%s:%s%sZ", m[1], m[2], m[3], m[4], m[5], m[6], m[7]), nil
+}
+
+func derUint(b []byte) int64 {
+	var v int64
+	for _, x := range b {
+		v = v*256 + int64(x)
+	}
+	return v
+}
+
+// Accuracy ::= SEQUENCE { seconds INTEGER OPTIONAL, millis [0] INTEGER OPTIONAL, micros [1] INTEGER OPTIONAL }
+func accuracyMs(acc *der) int64 {
+	var us int64
+	for _, c := range acc.children {
+		switch c.tag {
+		case 0x02:
+			us += derUint(c.content) * 1_000_000
+		case 0x80:
+			us += derUint(c.content) * 1000
+		case 0x81:
+			us += derUint(c.content)
+		}
+	}
+	return (us + 999) / 1000
 }
 
 func parseTimeStampResp(b []byte) (*tstInfo, error) {
@@ -194,6 +220,12 @@ func parseTimeStampResp(b []byte) (*tstInfo, error) {
 			break
 		}
 	}
+	for _, c := range tst.children[5:] {
+		if c.tag == 0x30 {
+			info.AccuracyMs = accuracyMs(c)
+			break
+		}
+	}
 	if alg := mi.child(0).child(0); alg != nil {
 		info.HashOID = oidToString(alg.content)
 	}
@@ -212,17 +244,21 @@ const (
 type TSACheck struct {
 	Status string
 	// GenTime is set only when Verified is true, so an unauthenticated time is never shown as evidence
-	GenTime  string
-	Detail   string
-	Verified bool
-	Signer   string
+	GenTime string
+	// set with GenTime
+	AccuracyMs int64
+	Detail     string
+	Verified   bool
+	Signer     string
 }
 
-// CheckTSAToken verifies a tsa_token against the signature bytes it should cover; o may be nil
-// CheckTSAToken checks a tsa_token, which covers SHA-256 of the raw signature bytes (SPEC 5.5).
-func CheckTSAToken(tsaToken string, sigBytes []byte, o *TSAVerifyOptions) TSACheck {
-	sum := sha256.Sum256(sigBytes)
-	return checkTimestampOver(tsaToken, sum[:], "sha256", o, "message imprint does not match SHA-256(sig)")
+// the imprint is H(data), H = o.Hash (sha256 when empty), as the HTTP API (CLI_SPEC 3.6) and VerifyOptions.TSAVerifier need
+func CheckTSAToken(tsaToken string, data []byte, o *TSAVerifyOptions) TSACheck {
+	h := "sha256"
+	if o != nil && o.Hash != "" {
+		h = o.Hash
+	}
+	return checkTimestampOver(tsaToken, digestBytes(h, data), h, o, "message imprint does not match "+strings.ToUpper(h)+"(data)")
 }
 
 // a token over an imprint the caller computed, for example the payload of a tsa block (SPEC 4.6)
@@ -242,7 +278,7 @@ func checkTimestampOver(token string, imprint []byte, hashAlg string, o *TSAVeri
 		return TSACheck{Status: TSAError, Detail: err.Error()}
 	}
 	signer := certDisplayName(cert)
-	return TSACheck{Status: TSAOK, GenTime: info.GenTime, Verified: true, Signer: signer, Detail: "imprint matched; TSA signature verified (" + signer + ")"}
+	return TSACheck{Status: TSAOK, GenTime: info.GenTime, AccuracyMs: info.AccuracyMs, Verified: true, Signer: signer, Detail: "imprint matched; TSA signature verified (" + signer + ")"}
 }
 
 type tsaImprintError struct{}
@@ -318,10 +354,9 @@ func buildTimeStampReq(imprint []byte, nonce []byte, hashAlg string) ([]byte, er
 	return asn1.Marshal(r)
 }
 
-// RequestTimestamp asks a TSA for a token over the signature bytes and verifies the response; client and o may be nil
-func RequestTimestamp(ctx context.Context, sigBytes []byte, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
-	// SPEC 5.5: the imprint is SHA-256 of the raw signature bytes
-	sum := sha256.Sum256(sigBytes)
+// RequestTimestamp asks a TSA for a token over SHA-256(data) and verifies the response; client and o may be nil
+func RequestTimestamp(ctx context.Context, data []byte, tsaURL string, client *http.Client, o *TSAVerifyOptions) (string, error) {
+	sum := sha256.Sum256(data)
 	return requestTimestampOver(ctx, sum[:], "sha256", tsaURL, client, o)
 }
 
