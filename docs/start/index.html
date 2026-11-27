@@ -294,7 +294,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                                 <pre><code><span class="cmt" data-i18n="start.denoNote"># インストール不要（npm: 指定子）</span></code></pre>
                             </div>
                             <div class="tblock code">
-                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "npm:@mdsig/core@0.1.0";
+                                <pre data-lang="ts" data-file="verify.ts"><code>import { verifyDocument } from "npm:@mdsig/core@0.1.1";
 
 const markdown = await Deno.readTextFile("contract.md");
 const { ok, signatures } = await verifyDocument(markdown);
@@ -312,7 +312,7 @@ console.log(ok, signatures.map((s) =&gt; `${s.fields.signer}: ${s.status}`));</c
                             </div>
                             <div class="tblock code">
                                 <pre data-lang="html" data-file="index.html"><code>&lt;script type="module"&gt;
-  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.1.0";
+  import { verifyDocument } from "https://esm.sh/@mdsig/core@0.1.1";
 
   const markdown = await (await fetch("contract.md")).text();
   const { ok, signatures } = await verifyDocument(markdown);

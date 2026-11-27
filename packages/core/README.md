@@ -27,7 +27,7 @@ Each block result has these fields.
 | --- | --- |
 | `status` | `valid`, `invalid`, `malformed`, `unresolved`, `unsupported` |
 | `code` | Why it failed: `hash-mismatch`, `bad-signature`, `expired`, `revoked`, `key-changed`, `network`, `not-found`, and others |
-| `message` | Explanation in English |
+| `message` | Explanation in English (`localizeMessage` turns it into Japanese) |
 | `fields` | The values written in the block (`signer`, `method`, `role`, `ts`, ...) |
 | `tsa` | `tsa` blocks only: the check of the token. `genTime` is present only when `verified` is `true` |
 | `time` | The block's time `T(k)`: the earliest `genTime` plus accuracy of a valid `tsa` block after it (format specification, section 4.6). Absent when there is none |
@@ -122,6 +122,25 @@ const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", 
 ```
 
 A `dns` or `git-hosting` block signed with `embedKey: true` can still be checked with its embedded key after the key is removed. The result is then `unresolved` / `key-not-published`, not valid, because the document alone cannot show that the key was the signer's (format specification, section 4.5).
+
+## Functions for tools
+
+These keep editor extensions and desktop apps from carrying their own interpretation of results.
+
+```ts
+import { documentVerdict, checkSignInput, serializeRequire, localizeMessage } from "@mdsig/core";
+
+documentVerdict(result);           // { kind: "valid" | "pending" | "failed" | …, exitCode: 0 | 1 | 3 | 5 }, the same rules as the CLI exit codes
+result.agreement.declarations[0].steps; // need, count, complete, blockedBy per step, and the assignment of each line
+checkSignInput({ method: "dns", signer: "Example.com", displayName: "Example Corp", require }, "en");
+serializeRequire({ order: "pending", steps: [{ any: null, lines: [{ method: "dns", signer: "example.com", attributes: { role: "approver" } }] }] });
+localizeMessage(result.warnings[0], "ja"); // English message to Japanese; text not in the catalog is returned unchanged
+findHiddenCharacters(body).filter((h) => h.context === null); // invisible characters to report (emoji sequences and joiners carry a context)
+documentLayout(text);               // line spans of the blocks, what each covers, and text no signature covers
+describeRequirement(requirement, "en"); // one requirement line in words
+```
+
+In tests, the bundled vectors (`@mdsig/core/examples/*`) can be verified with `vectorOptions(keys, readFile)` from `@mdsig/core/testing`.
 
 ## Verifying on a server
 

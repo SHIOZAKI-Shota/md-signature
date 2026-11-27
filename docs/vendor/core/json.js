@@ -34,7 +34,13 @@ export function agreementToJson(a) {
         violations: a.violations.map(violation),
         next: a.next.map(next),
         satisfied: a.satisfied.map((s) => ({ declared_by: s.declaredBy, step: s.step, line: s.line, index: s.index })),
-        declarations: a.declarations.map((d) => ({ declared_by: d.declaredBy, order: d.order, status: d.status, detail: d.detail ?? null })),
+        declarations: a.declarations.map((d) => ({
+            declared_by: d.declaredBy,
+            order: d.order,
+            status: d.status,
+            detail: d.detail ?? null,
+            steps: d.steps.map((s) => ({ step: s.step, any: s.any, need: s.need, count: s.count, complete: s.complete, blocked_by: s.blockedBy ?? null, lines: s.lines.map((l) => ({ line: l.line, blocks: [...l.blocks] })) })),
+        })),
     };
 }
 function tsaOf(s) {

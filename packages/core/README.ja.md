@@ -27,7 +27,7 @@ result.agreement;   // require による連署の状況（none / complete / pend
 | --- | --- |
 | `status` | `valid`、`invalid`、`malformed`、`unresolved`、`unsupported` |
 | `code` | 失敗の理由。`hash-mismatch`、`bad-signature`、`expired`、`revoked`、`key-changed`、`network`、`not-found` など |
-| `message` | 英語の説明 |
+| `message` | 英語の説明（`localizeMessage` で日本語にできる） |
 | `fields` | ブロックに書かれた値（`signer`、`method`、`role`、`ts` など） |
 | `tsa` | `tsa` ブロックのみ。トークンの検査結果で、`verified` が `true` のときだけ `genTime` を持つ |
 | `time` | ブロックの時刻 `T(k)`：後続の有効な `tsa` ブロックの `genTime` に誤差を加えた値の最小値（形式仕様 4.6 節）。定まらない場合はない |
@@ -122,6 +122,25 @@ const { text } = await timestampDocument(signed, { tsaUrl: "http://ts.ssl.com", 
 ```
 
 `embedKey: true` で署名した `dns` と `git-hosting` のブロックは、鍵が削除された後も、埋め込まれた鍵で署名の成立を確認できます。その場合の結果は `unresolved` / `key-not-published` で、有効とはなりません。鍵が署名者のものだったことは、文書だけからは示せないためです（形式仕様 4.5 節）。
+
+## ツール向けの関数
+
+エディタ拡張やデスクトップアプリが、それぞれで解釈を持たずに済むようにするための関数です。
+
+```ts
+import { documentVerdict, checkSignInput, serializeRequire, localizeMessage } from "@mdsig/core";
+
+documentVerdict(result);           // { kind: "valid" | "pending" | "failed" | …, exitCode: 0 | 1 | 3 | 5 }（CLI の終了コードと同じ規則）
+result.agreement.declarations[0].steps; // 段階ごとの need、count、complete、blockedBy と、行ごとの割り当て
+checkSignInput({ method: "dns", signer: "Example.com", displayName: "Example Corp", require }, "ja");
+serializeRequire({ order: "pending", steps: [{ any: null, lines: [{ method: "dns", signer: "example.com", attributes: { role: "approver" } }] }] });
+localizeMessage(result.warnings[0], "ja"); // 英語のメッセージを日本語に（目録にない文はそのまま）
+findHiddenCharacters(body).filter((h) => h.context === null); // 警告すべき見えない文字（絵文字の合成や結合文字は context 付き）
+documentLayout(text);               // 各署名の行範囲、対象範囲、署名されていない末尾
+describeRequirement(requirement, "ja"); // 要件行1行の説明
+```
+
+テストでは、同梱のテストベクタ（`@mdsig/core/examples/*`）を `@mdsig/core/testing` の `vectorOptions(keys, readFile)` で検証できます。
 
 ## サーバでの検証
 

@@ -4,7 +4,24 @@
 
 Releases of the `mdsig` CLI, the Go library `mdsig.dev/mdsig`, and `@mdsig/core` share one version number. The signature format has its own version, shown in parentheses.
 
-## 0.1.0 (format 0.1), unreleased
+## 0.1.1 (format 0.1), 2026-11-28
+
+### Breaking changes
+
+- A local resource reference whose decoded form contains `:` is now malformed, because on Windows a name such as `notes.txt:hidden` refers to an alternate data stream (SPEC 5.7).
+
+### Added
+
+- Each agreement declaration now reports the status of each step, `steps` (signers needed, signers counted, whether the step is complete, the step it waits for, and the assignment of each line). In JSON this is `declarations[].steps` (CLI_SPEC 5).
+- New rejection reason `unresolved`. Unresolved blocks used to be reported as `not-valid`; they can now be told apart from blocks that are invalid, for example after tampering (SPEC 5.8.9).
+- `documentVerdict` / `DocumentVerdict` give the verdict on a whole document, following the exit codes of CLI_SPEC 4. The CLI uses it.
+- `serializeRequire` (the inverse of `parseRequire`) and `checkSignInput`, which checks signing-form input before signing (signer canonicalization, display name, and the explanation and errors of `require`).
+- `localizeMessage` / `LocalizeMessage` turn user-facing messages into Japanese. One catalog, `mdsig/messages_ja.json`, is shared by TypeScript and Go. In Japanese, the CLI shows warnings, verdict details, and errors in Japanese (`--json` stays English).
+- `findHiddenCharacters` finds characters that do not show on screen, and `HIDDEN_CHARACTER_RE` matches them for display. They are the class of SPEC 3.2 rule 4 (without tab and line breaks), noncharacters, and characters such as variation selectors and Hangul fillers. Emoji sequences (ZWJ), the tag characters of flag emoji, ZWJ and ZWNJ inside words of Arabic or Indic scripts, and variation selectors get a `context`, so a tool can report only the ones without one, such as tag characters or a ZWJ hidden in a Latin word (SPEC 9.5).
+- `documentLayout` gives the line spans of the blocks, what each block covers (including `scope` sections), and the text no signature covers. `describeRequirement` describes one requirement line in English or Japanese.
+- `@mdsig/core` now ships the cross-implementation vectors (`@mdsig/core/examples/*`), and `vectorOptions` (`@mdsig/core/testing`) builds the test keys and network stubs for them.
+
+## 0.1.0 (format 0.1), 2026-11-27
 
 Format 0.1 is a breaking cleanup made while there are still few users. Blocks written by 0.0.x releases do not verify with this release and cannot be co-signed with it.
 

@@ -80,31 +80,7 @@ func writeJSON(v any) error {
 }
 
 func fileExitCode(r *mdsig.VerifyResult) int {
-	if r.Error != "" {
-		return exitFail
-	}
-	code := exitOK
-	for _, s := range r.Signatures {
-		switch {
-		case s.Status == mdsig.StatusValid:
-		case s.Status == mdsig.StatusUnresolved:
-			code = worse(code, exitNetwork)
-		default:
-			return exitFail
-		}
-	}
-	// CLI_SPEC 4: violated and unsupported fail; undetermined is like an unchecked block; pending is not a failure
-	switch r.Agreement.Status {
-	case mdsig.AgreementViolated, mdsig.AgreementUnsupported:
-		return exitFail
-	case mdsig.AgreementUndetermined:
-		code = worse(code, exitNetwork)
-	case mdsig.AgreementPending:
-		if code == exitOK {
-			code = exitPending
-		}
-	}
-	return code
+	return mdsig.DocumentVerdict(r).ExitCode
 }
 
 // --- TOFU store ---
@@ -399,12 +375,12 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 		}
 		for _, wn := range s.Warnings {
 			if !humanHiddenWarning(wn) {
-				fmt.Fprintf(w, "      ! %s\n", safeText(wn))
+				fmt.Fprintf(w, "      ! %s\n", safeText(localize(wn)))
 			}
 		}
 	}
 	for _, wn := range r.Warnings {
-		fmt.Fprintf(w, "  ! %s\n", safeText(wn))
+		fmt.Fprintf(w, "  ! %s\n", safeText(localize(wn)))
 	}
 	total := len(r.Signatures)
 	offline, failed, unresolved := 0, 0, 0
@@ -426,6 +402,8 @@ func printVerifyHuman(file string, r *mdsig.VerifyResult) {
 			msg = i18n.T("verify.unsigned_content")
 		} else if msg == "no signatures found" {
 			msg = i18n.T("verify.no_signatures")
+		} else {
+			msg = safeText(localize(r.Error))
 		}
 		fmt.Fprintf(w, "  %s %s\n", mark("x"), i18n.T("verify.not_verified", msg))
 	case failed > 0:
@@ -470,7 +448,7 @@ func printAgreementHuman(w io.Writer, a mdsig.Agreement) {
 		var parts []string
 		for _, d := range a.Declarations {
 			if d.Status == status && d.Detail != "" {
-				parts = append(parts, safeText(d.Detail))
+				parts = append(parts, safeText(localize(d.Detail)))
 			}
 		}
 		return strings.Join(parts, "; ")
@@ -558,7 +536,12 @@ func describeFailure(s *mdsig.BlockResult) string {
 	if s.Message == "" {
 		return label
 	}
-	return label + ": " + safeText(s.Message)
+	return label + ": " + safeText(localize(s.Message))
+}
+
+// human output only; --json stays English (CLI_SPEC 5)
+func localize(msg string) string {
+	return mdsig.LocalizeMessage(msg, string(i18n.Current()))
 }
 
 // SPEC 6.2: the packet creation time is the signer's claim and is shown apart from ts and the TSA time

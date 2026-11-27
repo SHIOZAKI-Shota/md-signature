@@ -206,7 +206,7 @@ next to `signer` in the signature table (Section 5.11) and elsewhere.
 
 - The value MUST be a string that does not change when the enforcement rules [RFC8264] of the Nickname profile of RFC 8266 [RFC8266] are applied, and be at most 64 code points long. Generators MUST apply those rules to the input before writing it.
 - Verifiers MUST check the length and treat a block whose value is longer than 64 code points as **malformed**. Verifiers are not required to check conformance to the Nickname profile; rule 4 of Section 3.2 limits which characters a value can contain.
-- A display name is self-asserted, and anyone can write any name. A verifier that shows a display name MUST show the verified signer identity with it and indicate that the display name is a claim. It MUST NOT show the display name alone.
+- A display name is self-asserted, and anyone can write any name. A verifier that shows a display name MUST show the signer identity with it and indicate that the display name is a claim. It MUST NOT show the display name alone. For a block that is not valid, it MUST either not show the display name or show, in the same place, that the block is not valid (its status).
 - It is not the handoff parameter `name` (the document's display name) of CLI_SPEC Section 8.2.
 
 ### 3.4 Identifier normalization
@@ -689,7 +689,7 @@ resources: |
   - a `%` is not followed by two hexadecimal digits;
   - it contains `%2F`, `%5C`, or `%00` (in either case);
   - the decoded bytes are not valid UTF-8;
-  - the decoded result starts with `/` or a drive letter (`[A-Za-z]:`), or contains `\`;
+  - the decoded result starts with `/`, or contains `\` or `:` (`:` names a Windows drive letter (`C:`) or an alternate data stream (`notes.txt:hidden`));
   - splitting the decoded result at `/` gives a `.`, `..`, or empty segment.
 
   A file name containing a space is written with `%20` (to keep it apart from the attribute separator). No Unicode normalization is done. A reference made on a file system that stores names in NFD (such as HFS+ on macOS) may not be found elsewhere, so generators SHOULD write file names in NFC.
@@ -929,7 +929,8 @@ applies. This vocabulary is separate from the block `code` (Section 5.4).
 
 | Reason | Meaning |
 | --- | --- |
-| `not-valid` | The block is not valid. |
+| `unresolved` | The block is unresolved, including when it could not be checked because of being offline or a communication failure. |
+| `not-valid` | The block is neither valid nor unresolved. |
 | `scoped` | The block has `scope`. |
 | `self` | On a pattern line, the block has the same signer identity as the declaration. |
 | `key-mismatch` | The block's key differs from the key in `pubkey=`. |
@@ -1285,8 +1286,8 @@ the source, not only the rendering, before signing.
 table marker (Section 5.11) MUST follow these rules:
 
 - It shows the same verification results in UI the body cannot reach as well (an area outside the body). With only the table inside the body, readers cannot tell the real signature table from a fake table written in the body.
-- It builds the signature table outside the sanitized body DOM, so that the body's HTML and styles cannot affect the table's content or appearance. For example, it splits the body at the marker, renders the parts separately, and places the table element between them.
-- It shows a display name (`display_name`) next to the verified signer identity, marked as a claim (Section 3.3).
+- It builds the signature table outside the sanitized body DOM, so that the body's HTML and styles cannot affect the table's content or appearance. For example, it renders the body once and places the table element right after the top-level block that contains the marker. It does not split the source of the body at the marker and render the parts separately: link reference definitions apply to the whole body, and cutting an HTML block that contains the marker in two would show something other than what the signer saw.
+- It shows a display name (`display_name`) next to the signer identity, marked as a claim. In the row of a block that is not valid, it either leaves the display name out or shows the block's status in the same row (Section 3.3).
 
 ### 9.6 Key reuse and domain separation
 

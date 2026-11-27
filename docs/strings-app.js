@@ -55,6 +55,7 @@ export default {
     "reject.key-mismatch": "pubkey= の鍵と異なる",
     "reject.self": "宣言した署名者自身",
     "reject.scoped": "部分署名（scope）",
+    "reject.unresolved": "署名をまだ検査できていない",
     "reject.not-valid": "署名が有効でない",
 
     "link.body": "対象：本文",
@@ -359,6 +360,7 @@ export default {
     "reject.key-mismatch": "a key other than pubkey=",
     "reject.self": "the declaring signer",
     "reject.scoped": "a partial signature (scope)",
+    "reject.unresolved": "the signature could not be checked yet",
     "reject.not-valid": "the signature is not valid",
 
     "link.body": "covers body",

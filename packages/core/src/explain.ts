@@ -1,4 +1,5 @@
 import { parseRequire, parseRosterRef, type Requirement } from "./agreement.ts";
+import { localizeMessage, type Lang } from "./messages.ts";
 
 // --- require explanation (CLI_SPEC 3.11)
 
@@ -12,9 +13,9 @@ export interface RequireExplanation {
   hints: string[];
 }
 
-type Lang = "ja" | "en";
+type RequirementLine = Pick<Requirement, "method" | "signer" | "pattern" | "attributes">;
 
-function target(r: Requirement, lang: Lang): string {
+function target(r: RequirementLine, lang: Lang): string {
   const s = r.signer;
   const ja = lang === "ja";
   if (!r.pattern) return `${r.method}:${s}`;
@@ -23,7 +24,7 @@ function target(r: Requirement, lang: Lang): string {
   return ja ? `${s.slice(2)} のメールアドレスのいずれか（${r.method} 方式、サブドメインを除く）` : `any ${r.method} address at ${s.slice(2)} (not its subdomains)`;
 }
 
-function describe(r: Requirement, lang: Lang): string {
+export function describeRequirement(r: RequirementLine, lang: Lang = "en"): string {
   const a = r.attributes;
   const ja = lang === "ja";
   const parts: string[] = [];
@@ -58,7 +59,7 @@ export function explainRequire(value: string, lang: Lang = "en"): RequireExplana
   for (const s of p.spec.steps) {
     const head = s.any !== null ? (ja ? `段階 ${s.step}：次のうち異なる${s.any}者` : `step ${s.step}: any ${s.any} different signers of`) : ja ? `段階 ${s.step}：次のすべて` : `step ${s.step}: all of`;
     lines.push(head);
-    for (const r of s.lines) lines.push(`  ${describe(r, lang)}`);
+    for (const r of s.lines) lines.push(`  ${describeRequirement(r, lang)}`);
   }
   const warnings: string[] = [];
   for (const r of p.requirements) {
@@ -76,5 +77,6 @@ export function explainRequire(value: string, lang: Lang = "en"): RequireExplana
       warnings.push(ja ? `${i + 1}行目：字下げが段階の構造と一致しない` : `line ${i + 1}: the indentation does not match the step structure`);
     }
   });
-  return { ok: !p.errors.length && !p.unsupported.length, text: lines.join("\n"), errors: p.errors, unsupported: p.unsupported, warnings, hints: p.hints };
+  const loc = (list: string[]) => list.map((m) => localizeMessage(m, lang));
+  return { ok: !p.errors.length && !p.unsupported.length, text: lines.join("\n"), errors: loc(p.errors), unsupported: loc(p.unsupported), warnings, hints: loc(p.hints) };
 }

@@ -179,11 +179,27 @@ type JSONSatisfaction struct {
 	Index      int `json:"index"`
 }
 
+type JSONStepLine struct {
+	Line   int   `json:"line"`
+	Blocks []int `json:"blocks"`
+}
+
+type JSONDeclarationStep struct {
+	Step      int            `json:"step"`
+	Any       *int           `json:"any"`
+	Need      int            `json:"need"`
+	Count     int            `json:"count"`
+	Complete  bool           `json:"complete"`
+	BlockedBy *int           `json:"blocked_by"`
+	Lines     []JSONStepLine `json:"lines"`
+}
+
 type JSONDeclaration struct {
-	DeclaredBy int     `json:"declared_by"`
-	Order      string  `json:"order"`
-	Status     string  `json:"status"`
-	Detail     *string `json:"detail"`
+	DeclaredBy int                   `json:"declared_by"`
+	Order      string                `json:"order"`
+	Status     string                `json:"status"`
+	Detail     *string               `json:"detail"`
+	Steps      []JSONDeclarationStep `json:"steps"`
 }
 
 type JSONAgreement struct {
@@ -249,7 +265,23 @@ func toJSONAgreement(a Agreement) JSONAgreement {
 		out.Satisfied = append(out.Satisfied, JSONSatisfaction{DeclaredBy: s.DeclaredBy, Step: s.Step, Line: s.Line, Index: s.Index})
 	}
 	for _, d := range a.Declarations {
-		out.Declarations = append(out.Declarations, JSONDeclaration{DeclaredBy: d.DeclaredBy, Order: d.Order, Status: d.Status, Detail: strPtr(d.Detail)})
+		jd := JSONDeclaration{DeclaredBy: d.DeclaredBy, Order: d.Order, Status: d.Status, Detail: strPtr(d.Detail), Steps: []JSONDeclarationStep{}}
+		for _, st := range d.Steps {
+			js := JSONDeclarationStep{Step: st.Step, Need: st.Need, Count: st.Count, Complete: st.Complete, Lines: []JSONStepLine{}}
+			if st.Any != 0 {
+				n := st.Any
+				js.Any = &n
+			}
+			if st.BlockedBy != 0 {
+				n := st.BlockedBy
+				js.BlockedBy = &n
+			}
+			for _, l := range st.Lines {
+				js.Lines = append(js.Lines, JSONStepLine{Line: l.Line, Blocks: append([]int{}, l.Blocks...)})
+			}
+			jd.Steps = append(jd.Steps, js)
+		}
+		out.Declarations = append(out.Declarations, jd)
 	}
 	return out
 }

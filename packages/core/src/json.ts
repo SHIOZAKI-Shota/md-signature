@@ -57,7 +57,13 @@ export interface JsonAgreement {
   violations: JsonOrderViolation[];
   next: JsonNext[];
   satisfied: { declared_by: number; step: number; line: number; index: number }[];
-  declarations: { declared_by: number; order: string; status: string; detail: string | null }[];
+  declarations: {
+    declared_by: number;
+    order: string;
+    status: string;
+    detail: string | null;
+    steps: { step: number; any: number | null; need: number; count: number; complete: boolean; blocked_by: number | null; lines: { line: number; blocks: number[] }[] }[];
+  }[];
 }
 
 export interface JsonSignature {
@@ -128,7 +134,13 @@ export function agreementToJson(a: Agreement): JsonAgreement {
     violations: a.violations.map(violation),
     next: a.next.map(next),
     satisfied: a.satisfied.map((s) => ({ declared_by: s.declaredBy, step: s.step, line: s.line, index: s.index })),
-    declarations: a.declarations.map((d) => ({ declared_by: d.declaredBy, order: d.order, status: d.status, detail: d.detail ?? null })),
+    declarations: a.declarations.map((d) => ({
+      declared_by: d.declaredBy,
+      order: d.order,
+      status: d.status,
+      detail: d.detail ?? null,
+      steps: d.steps.map((s) => ({ step: s.step, any: s.any, need: s.need, count: s.count, complete: s.complete, blocked_by: s.blockedBy ?? null, lines: s.lines.map((l) => ({ line: l.line, blocks: [...l.blocks] })) })),
+    })),
   };
 }
 

@@ -696,7 +696,7 @@ const attrText = (attrs) =>
     .map(([k, v]) => (v === true ? k : `${k}=${v}`))
     .join(" ");
 const reqLine = (q) => visible([`${q.method}:${q.signer}`, attrText(q.attributes)].filter(Boolean).join(" "));
-const REJECT_KEYS = new Set(["early", "blocked", "not-member", "roster-unavailable", "not-user-verified", "key-mismatch", "self", "scoped", "not-valid"]);
+const REJECT_KEYS = new Set(["early", "blocked", "not-member", "roster-unavailable", "not-user-verified", "key-mismatch", "self", "scoped", "unresolved", "not-valid"]);
 const rejectText = (x) => t("reject.item", { index: x.index, reason: REJECT_KEYS.has(x.reason) ? t(`reject.${x.reason}`) : visible(x.reason, false) });
 
 function nextSummary(a) {

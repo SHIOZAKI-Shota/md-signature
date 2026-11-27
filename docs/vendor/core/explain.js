@@ -1,4 +1,5 @@
 import { parseRequire, parseRosterRef } from "./agreement.js";
+import { localizeMessage } from "./messages.js";
 function target(r, lang) {
     const s = r.signer;
     const ja = lang === "ja";
@@ -10,7 +11,7 @@ function target(r, lang) {
         return ja ? `${s.slice(2)} のサブドメインのいずれか（${s.slice(2)} 自体を除く）` : `any subdomain of ${s.slice(2)} (not ${s.slice(2)} itself)`;
     return ja ? `${s.slice(2)} のメールアドレスのいずれか（${r.method} 方式、サブドメインを除く）` : `any ${r.method} address at ${s.slice(2)} (not its subdomains)`;
 }
-function describe(r, lang) {
+export function describeRequirement(r, lang = "en") {
     const a = r.attributes;
     const ja = lang === "ja";
     const parts = [];
@@ -47,7 +48,7 @@ export function explainRequire(value, lang = "en") {
         const head = s.any !== null ? (ja ? `段階 ${s.step}：次のうち異なる${s.any}者` : `step ${s.step}: any ${s.any} different signers of`) : ja ? `段階 ${s.step}：次のすべて` : `step ${s.step}: all of`;
         lines.push(head);
         for (const r of s.lines)
-            lines.push(`  ${describe(r, lang)}`);
+            lines.push(`  ${describeRequirement(r, lang)}`);
     }
     const warnings = [];
     for (const r of p.requirements) {
@@ -67,5 +68,6 @@ export function explainRequire(value, lang = "en") {
             warnings.push(ja ? `${i + 1}行目：字下げが段階の構造と一致しない` : `line ${i + 1}: the indentation does not match the step structure`);
         }
     });
-    return { ok: !p.errors.length && !p.unsupported.length, text: lines.join("\n"), errors: p.errors, unsupported: p.unsupported, warnings, hints: p.hints };
+    const loc = (list) => list.map((m) => localizeMessage(m, lang));
+    return { ok: !p.errors.length && !p.unsupported.length, text: lines.join("\n"), errors: loc(p.errors), unsupported: loc(p.unsupported), warnings, hints: loc(p.hints) };
 }

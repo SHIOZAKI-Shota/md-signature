@@ -4,7 +4,7 @@
 
 [English](CLI_SPEC.md) · [形式仕様](SPEC.ja.md)
 
-- **バージョン：** 0.1.0（ドラフト。形式のバージョンは 0.1）
+- **バージョン：** 0.1.1（ドラフト。形式のバージョンは 0.1）
 - **ライセンス：** CC0 1.0 Universal（`LICENSE-SPEC` を参照）
 - **形式仕様：** [SPEC.ja.md](SPEC.ja.md)
 
@@ -28,7 +28,7 @@
 | --- | --- |
 | `--lang <code>` | UI 言語：`en` または `ja`。7 節を参照。 |
 | `-h, --help` | ヘルプ。 |
-| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.1.0 (format 0.1)`）。CLI は SPEC が定める形式 `0.1` のみを検証し、`0.1` で署名する。`0.0.x` の文書は `unsupported-version` となり、CLI は v0.0.5 で検証するよう案内する。 |
+| `--version` | バージョンを表示する。CLI のバージョンと、署名に用いる形式のバージョンを併記する（例：`mdsig version 0.1.1 (format 0.1)`）。CLI は SPEC が定める形式 `0.1` のみを検証し、`0.1` で署名する。`0.0.x` の文書は `unsupported-version` となり、CLI は v0.0.5 で検証するよう案内する。 |
 
 ## 3. コマンド
 
@@ -332,7 +332,7 @@ TSA の応答は、追記する `tsa` ブロックとして SPEC 4.6 節の検�
 
 1. 検証結果の要約（文書の状態と合意ステータス）を、本文の外側の、本文の内容が入り込めない領域に置く。
 2. 本文は、スクリプト、イベント属性、フォームの要素、`style` 属性を除いて描画する。
-3. 署名欄は、本文を描画した DOM の外で作成する。本文に署名欄のマーカーがある場合は、最初のマーカー（コードフェンスの外のもの）の位置で本文を分割して別々に描画し、その間に署名欄を置く。マーカーがない場合は、本文の後に置く。
+3. 署名欄は、本文を描画した DOM の外で作成する。本文は一度だけ描画する。本文に署名欄のマーカーがある場合は、最初のマーカー（コードフェンスの外のもの）を含む最上位のブロックの直後に署名欄を置く。マーカーが単独のブロックである場合、そのブロックは出力しない。マーカーがない場合は、本文の後に置く。本文のソースをマーカーで分割して別々に描画することはしない（リンク参照定義や HTML ブロックがマーカーをまたぐため）。
 
 署名欄は、チェーンの各ブロック（`tsa` ブロックを除く）について 1 行を持つ。
 
@@ -492,10 +492,11 @@ $ mdsig member-record directory:alice@example.com example.com
 - `required` は、すべての宣言のすべての要件行である。各要素は、宣言したブロックの番号 `declared_by`、段階の番号 `step`、その段階の `any` の値（`any` のない段階では `null`）、`require` の値の中での行番号 `line`（1 から数え、順序行と段階行も数える）、対象の `method` と `signer`（パターンの行では `*.example.com` などのパターン）、パターンの行かどうかを示す `pattern`、および属性 `attributes` を持つ。
 - `attributes` は、属性の名前をキーとするオブジェクトである。値を取る属性は文字列、値を取らない属性（`user_verified`）は `true` とする。将来の属性も同じオブジェクトに入るため、JSON の形は変わらない。
 - `satisfied` は、報告する割り当て（SPEC 5.8.5 節）の一覧であり、各要素は `{ "declared_by", "step", "line", "index" }` である。`index` は、その要件行に割り当てられたブロックの番号である。
-- `missing` は、成立していない段階の、割り当てのない要件行である。`required` の要素のキーに加えて、その段階であと何者必要かを示す `need` と、数えられなかったブロックの一覧 `rejected` を持ち、前の段階が成立していないため待機中の場合はその段階の番号 `blocked_by` を持つ。`rejected` の各要素は `{ "index", "reason" }` であり、`reason` は SPEC 5.8.9 節の語彙（`early`、`blocked`、`not-member`、`roster-unavailable`、`not-user-verified`、`key-mismatch`、`self`、`scoped`、`not-valid`）である。この語彙は署名の `code` とは別のものである。
+- `missing` は、成立していない段階の、割り当てのない要件行である。`required` の要素のキーに加えて、その段階であと何者必要かを示す `need` と、数えられなかったブロックの一覧 `rejected` を持ち、前の段階が成立していないため待機中の場合はその段階の番号 `blocked_by` を持つ。`rejected` の各要素は `{ "index", "reason" }` であり、`reason` は SPEC 5.8.9 節の語彙（`early`、`blocked`、`not-member`、`roster-unavailable`、`not-user-verified`、`key-mismatch`、`self`、`scoped`、`unresolved`、`not-valid`）である。この語彙は署名の `code` とは別のものである。
 - `next` は、成立していない宣言ごとに 1 つの要素を持つ。各要素は、成立していない最初の段階の番号 `step`、あと何者必要か `need`、候補の要件行 `candidates`（`required` の要素）、および後に続く段階の概要 `later`（`{ "step", "need", "lines" }` の一覧）を持つ。
 - `violations` は順序違反の一覧であり、各要素は `{ "declared_by", "step", "line", "index", "method", "signer", "order" }` である。`index` は違反したブロックの番号、`line` は割り当てられた要件行、`order` は宣言の順序行の値（`guide` または `strict`）である。`order mode=guide` の違反も一覧に含むが、合意ステータスには影響しない。
-- `declarations` は宣言ごとの状態であり、各要素は `{ "declared_by", "order", "status", "detail" }` である。`status` は `agreement.status` と同じ語彙（`none` を除く）である。`detail` は、`unsupported` の場合は理解できなかった方式または属性を、`undetermined` の場合はその原因（オフライン、通信の失敗、名簿を取得できない、SPEC 5.8.10 節の上限）を示し、それ以外は `null` となる。
+- `declarations` は宣言ごとの状態であり、各要素は `{ "declared_by", "order", "status", "detail", "steps" }` である。`status` は `agreement.status` と同じ語彙（`none` を除く）である。`detail` は、`unsupported` の場合は理解できなかった方式または属性を、`undetermined` の場合はその原因（オフライン、通信の失敗、名簿を取得できない、SPEC 5.8.10 節の上限）を示し、それ以外は `null` となる。
+- `steps` は宣言の段階ごとの状態であり、宣言を評価しなかった場合（`unsupported`、SPEC 5.8.10 節の上限）は空の配列となる。各要素は、段階の番号 `step`、`any` の値（`any` のない段階では `null`）、その段階に必要な署名者数 `need`、数えられた署名者数 `count`、成立しているかを示す `complete`、前の段階が成立していないため待機中の場合はその段階の番号 `blocked_by`（それ以外は `null`）、および要件行ごとの割り当て `lines`（`{ "line", "blocks" }` の一覧。`blocks` はその行に割り当てられたブロックの番号を昇順に並べたもの）を持つ。`lines` は宣言の順に並び、`blocks` の内容は `satisfied` と一致する。
 
 ## 6. 対話型ランチャー
 
@@ -516,7 +517,7 @@ JavaScript では `@clack/prompts` を使用する。
    ```
    $ mdsig
 
-     md-signature v0.1.0：対話モード
+     md-signature v0.1.1：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

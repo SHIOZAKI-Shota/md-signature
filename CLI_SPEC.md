@@ -1,6 +1,6 @@
 # `mdsig` Command-Line Interface Specification
 
-- **Version:** 0.1.0 (draft; format version 0.1)
+- **Version:** 0.1.1 (draft; format version 0.1)
 - **License:** CC0 1.0 Universal (see `LICENSE-SPEC`)
 - **Format specification:** [SPEC.md](SPEC.md)
 - **Normative text:** [日本語 (CLI_SPEC.ja.md)](CLI_SPEC.ja.md). This English version is an informative translation. If they differ, the Japanese text prevails.
@@ -25,7 +25,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", "SHOULD NOT", and "MAY" 
 | --- | --- |
 | `--lang <code>` | UI language: `en` or `ja`. See Section 7. |
 | `-h, --help` | Help. |
-| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.1.0 (format 0.1)`). The CLI verifies only the format `0.1` defined by SPEC and signs with `0.1`. Documents in `0.0.x` are `unsupported-version`, and the CLI suggests verifying them with v0.0.5. |
+| `--version` | Print version. Shows the CLI version together with the version of the format used for signing (for example `mdsig version 0.1.1 (format 0.1)`). The CLI verifies only the format `0.1` defined by SPEC and signs with `0.1`. Documents in `0.0.x` are `unsupported-version`, and the CLI suggests verifying them with v0.0.5. |
 
 ## 3. Commands
 
@@ -338,7 +338,7 @@ The output MUST follow these rules:
 
 1. A summary of the verification result (the document's status and the agreement status) is placed outside the body, in an area the body's content cannot reach.
 2. The body is rendered without scripts, event attributes, form elements, and `style` attributes.
-3. The signature table is built outside the DOM the body is rendered into. If the body has a signature table marker, the body is split at the first marker (outside code fences), the parts are rendered separately, and the table is placed between them. Without a marker, the table is placed after the body.
+3. The signature table is built outside the DOM the body is rendered into. The body is rendered once. If the body has a signature table marker, the table is placed right after the top-level block that contains the first marker (outside code fences). When the marker is a block of its own, that block is not output. Without a marker, the table is placed after the body. The source of the body is not split at the marker and rendered in parts (link reference definitions and HTML blocks can span the marker).
 
 The signature table has one row for each block of the chain (except `tsa` blocks).
 
@@ -500,10 +500,11 @@ or `null`.
 - `required` lists every requirement line of every declaration. Each element has the number of the declaring block `declared_by`, the step number `step`, the step's `any` value (`null` for a step without `any`), the line number `line` within the `require` value (counting from 1, order and step lines included), the target's `method` and `signer` (for a pattern line, the pattern, such as `*.example.com`), `pattern`, which tells whether it is a pattern line, and the attributes `attributes`.
 - `attributes` is an object keyed by attribute name. An attribute that takes a value has a string; an attribute that takes none (`user_verified`) has `true`. Future attributes go into the same object, so the shape of the JSON does not change.
 - `satisfied` lists the reported assignment (SPEC 5.8.5). Each element is `{ "declared_by", "step", "line", "index" }`, where `index` is the number of the block assigned to that requirement line.
-- `missing` lists the requirement lines without an assignment in steps that are not complete. Besides the keys of `required`, each element has `need`, how many more signers its step needs, and `rejected`, the blocks that were not counted; when it is waiting for an earlier step that is not complete yet, it also has `blocked_by`, the number of that step. Each element of `rejected` is `{ "index", "reason" }`, where `reason` is from the vocabulary of SPEC 5.8.9 (`early`, `blocked`, `not-member`, `roster-unavailable`, `not-user-verified`, `key-mismatch`, `self`, `scoped`, `not-valid`). This vocabulary is separate from the signature `code`.
+- `missing` lists the requirement lines without an assignment in steps that are not complete. Besides the keys of `required`, each element has `need`, how many more signers its step needs, and `rejected`, the blocks that were not counted; when it is waiting for an earlier step that is not complete yet, it also has `blocked_by`, the number of that step. Each element of `rejected` is `{ "index", "reason" }`, where `reason` is from the vocabulary of SPEC 5.8.9 (`early`, `blocked`, `not-member`, `roster-unavailable`, `not-user-verified`, `key-mismatch`, `self`, `scoped`, `unresolved`, `not-valid`). This vocabulary is separate from the signature `code`.
 - `next` has one element per declaration that is not complete. Each element has the number of the first incomplete step `step`, how many more signers it needs `need`, the candidate requirement lines `candidates` (elements of `required`), and an outline of the steps after it, `later` (a list of `{ "step", "need", "lines" }`).
 - `violations` lists order violations. Each element is `{ "declared_by", "step", "line", "index", "method", "signer", "order" }`, where `index` is the offending block, `line` is the requirement line it was assigned to, and `order` is the value of the declaration's order line (`guide` or `strict`). `order mode=guide` violations are listed too, but they do not change the agreement status.
-- `declarations` gives the status of each declaration. Each element is `{ "declared_by", "order", "status", "detail" }`, where `status` uses the vocabulary of `agreement.status` (except `none`). `detail` names the methods or attributes that were not understood for `unsupported`, and the cause (offline, network failure, roster that cannot be obtained, the limits of SPEC 5.8.10) for `undetermined`; otherwise it is `null`.
+- `declarations` gives the status of each declaration. Each element is `{ "declared_by", "order", "status", "detail", "steps" }`, where `status` uses the vocabulary of `agreement.status` (except `none`). `detail` names the methods or attributes that were not understood for `unsupported`, and the cause (offline, network failure, roster that cannot be obtained, the limits of SPEC 5.8.10) for `undetermined`; otherwise it is `null`.
+- `steps` gives the status of each step of the declaration, and is an empty array when the declaration was not evaluated (`unsupported`, the limits of SPEC 5.8.10). Each element has the step number `step`, the value of `any` (`null` for a step without `any`), the number of signers the step needs `need`, the number of signers counted `count`, `complete` for whether the step is complete, `blocked_by`, the number of an earlier step that is not complete yet when this step waits for it (otherwise `null`), and `lines`, the assignment of each requirement line (a list of `{ "line", "blocks" }`, where `blocks` are the numbers of the blocks assigned to the line in ascending order). `lines` follow the declaration order, and the content of `blocks` agrees with `satisfied`.
 
 ## 6. Interactive launcher
 
@@ -524,7 +525,7 @@ Reference session (Japanese UI, `LANG=ja_JP.UTF-8`). Each question is shown whil
    ```
    $ mdsig
 
-     md-signature v0.1.0：対話モード
+     md-signature v0.1.1：対話モード
 
    ? 何を実行しますか？（矢印キーで選択 / Enter で決定）
      ❯ ✍️  文書に署名・連署する（sign）

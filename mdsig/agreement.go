@@ -390,6 +390,7 @@ const (
 	RejectKeyMismatch       = "key-mismatch"
 	RejectSelf              = "self"
 	RejectScoped            = "scoped"
+	RejectUnresolved        = "unresolved"
 	RejectNotValid          = "not-valid"
 )
 
@@ -435,11 +436,27 @@ type NextStep struct {
 	Later      []LaterStep
 }
 
+type StepLine struct {
+	Line   int
+	Blocks []int
+}
+
+type DeclarationStep struct {
+	Step      int
+	Any       int
+	Need      int
+	Count     int
+	Complete  bool
+	BlockedBy int
+	Lines     []StepLine
+}
+
 type Declaration struct {
 	DeclaredBy int
 	Order      string
 	Status     string
 	Detail     string
+	Steps      []DeclarationStep
 }
 
 const (
@@ -647,6 +664,7 @@ type declarationResult struct {
 	satisfied  []Satisfaction
 	next       *NextStep
 	detail     string
+	steps      []DeclarationStep
 }
 
 // SPEC 5.8.5, 5.8.6 and Appendix C evaluate()
@@ -677,6 +695,9 @@ func evaluateDeclaration(decl agreementBlock, parsed *ParsedRequire, blocks []ag
 	}
 	// SPEC 5.8.9: the first reason that applies, in this order
 	rejectReason := func(b agreementBlock, l Requirement, usedBefore map[int]bool, start int) string {
+		if b.Status == StatusUnresolved {
+			return RejectUnresolved
+		}
 		if b.Status != StatusValid {
 			return RejectNotValid
 		}
@@ -745,6 +766,21 @@ func evaluateDeclaration(decl agreementBlock, parsed *ParsedRequire, blocks []ag
 				res.violations = append(res.violations, OrderViolation{DeclaredBy: d, Step: s.Step, Line: line.Line, Index: a.block, Method: line.Method, Signer: signer, Order: spec.Order})
 			}
 		}
+		st := DeclarationStep{Step: s.Step, Any: s.Any, Need: out.need, Count: out.size, Complete: out.k != 0, Lines: []StepLine{}}
+		if out.k == 0 && firstIncomplete != 0 && spec.Order != OrderGuide {
+			st.BlockedBy = firstIncomplete
+		}
+		for j, l := range s.Lines {
+			sl := StepLine{Line: l.Line, Blocks: []int{}}
+			for _, a := range out.assigned {
+				if a.line == j {
+					sl.Blocks = append(sl.Blocks, a.block)
+				}
+			}
+			sort.Ints(sl.Blocks)
+			st.Lines = append(st.Lines, sl)
+		}
+		res.steps = append(res.steps, st)
 		if out.k == 0 {
 			if firstIncomplete == 0 {
 				firstIncomplete = s.Step
@@ -772,7 +808,7 @@ func evaluateDeclaration(decl agreementBlock, parsed *ParsedRequire, blocks []ag
 					if reason == RejectRosterUnavailable {
 						addCause("a roster cannot be obtained")
 					}
-					if reason == RejectNotValid && b.Status == StatusUnresolved && isUndeterminedCode(b.Code) {
+					if reason == RejectUnresolved && isUndeterminedCode(b.Code) {
 						if b.Code == KindOffline {
 							addCause("offline")
 						} else {
@@ -853,6 +889,7 @@ func evaluateAgreement(blocks []agreementBlock, oracle membershipOracle) Agreeme
 		}
 		a.Required = append(a.Required, parsed.Requirements...)
 		var status, detail string
+		steps := []DeclarationStep{}
 		switch {
 		case len(parsed.Unsupported) > 0:
 			status, detail = AgreementUnsupported, strings.Join(parsed.Unsupported, "; ")
@@ -861,6 +898,9 @@ func evaluateAgreement(blocks []agreementBlock, oracle membershipOracle) Agreeme
 		default:
 			r := evaluateDeclaration(b, parsed, blocks, oracle)
 			status, detail = r.status, r.detail
+			if r.steps != nil {
+				steps = r.steps
+			}
 			a.Missing = append(a.Missing, r.missing...)
 			a.Violations = append(a.Violations, r.violations...)
 			a.Satisfied = append(a.Satisfied, r.satisfied...)
@@ -868,7 +908,7 @@ func evaluateAgreement(blocks []agreementBlock, oracle membershipOracle) Agreeme
 				a.Next = append(a.Next, *r.next)
 			}
 		}
-		a.Declarations = append(a.Declarations, Declaration{DeclaredBy: b.Index, Order: parsed.Spec.Order, Status: status, Detail: detail})
+		a.Declarations = append(a.Declarations, Declaration{DeclaredBy: b.Index, Order: parsed.Spec.Order, Status: status, Detail: detail, Steps: steps})
 		if worst == "" || agreementRank[status] > agreementRank[worst] {
 			worst = status
 		}

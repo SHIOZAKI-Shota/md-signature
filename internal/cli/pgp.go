@@ -220,7 +220,7 @@ func (s *gpgSigner) Sign(payload []byte) ([]byte, error) {
 		}
 	}
 	if chk := mdsig.CheckPGPSignaturePacket(sig, s.fpr); !chk.OK {
-		return nil, &mdsig.ValueError{Msg: i18n.T("sign.gpg_bad_output", chk.Message, s.fpr)}
+		return nil, &mdsig.ValueError{Msg: i18n.T("sign.gpg_bad_output", localize(chk.Message), s.fpr)}
 	}
 	return sig, nil
 }

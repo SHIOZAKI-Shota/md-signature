@@ -166,13 +166,13 @@ func ExplainRequire(value, lang string) RequireExplanation {
 			}
 		}
 	}
-	return RequireExplanation{OK: len(p.Errors) == 0 && len(p.Unsupported) == 0, Text: strings.Join(lines, "\n"), Errors: nonNil(p.Errors),
-		Unsupported: nonNil(p.Unsupported), Warnings: warnings, Hints: nonNil(p.Hints)}
-}
-
-func nonNil(s []string) []string {
-	if s == nil {
-		return []string{}
+	loc := func(list []string) []string {
+		out := make([]string, 0, len(list))
+		for _, m := range list {
+			out = append(out, LocalizeMessage(m, lang))
+		}
+		return out
 	}
-	return s
+	return RequireExplanation{OK: len(p.Errors) == 0 && len(p.Unsupported) == 0, Text: strings.Join(lines, "\n"), Errors: loc(p.Errors),
+		Unsupported: loc(p.Unsupported), Warnings: warnings, Hints: loc(p.Hints)}
 }

@@ -1,6 +1,6 @@
 {
   "name": "@mdsig/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Embedded, append-only signatures for Markdown documents. Zero dependencies, Web-standard APIs only.",
   "license": "MIT",
   "type": "module",
@@ -21,11 +21,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./examples/*": "./examples/*"
   },
   "files": [
     "dist",
     "src",
+    "examples",
     "LICENSE"
   ],
   "sideEffects": false,
@@ -39,8 +45,10 @@
     "check:web-standard": "node scripts/check-web-standard.mjs",
     "examples": "node scripts/gen-examples.ts",
     "build:tsa-roots": "node scripts/gen-tsa-roots.ts",
+    "build:messages": "node scripts/gen-messages.ts",
     "build:docs": "tsc -p tsconfig.json --outDir ../../docs/vendor/core --declaration false && node scripts/gen-docs-examples.ts",
-    "prepublishOnly": "npm run typecheck && npm test && npm run check:web-standard && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run check:web-standard && npm run build",
+    "prepack": "node scripts/copy-examples.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

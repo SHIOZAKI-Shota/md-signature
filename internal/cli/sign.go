@@ -190,9 +190,9 @@ func runSign(o *signOptions, file string) error {
 		var se *mdsig.SignError
 		switch {
 		case errors.As(err, &ve):
-			return exitf(exitUsage, "%s", ve.Msg)
+			return exitf(exitUsage, "%s", localize(ve.Msg))
 		case errors.As(err, &se):
-			return exitf(exitFail, "%s", se.Msg)
+			return exitf(exitFail, "%s", localize(se.Msg))
 		case o.tsa != "":
 			return exitf(exitNetwork, "%v", err)
 		default:
@@ -290,7 +290,7 @@ func parseExtensionFlags(o *signOptions, now time.Time) (*signExtensions, error)
 		ext.require = requireLines(o.require)
 		for _, r := range ext.require {
 			if e := mdsig.ValidateValue(strings.TrimLeft(r, " ")); e != "" {
-				return nil, exitf(exitUsage, "require: %s", e)
+				return nil, exitf(exitUsage, "require: %s", localize(e))
 			}
 		}
 		// each --require is one line; "step" lines only make sense together with the lines after them
@@ -300,7 +300,7 @@ func parseExtensionFlags(o *signOptions, now time.Time) (*signExtensions, error)
 			problems = append(problems, p.OverLimit)
 		}
 		if problems = append(problems, p.Hints...); len(problems) > 0 {
-			return nil, exitf(exitUsage, "%s", strings.Join(problems, "; "))
+			return nil, exitf(exitUsage, "%s", localize(strings.Join(problems, "; ")))
 		}
 	}
 	for _, ref := range o.resources {
@@ -309,10 +309,10 @@ func parseExtensionFlags(o *signOptions, now time.Time) (*signExtensions, error)
 			written = encodeLocalRef(trimDotSlash(ref))
 		}
 		if e := mdsig.ValidateValue(written); e != "" {
-			return nil, exitf(exitUsage, "resource: %s", e)
+			return nil, exitf(exitUsage, "resource: %s", localize(e))
 		}
 		if e := mdsig.ValidateResourceRef(written); e != "" {
-			return nil, exitf(exitUsage, "resource: %s", e)
+			return nil, exitf(exitUsage, "resource: %s", localize(e))
 		}
 	}
 	if o.expires != "" {

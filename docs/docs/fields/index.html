@@ -165,7 +165,7 @@ scope: |
                     <h3 class="guide-label" data-i18n="fl.res.refT">参照の書式</h3>
                     <ul class="guide-list plain">
                         <li data-i18n-html="fl.res.r1">各行は <code>&lt;ref&gt; hash=sha256:&lt;16進数&gt;</code>。ハッシュはファイルまたは HTTP 応答本文の正確なバイト列に対して計算する。<code>sha256</code> 以外は unsupported（<code>unsupported-hash</code>）。</li>
-                        <li data-i18n-html="fl.res.r3">ローカルのパスはパーセントデコードしてから使用する。空白は <code>%20</code> で書く。<code>%2F</code>、<code>%5C</code>、<code>%00</code>、不正な UTF-8、絶対パス、ドライブレター、<code>.</code> や <code>..</code> のセグメントを含む参照は malformed。ファイル名は NFC で書く。</li>
+                        <li data-i18n-html="fl.res.r3">ローカルのパスはパーセントデコードしてから使用する。空白は <code>%20</code> で書く。<code>%2F</code>、<code>%5C</code>、<code>%00</code>、不正な UTF-8、絶対パス、<code>\</code> や <code>:</code>（ドライブレター、代替データストリーム）、<code>.</code> や <code>..</code> のセグメントを含む参照は malformed。ファイル名は NFC で書く。</li>
                         <li data-i18n-html="fl.res.r2"><code>ref</code> は <code>https://</code> の URL、または文書のディレクトリを基準とする相対パス。URL は書かれたとおりに使用する。</li>
                     </ul>
                     <h3 class="guide-label" data-i18n="fl.res.verT">検証</h3>

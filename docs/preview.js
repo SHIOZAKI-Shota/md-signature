@@ -204,14 +204,26 @@ function render(force = false) {
   }
   const m = renderer();
   const marker = n ? findSignatureMarker(doc.body).line : undefined;
-  const lines = norm.split("\n");
-  const partA = marker ? lines.slice(0, marker - 1).join("\n") : norm;
-  const tokA = m.lexer(partA);
-  const tokB = marker ? m.lexer(lines.slice(marker).join("\n")) : null;
-  const links = { ...tokA.links, ...(tokB?.links ?? {}) };
-  const nodes = [renderPart(m, tokA, links, 0)];
+  // SPEC 9.5, CLI_SPEC 3.10: lex once; the table goes after the top-level block holding the marker
+  const tokens = m.lexer(norm);
+  let cut = -1;
+  let cutLine = 0;
+  if (marker) {
+    let line = 0;
+    tokens.forEach((tok, i) => {
+      const start = line;
+      line += (tok.raw.match(/\n/g) || []).length;
+      if (tok.type !== "space" && start <= marker - 1) {
+        cut = i;
+        cutLine = line;
+      }
+    });
+  }
+  const before = cut >= 0 ? tokens.slice(0, cut + 1) : tokens;
+  if (cut >= 0 && before[cut].type === "html" && before[cut].raw.trim() === "<!-- mdsig:signatures -->") before.pop();
+  const nodes = [renderPart(m, before, tokens.links, 0)];
   if (n) nodes.push(signatureSection(text));
-  if (tokB) nodes.push(renderPart(m, tokB, links, marker));
+  if (cut >= 0) nodes.push(renderPart(m, tokens.slice(cut + 1), tokens.links, cutLine));
   out.replaceChildren(...nodes);
   out.dispatchEvent(new Event("rendered"));
   for (const a of out.querySelectorAll(".md-preview a[href]")) {

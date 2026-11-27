@@ -11,7 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/text"
 
 	"mdsig.dev/internal/i18n"
 	"mdsig.dev/mdsig"
@@ -48,12 +50,65 @@ func newRenderCmd() *cobra.Command {
 // markdown without raw HTML: scripts, event attributes, form elements, and style attributes never reach the output (CLI_SPEC 3.10 rule 2)
 var renderMarkdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
 
-func markdownHTML(src string) (string, error) {
-	var b bytes.Buffer
-	if err := renderMarkdown.Convert([]byte(src), &b); err != nil {
-		return "", err
+// CLI_SPEC 3.10 rule 3: parse once; the table goes after the top-level block that contains the marker
+func bodyParts(body string, markerOffset int) ([]string, error) {
+	src := []byte(body)
+	doc := renderMarkdown.Parser().Parse(text.NewReader(src))
+	var blocks []ast.Node
+	for c := doc.FirstChild(); c != nil; c = c.NextSibling() {
+		blocks = append(blocks, c)
 	}
-	return b.String(), nil
+	split := -1
+	if markerOffset >= 0 {
+		for i, c := range blocks {
+			if start, ok := blockStart(c); ok && start <= markerOffset {
+				split = i
+			}
+		}
+	}
+	groups := [][]ast.Node{blocks}
+	if split >= 0 {
+		before := blocks[:split+1]
+		if isMarkerBlock(blocks[split], src) {
+			before = blocks[:split]
+		}
+		groups = [][]ast.Node{before, blocks[split+1:]}
+	}
+	var parts []string
+	for _, g := range groups {
+		part := ast.NewDocument()
+		for _, c := range g {
+			doc.RemoveChild(doc, c)
+			part.AppendChild(part, c)
+		}
+		var b bytes.Buffer
+		if err := renderMarkdown.Renderer().Render(&b, src, part); err != nil {
+			return nil, err
+		}
+		parts = append(parts, b.String())
+	}
+	return parts, nil
+}
+
+func blockStart(n ast.Node) (int, bool) {
+	if n.Type() == ast.TypeBlock && n.Lines().Len() > 0 {
+		return n.Lines().At(0).Start, true
+	}
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if s, ok := blockStart(c); ok {
+			return s, true
+		}
+	}
+	return 0, false
+}
+
+func isMarkerBlock(n ast.Node, src []byte) bool {
+	h, ok := n.(*ast.HTMLBlock)
+	if !ok || h.Lines().Len() != 1 || h.HasClosure() {
+		return false
+	}
+	seg := h.Lines().At(0)
+	return strings.TrimRight(string(seg.Value(src)), " \t\r\n") == mdsig.SignatureMarker
 }
 
 func runRender(o *renderOptions, file string) error {
@@ -109,16 +164,13 @@ func renderPage(file, text string, r *mdsig.VerifyResult, lang i18n.Lang) (strin
 	}
 	table := mdsig.RenderSignatureTableHTML(mdsig.SignatureTable(r), string(lang))
 	// CLI_SPEC 3.10 rule 3: the table is never part of the DOM the body is rendered into
-	var parts []string
+	markerOffset := -1
 	if line, offset, _ := mdsig.FindSignatureMarker(body); line != 0 {
-		end := strings.IndexByte(body[offset:], '\n')
-		rest := ""
-		if end >= 0 {
-			rest = body[offset+end+1:]
-		}
-		parts = []string{body[:offset], rest}
-	} else {
-		parts = []string{body}
+		markerOffset = offset
+	}
+	parts, err := bodyParts(body, markerOffset)
+	if err != nil {
+		return "", err
 	}
 	var b strings.Builder
 	b.WriteString("<!doctype html>\n<html lang=\"" + string(lang) + "\">\n<head>\n<meta charset=\"utf-8\">\n")
@@ -136,11 +188,7 @@ func renderPage(file, text string, r *mdsig.VerifyResult, lang i18n.Lang) (strin
 		b.WriteString("<p>" + html.EscapeString(i18n.T("render.agreement", i18n.T("agreement."+r.Agreement.Status))) + "</p>\n")
 	}
 	b.WriteString("</header>\n")
-	for i, p := range parts {
-		h, err := markdownHTML(p)
-		if err != nil {
-			return "", err
-		}
+	for i, h := range parts {
 		b.WriteString("<article class=\"mdsig-body\">\n" + h + "</article>\n")
 		if i == 0 && len(parts) == 2 {
 			b.WriteString("<section class=\"mdsig-table\">\n" + table + "\n</section>\n")

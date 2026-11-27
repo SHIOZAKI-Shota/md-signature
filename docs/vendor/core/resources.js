@@ -35,6 +35,9 @@ export function decodeLocalRef(ref) {
     }
     if (path.startsWith("/") || /^[A-Za-z]:/.test(path) || path.includes("\\"))
         return { error: `"${ref}": absolute paths, drive letters, and "\\" are not allowed` };
+    // security: ":" names an alternate data stream on Windows (file.txt:hidden)
+    if (path.includes(":"))
+        return { error: `"${ref}": ":" is not allowed in a local path` };
     // SPEC 5.7: ".", "..", and empty segments are checked after decoding
     if (path.split("/").some((seg) => seg === "" || seg === "." || seg === ".."))
         return { error: `"${ref}": ".", "..", and empty path segments are not allowed` };

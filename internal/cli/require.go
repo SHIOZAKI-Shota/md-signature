@@ -126,7 +126,7 @@ func runMemberRecord(id, domain string, check bool, ro *mdsig.ResolveOptions) er
 	}
 	signer = mdsig.CanonicalSignerInput(method, signer)
 	if e := mdsig.CheckSignerID(method, signer); e != "" {
-		return exitf(exitUsage, "%s: %s", i18n.T("member.bad_id", id), e)
+		return exitf(exitUsage, "%s: %s", i18n.T("member.bad_id", id), localize(e))
 	}
 	id = method + ":" + signer
 	name, err := mdsig.MemberRecordName(id, domain)
@@ -134,7 +134,7 @@ func runMemberRecord(id, domain string, check bool, ro *mdsig.ResolveOptions) er
 		return exitf(exitUsage, "%v", err)
 	}
 	if e := mdsig.ValidateValue(mdsig.MemberRecordValue(id)); e != "" {
-		return exitf(exitUsage, "%s: %s", i18n.T("member.bad_id", id), e)
+		return exitf(exitUsage, "%s: %s", i18n.T("member.bad_id", id), localize(e))
 	}
 	fmt.Fprintf(stdout, "%s. IN TXT \"%s\"\n", name, safeText(mdsig.MemberRecordValue(id)))
 	if !check {

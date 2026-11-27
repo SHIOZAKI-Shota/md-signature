@@ -5,7 +5,7 @@ import { ed25519Key, p256Key, buildCert, signerOf, gpgSigner } from "./pgp-build
 import {
   signDocument, signerFromSeed, timestampDocument, fromHex, fromBase64, toBase64, formatSshPublicKey, sshFingerprint, sha256, utf8, createSoftwareAuthenticator,
   directoryKeyUrl, parseDocument, revocationId, serializeBlock, signedPayload, unfoldBinary, normalizedBytes, toHex, memberRecordName, memberRecordValue,
-  verifyDocument, toJsonResult, signatureTable, signatureTableToJson, findSignatureMarker, type Signer,
+  verifyDocument, toJsonResult, signatureTable, signatureTableToJson, findSignatureMarker, documentVerdict, type Signer,
 } from "../src/index.ts";
 
 const out = new URL("../../../examples/", import.meta.url);
@@ -137,6 +137,8 @@ w("missing-resource.md", resM.text);
 const resP = await signDocument(body, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: TS0, resources: [{ ref: "assets/meeting%20notes.txt", bytes: notes }] });
 w("valid-resource-percent.md", resP.text);
 w("malformed-resource-percent.md", resP.text.replace("assets/meeting%20notes.txt hash=", "assets/..%2F..%2Fsecret.txt hash="));
+// security: ":" names an alternate data stream on Windows
+w("malformed-resource-colon.md", resP.text.replace("assets/meeting%20notes.txt hash=", "assets/meeting%20notes.txt%3Ahidden hash="));
 
 const scopedBody = [
   "# Statement of Work",
@@ -538,6 +540,14 @@ w("directory-conflicting-dir.md", (await dirDoc(dirFrank, "grace@multi.example",
   w("require-declarer-unresolved.md", (await dnsSign(d.text, ex, "example.com", { role: "approver", ts: "2026-11-16T09:30:00Z" })).text);
 }
 
+// SPEC 5.8.9: a matching block that cannot be checked is "unresolved", one that fails is "not-valid"
+{
+  const nokey = await signerFromSeed(await labelSeed("dns nokey.example"));
+  const d = await signDocument(body, { signer: bob, method: "tofu", signerId: "bob@laptop", ts: TS0, require: ["dns:nokey.example", "dns:example.com role=approver"] });
+  const n = await dnsSign(d.text, nokey, "nokey.example", { ts: "2026-11-16T09:10:00Z" });
+  w("require-rejected-reasons.md", tamperLastSig((await dnsSign(n.text, ex, "example.com", { role: "approver", ts: "2026-11-16T09:20:00Z" })).text));
+}
+
 // SPEC 4.1: a key record with unknown tags (here dir= and x=) still works for dns
 w("dns-unknown-tag.md", (await signDocument(body, { signer: ex, method: "dns", signerId: "tagged.example", selector: "2026", role: "approver", ts: "2026-11-16T09:00:00Z" })).text);
 
@@ -594,10 +604,12 @@ const expected: Record<string, { ok: boolean; signatures: string[]; error?: stri
   "valid-resources.md": { ok: true, signatures: ["valid"], resources: [["ok", "not-checked"]] },
   "valid-resource-query.md": { ok: true, signatures: ["valid"], resources: [["not-checked"]] },
   "require-declarer-unresolved.md": { ok: false, signatures: ["unresolved:network", "valid"], agreement: "undetermined" },
+  "require-rejected-reasons.md": { ok: false, signatures: ["valid", "unresolved:not-found", "invalid:bad-signature"], agreement: "pending" },
   "tampered-resource.md": { ok: false, signatures: ["invalid:resource-mismatch"] },
   "missing-resource.md": { ok: false, signatures: ["invalid:resource-missing"] },
   "valid-resource-percent.md": { ok: true, signatures: ["valid"], resources: [["ok"]] },
   "malformed-resource-percent.md": { ok: false, signatures: ["malformed:malformed"] },
+  "malformed-resource-colon.md": { ok: false, signatures: ["malformed:malformed"] },
   "valid-scoped-edited.md": { ok: true, signatures: ["valid"], partial: [["terms", "fees"]] },
   "tampered-scoped.md": { ok: false, signatures: ["invalid:hash-mismatch"] },
   "malformed-unclosed-section.md": { ok: false, signatures: ["malformed:malformed"] },
@@ -686,10 +698,16 @@ for (const [file, e] of Object.entries(expected)) {
     table: signatureTableToJson(signatureTable(r)),
     times: r.signatures.map((s) => s.time?.at ?? null),
     marker: findSignatureMarker(parseDocument(readFileSync(new URL(file, out), "utf8")).body).line ?? null,
+    verdict: documentVerdict(r).kind,
   };
 }
 w("expected.json", JSON.stringify(full, null, 2) + NL);
 console.log("wrote examples to", out.pathname, tsaUrl ? `(TSA: ${tsaUrl})` : "(no TSA)");
+
+function tamperLastSig(text: string) {
+  const i = text.indexOf("base64:", text.lastIndexOf("\nsig:")) + "base64:".length;
+  return text.slice(0, i) + (text[i] === "A" ? "B" : "A") + text.slice(i + 1);
+}
 
 function toHexStr(b: Uint8Array) {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");

@@ -230,7 +230,7 @@ func TestVerifyJSON(t *testing.T) {
 	check(sig(0)["partial"], `null`)
 	check(res.Files[1]["ok"], `true`)
 	req := `{"declared_by":1,"step":1,"any":null,"line":1,"method":"dns","signer":"example.com","pattern":false,"attributes":{"role":"approver"}}`
-	check(res.Files[1]["agreement"], `{"status":"pending","required":[`+req+`],"missing":[{"declared_by":1,"step":1,"any":null,"line":1,"method":"dns","signer":"example.com","pattern":false,"attributes":{"role":"approver"},"need":1,"rejected":[]}],"violations":[],"next":[{"declared_by":1,"step":1,"need":1,"candidates":[`+req+`],"later":[]}],"satisfied":[],"declarations":[{"declared_by":1,"order":"pending","status":"pending","detail":null}]}`)
+	check(res.Files[1]["agreement"], `{"status":"pending","required":[`+req+`],"missing":[{"declared_by":1,"step":1,"any":null,"line":1,"method":"dns","signer":"example.com","pattern":false,"attributes":{"role":"approver"},"need":1,"rejected":[]}],"violations":[],"next":[{"declared_by":1,"step":1,"need":1,"candidates":[`+req+`],"later":[]}],"satisfied":[],"declarations":[{"declared_by":1,"order":"pending","status":"pending","detail":null,"steps":[{"step":1,"any":null,"need":1,"count":0,"complete":false,"blocked_by":null,"lines":[{"line":1,"blocks":[]}]}]}]}`)
 	check(res.Files[0]["agreement"], `{"status":"none","required":[],"missing":[],"violations":[],"next":[],"satisfied":[],"declarations":[]}`)
 	check(sig(2)["partial"], `{"sections":["terms","fees"]}`)
 	check(sig(3)["webauthn"], `{"rp_id":"mdsig.dev","origin":"https://mdsig.dev","user_verified":true,"backup_eligible":false,"backed_up":false}`)
@@ -494,5 +494,29 @@ func TestTimestampRejectsInvalidUTF8(t *testing.T) {
 	var ee *exitError
 	if err := runTimestamp(&timestampOptions{tsa: "http://127.0.0.1:1/", hash: "sha256"}, p); !errors.As(err, &ee) || ee.code != exitFail {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestRenderBodyParts(t *testing.T) {
+	marker := func(body string) int {
+		_, off, _ := mdsig.FindSignatureMarker(body)
+		return off
+	}
+	body := "See [annex][1].\n\n<!-- mdsig:signatures -->\n\nAfter.\n\n[1]: https://example.com/annex\n"
+	parts, err := bodyParts(body, marker(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parts) != 2 || !strings.Contains(parts[0], `<a href="https://example.com/annex">annex</a>`) || strings.Contains(parts[0], "raw HTML") || !strings.Contains(parts[1], "After.") {
+		t.Errorf("reference across the marker: %q", parts)
+	}
+	body = "<div>\nArticle 2.\n<!-- mdsig:signatures -->\nArticle 3.\n</div>\n\nTail.\n"
+	parts, _ = bodyParts(body, marker(body))
+	if len(parts) != 2 || strings.Contains(parts[1], "Article 3.") || strings.TrimSpace(parts[1]) != "<p>Tail.</p>" {
+		t.Errorf("marker inside an HTML block: %q", parts)
+	}
+	parts, _ = bodyParts("Only.\n", -1)
+	if len(parts) != 1 {
+		t.Errorf("no marker: %q", parts)
 	}
 }

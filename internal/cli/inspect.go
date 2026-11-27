@@ -105,7 +105,7 @@ func runInspect(o *inspectOptions, file string) error {
 		fmt.Fprintf(w, "  %s\n", i18n.N("inspect.summary", len(doc.Chain), len(doc.Chain), res.BodyLines))
 	}
 	for _, wn := range res.Warnings {
-		fmt.Fprintf(w, "  ! %s\n", safeText(wn))
+		fmt.Fprintf(w, "  ! %s\n", safeText(localize(wn)))
 	}
 	for _, jb := range res.Blocks {
 		fmt.Fprintf(w, "\n  #%d  (%s)\n", jb.Index, i18n.T("inspect.line", jb.Line))
@@ -118,7 +118,7 @@ func runInspect(o *inspectOptions, file string) error {
 			fmt.Fprintf(w, "    %s %s\n", mark("x"), i18n.T("inspect.hash_bad", safeText(*jb.ComputedHash)))
 		}
 		for _, e := range jb.Errors {
-			fmt.Fprintf(w, "    %s %s\n", mark("x"), safeText(e))
+			fmt.Fprintf(w, "    %s %s\n", mark("x"), safeText(localize(e)))
 		}
 		b := doc.Chain[jb.Index-1]
 		width := 0

@@ -4,7 +4,24 @@
 
 `mdsig` CLI、Go ライブラリ `mdsig.dev/mdsig`、`@mdsig/core` のリリースは共通のバージョンです。署名形式は別のバージョンを持ち、括弧内に示します。
 
-## 0.1.0（形式 0.1）、未リリース
+## 0.1.1（形式 0.1）、2026-11-28
+
+### 互換性のない変更
+
+- ローカルのリソース参照で、デコードした結果に `:` を含むものは形式不正になりました。Windows では `notes.txt:hidden` のような名前が代替データストリームを指すためです（SPEC 5.7 節）。
+
+### 追加
+
+- 合意の各宣言に段階ごとの状態 `steps`（必要な署名者数、数えた署名者数、成立したか、待機中の段階、行ごとの割り当て）を加えました。JSON では `declarations[].steps` です（CLI_SPEC 5 節）。
+- 数えられなかった理由に `unresolved` を加えました。未解決のブロックはこれまで `not-valid` でしたが、改ざんなどで無効なブロックと区別できます（SPEC 5.8.9 節）。
+- 文書全体の判定 `documentVerdict` / `DocumentVerdict` を加えました。CLI の終了コード（CLI_SPEC 4 節）と同じ規則で、CLI もこれを使用します。
+- `serializeRequire`（`parseRequire` の逆）と、署名前の入力検査 `checkSignInput`（署名者の正規化、表示名、`require` の説明とエラー）を加えました。
+- 利用者向けのメッセージを日本語にする `localizeMessage` / `LocalizeMessage` を加えました。目録は `mdsig/messages_ja.json` 1つで、TypeScript と Go が共有します。CLI は日本語表示のとき警告、判定の説明、エラーを日本語で表示します（`--json` は英語のままです）。
+- 画面に表示されない文字を検出する `findHiddenCharacters` と、表示用の `HIDDEN_CHARACTER_RE` を加えました。対象は SPEC 3.2 規則 4 の分類（タブ・改行を除く）、非文字、異体字セレクタやハングルフィラーなどです。絵文字の合成（ZWJ）、旗の絵文字のタグ文字、アラビア文字やインド系文字の単語の中の ZWJ・ZWNJ、異体字セレクタには正当な文脈（`context`）を付け、文脈のないもの（ラテン文字の単語に紛れたタグ文字や ZWJ など）だけを警告対象にできます（SPEC 9.5 節）。
+- 各署名の行範囲と対象範囲（`scope` のセクションを含む）、署名されていない末尾を返す `documentLayout` と、要件行1行を日英で説明する `describeRequirement` を加えました。
+- `@mdsig/core` に実装間テストベクタを同梱し（`@mdsig/core/examples/*`）、その鍵とネットワークの代替を組み立てる `vectorOptions`（`@mdsig/core/testing`）を加えました。
+
+## 0.1.0（形式 0.1）、2026-11-27
 
 形式 0.1 は、利用者が少ないうちに行う破壊的な整理です。0.0.x のリリースで作成したブロックは、このリリースでは検証できず、連署もできません。
 

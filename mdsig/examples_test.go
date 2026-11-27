@@ -67,6 +67,7 @@ type expectedEntry struct {
 	Table         json.RawMessage `json:"table"`
 	Times         []*string       `json:"times"`
 	Marker        *int            `json:"marker"`
+	Verdict       string          `json:"verdict"`
 }
 
 func keysJSONResolvers(t *testing.T) map[string]Resolver {
@@ -272,6 +273,9 @@ func TestExamplesCompliance(t *testing.T) {
 			}
 			if line != wantMarker {
 				t.Errorf("marker = %d, want %d", line, wantMarker)
+			}
+			if v := DocumentVerdict(r).Kind; v != exp.Verdict {
+				t.Errorf("verdict = %s, want %s", v, exp.Verdict)
 			}
 			if exp.Revocation != nil {
 				if len(exp.Revocation) != len(r.Signatures) {

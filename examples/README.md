@@ -5,7 +5,8 @@ Cross-implementation vectors for md-signature. `npm run examples` in `packages/c
 ## How to run them
 
 - `keys.json` holds the public test keys and the stubs a verifier under test must use instead of the network: `dns` (TXT records by `<selector>._mdsig.<signer>`), `git-hosting` (key lists), `fetch` (URL to file; `"404"` is an HTTP 404, URLs not listed are network errors), `dns_records` (DoH answers: a list of TXT strings, `[]` for NODATA, `"SERVFAIL"`; names not listed are NXDOMAIN), and `now` (the current time). Local resources resolve against this directory.
-- `expected.json` has, per file, the hand-written verdicts (`ok`, `signatures` as `status` or `status:code`, `agreement`, and where relevant `tsa`, `partial`, `resources`, `revocation`, `pgp`, `warnings`) and the details recorded from the TypeScript implementation that other implementations must reproduce: `agreement_json` (the `agreement` object of CLI_SPEC 5), `table` (signature table rows, snake_case), `times` (`T(k)` per block, SPEC 4.6), and `marker` (line of the signature table marker, SPEC 5.11).
+- `expected.json` has, per file, the hand-written verdicts (`ok`, `signatures` as `status` or `status:code`, `agreement`, and where relevant `tsa`, `partial`, `resources`, `revocation`, `pgp`, `warnings`) and the details recorded from the TypeScript implementation that other implementations must reproduce: `agreement_json` (the `agreement` object of CLI_SPEC 5), `table` (signature table rows, snake_case), `times` (`T(k)` per block, SPEC 4.6), `marker` (line of the signature table marker, SPEC 5.11), and `verdict` (the verdict on the whole document, matching the exit codes of CLI_SPEC 4: `valid` 0, `pending` 5, `unresolved`, `offline` and `undetermined` 3, the rest 1).
+- JavaScript tools can take these files from the npm package: `@mdsig/core` ships them as `@mdsig/core/examples/*`, and `vectorOptions(keys, readFile)` from `@mdsig/core/testing` builds `VerifyOptions` with the stubs above (`readFile` gets a path relative to this directory and returns the bytes, or null when there is no such file).
 - These keys are public. Never use them for real signatures.
 
 ## Basics
@@ -45,6 +46,7 @@ Cross-implementation vectors for md-signature. `npm run examples` in `packages/c
 | `valid-resource-query.md` | A remote reference with a query string: the target is the first item and may contain `=` (SPEC 3.5). Not fetched by default. |
 | `valid-resource-percent.md` | `assets/meeting%20notes.txt` decodes to a name with a space. |
 | `malformed-resource-percent.md` | `..%2F` in a local reference. |
+| `malformed-resource-colon.md` | `%3A` (`:`) in a local reference: a Windows alternate data stream (SPEC 5.7). |
 | `valid-scoped-edited.md`, `tampered-scoped.md`, `malformed-unclosed-section.md` | `scope`: editable text outside sections, a changed section, an unclosed section. |
 
 ## require (SPEC 5.8, Appendix C)
@@ -63,6 +65,7 @@ Cross-implementation vectors for md-signature. `npm run examples` in `packages/c
 | `require-canonical-assignment.md` | Two maximum matchings; `satisfied` shows the canonical Kuhn result. |
 | `require-user-verified-complete.md`, `require-user-verified-pending.md` | `user_verified` with a pinned passkey: UV set, and UP only (`not-user-verified`). |
 | `require-declarer-unresolved.md` | The declaring block cannot be checked (its key directory is unreachable): the agreement is `undetermined` although the approval is present (SPEC 5.8.5). |
+| `require-rejected-reasons.md` | The two required signers signed, but one key cannot be found (`unresolved`) and the other signature is broken (`not-valid`): the agreement is `pending` and `rejected` gives both reasons (SPEC 5.8.9). |
 | `require-tofu-key-mismatch.md` | `pubkey=` differs from the block's key (`key-mismatch`). |
 
 ## Rosters and signed lists (SPEC 5.8.8, 5.10)

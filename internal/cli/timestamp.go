@@ -63,9 +63,9 @@ func runTimestamp(o *timestampOptions, file string) error {
 		var se *mdsig.SignError
 		switch {
 		case errors.As(err, &ve):
-			return exitf(exitUsage, "%s", ve.Msg)
+			return exitf(exitUsage, "%s", localize(ve.Msg))
 		case errors.As(err, &se):
-			return exitf(exitFail, "%s", se.Msg)
+			return exitf(exitFail, "%s", localize(se.Msg))
 		default:
 			return exitf(exitNetwork, "%v", err)
 		}

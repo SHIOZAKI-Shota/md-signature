@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { verifyDocument, toJsonResult, signatureTable, signatureTableToJson, findSignatureMarker, parseDocument } from "../src/index.ts";
+import { verifyDocument, toJsonResult, signatureTable, signatureTableToJson, findSignatureMarker, parseDocument, documentVerdict } from "../src/index.ts";
 import { exampleOptions, readExample } from "./harness.ts";
 
 interface Expected {
@@ -18,6 +18,7 @@ interface Expected {
   table: unknown;
   times: (string | null)[];
   marker: number | null;
+  verdict: string;
 }
 const expected: Record<string, Expected> = JSON.parse(readExample("expected.json"));
 
@@ -42,5 +43,6 @@ for (const [file, exp] of Object.entries(expected)) {
     assert.deepEqual(signatureTableToJson(signatureTable(r)), exp.table);
     assert.deepEqual(r.signatures.map((s) => s.time?.at ?? null), exp.times);
     assert.equal(findSignatureMarker(parseDocument(text).body).line ?? null, exp.marker);
+    assert.equal(documentVerdict(r).kind, exp.verdict);
   });
 }

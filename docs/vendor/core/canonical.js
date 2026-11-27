@@ -1,4 +1,5 @@
 import { utf8 } from "./encoding.js";
+import { CONTROL_RE, hasNoncharacter } from "./charclass.js";
 export const SPEC_VERSION = "0.1";
 // SPEC 3.3: the version changes only with incompatible changes; other versions are unsupported (SPEC 5.4 step 1)
 export const SUPPORTED_VERSIONS = new Set([SPEC_VERSION]);
@@ -37,16 +38,6 @@ export function signedPayload(fields) {
 const KEY_RE = /^[a-z][a-z0-9_]*$/;
 // SPEC 3.2 rule 3: CommonMark HTML block type 2 ends at "-->"; WHATWG comments also end at "--!>"; "<!--" opens a nested comment
 const FORBIDDEN_SEQUENCES = ["-->", "--!>", "<!--"];
-// SPEC 3.2 rule 4: Cc, Cf, Zl, Zp of Unicode 15.0.0 (pinned so TS and Go agree whatever the runtime's Unicode version), and surrogates
-const CONTROL_RE = /[\u0000-\u001f\u007f-\u009f\u00ad\u0600-\u0605\u061c\u06dd\u070f\u0890\u0891\u08e2\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\ufeff\ufff9-\ufffb\u{110bd}\u{110cd}\u{13430}-\u{1343f}\u{1bca0}-\u{1bca3}\u{1d173}-\u{1d17a}\u{e0001}\u{e0020}-\u{e007f}\p{Cs}]/u;
-function hasNoncharacter(s) {
-    for (const ch of s) {
-        const cp = ch.codePointAt(0);
-        if ((cp >= 0xfdd0 && cp <= 0xfdef) || (cp & 0xfffe) === 0xfffe)
-            return true;
-    }
-    return false;
-}
 export function validateLine(value) {
     if (value.length === 0)
         return "value is empty";

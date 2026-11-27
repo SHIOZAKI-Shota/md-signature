@@ -90,6 +90,10 @@ func checkDecodedPath(path string) string {
 	if strings.HasPrefix(path, "/") || driveLetterRe.MatchString(path) || strings.Contains(path, `\`) {
 		return `absolute paths, drive letters, and "\" are not allowed`
 	}
+	// security: ":" names an alternate data stream on Windows (file.txt:hidden)
+	if strings.Contains(path, ":") {
+		return `":" is not allowed in a local path`
+	}
 	// SPEC 5.7: ".", "..", and empty segments are checked after decoding
 	for _, seg := range strings.Split(path, "/") {
 		if seg == "" || seg == "." || seg == ".." {

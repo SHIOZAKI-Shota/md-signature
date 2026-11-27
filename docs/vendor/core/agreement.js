@@ -20,6 +20,21 @@ export function formatRequirement(r) {
     }
     return parts.join(" ");
 }
+// SPEC 5.8.1: generators indent step members by two spaces
+export function serializeRequire(spec) {
+    const steps = spec.steps.filter((s) => s.lines.length);
+    const headers = steps.length > 1 || steps.some((s) => s.any != null);
+    const out = [];
+    if (spec.order && spec.order !== "pending")
+        out.push(`order mode=${spec.order}`);
+    for (const s of steps) {
+        if (headers)
+            out.push(s.any != null ? `step any=${s.any}` : "step");
+        for (const l of s.lines)
+            out.push((headers ? "  " : "") + formatRequirement(l));
+    }
+    return out.join("\n");
+}
 // SPEC 5.8.8: https URL without userinfo, fragment, or a port other than 443; the host is an ldh-domain
 export function parseRosterRef(v) {
     if (v.startsWith("dns:")) {
@@ -296,12 +311,15 @@ function evaluateDeclaration(decl, parsed, blocks, oracle) {
     const violations = [];
     const satisfied = [];
     const outcomes = [];
+    const steps = [];
     let prev = d;
     let firstIncomplete;
     const causes = new Set();
     const qualifies = (b, l) => targetMatches(l, b.fields) && !(l.pattern && idOf(b.fields) === declId) && attributeFailure(l, b, oracle) === null;
     // SPEC 5.8.9: the first reason that applies, in this order
     const rejectReason = (b, l, usedBefore, start) => {
+        if (b.status === "unresolved")
+            return "unresolved";
         if (b.status !== "valid")
             return "not-valid";
         if (b.fields.scope !== undefined)
@@ -334,6 +352,16 @@ function evaluateDeclaration(decl, parsed, blocks, oracle) {
                 violations.push({ declaredBy: d, step: s.step, line: a.line.line, index: a.block, method: a.line.method, signer: later.find((b) => b.index === a.block).fields.signer, order: spec.order });
             }
         }
+        const stepBlockedBy = out.k === undefined && firstIncomplete !== undefined && spec.order !== "guide" ? firstIncomplete : undefined;
+        steps.push({
+            step: s.step,
+            any: s.any,
+            need: out.need,
+            count: out.size,
+            complete: out.k !== undefined,
+            ...(stepBlockedBy ? { blockedBy: stepBlockedBy } : {}),
+            lines: s.lines.map((l) => ({ line: l.line, blocks: out.assigned.filter((a) => a.line === l).map((a) => a.block) })),
+        });
         if (out.k === undefined) {
             firstIncomplete ??= s.step;
             const assignedSigners = new Set(out.assigned.map((a) => a.signer));
@@ -351,7 +379,7 @@ function evaluateDeclaration(decl, parsed, blocks, oracle) {
                     rejected.push({ index: b.index, reason });
                     if (reason === "roster-unavailable")
                         causes.add("a roster cannot be obtained");
-                    if (reason === "not-valid" && b.status === "unresolved" && UNDETERMINED_CODES.has(b.code ?? ""))
+                    if (reason === "unresolved" && UNDETERMINED_CODES.has(b.code ?? ""))
                         causes.add(b.code === "offline" ? "offline" : "network failure");
                 }
                 const blockedBy = firstIncomplete !== s.step && spec.order !== "guide" ? firstIncomplete : undefined;
@@ -385,7 +413,7 @@ function evaluateDeclaration(decl, parsed, blocks, oracle) {
             later: spec.steps.slice(idx + 1).map((s, j) => ({ step: s.step, need: left(outcomes[idx + 1 + j]), lines: linesOf(idx + 1 + j) })),
         };
     }
-    return { status, missing, violations, satisfied, next, detail: status === "undetermined" ? [...causes].join("; ") : undefined };
+    return { status, missing, violations, satisfied, next, steps, detail: status === "undetermined" ? [...causes].join("; ") : undefined };
 }
 const stripMissing = (m) => {
     const { need: _n, blockedBy: _b, rejected: _r, ...r } = m;
@@ -405,6 +433,7 @@ export function evaluateAgreement(blocks, oracle = () => "unavailable") {
         a.required.push(...parsed.requirements);
         let status;
         let detail;
+        let steps = [];
         if (parsed.unsupported.length) {
             status = "unsupported";
             detail = parsed.unsupported.join("; ");
@@ -417,13 +446,14 @@ export function evaluateAgreement(blocks, oracle = () => "unavailable") {
             const r = evaluateDeclaration(b, parsed, blocks, oracle);
             status = r.status;
             detail = r.detail;
+            steps = r.steps;
             a.missing.push(...r.missing);
             a.violations.push(...r.violations);
             a.satisfied.push(...r.satisfied);
             if (r.next)
                 a.next.push(r.next);
         }
-        a.declarations.push({ declaredBy: b.index, order: parsed.spec.order, status, ...(detail ? { detail } : {}) });
+        a.declarations.push({ declaredBy: b.index, order: parsed.spec.order, status, ...(detail ? { detail } : {}), steps });
         if (worst === undefined || RANK[status] > RANK[worst])
             worst = status;
     }
