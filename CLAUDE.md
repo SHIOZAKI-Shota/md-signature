@@ -164,11 +164,10 @@ From updating the VS Code extension and Fountain Pen to format 0.1. All are in b
 - **Signature table placement** (SPEC 9.5, CLI_SPEC 3.10 rule 3): the body is rendered once and the table goes right after the top-level block that contains the marker (a marker block of its own is dropped); splitting the source and rendering parts separately broke link reference definitions and HTML blocks that span the marker. `mdsig render` splits the goldmark AST (`bodyParts`), the playground splits marked's token list, Fountain Pen splits the DOM at the top-level ancestor.
 - **Display names** (SPEC 3.3, 9.5): for a block that is not valid, a viewer either leaves `display_name` out or shows the block's status in the same place (MUST). Every current viewer shows the status.
 - **Display helpers (TS only)**: `findHiddenCharacters` / `HIDDEN_CHARACTER_RE` (`src/hidden.ts`): rule 4 class without tab/LF/CR (shared with value validation through the internal `src/charclass.ts`), noncharacters, and a pinned list of Default_Ignorable characters (variation selectors, CGJ, Hangul fillers, U+17B4/17B5, Mongolian selectors). `context` marks the legitimate uses: `emoji-sequence` (ZWJ between pictographs), `emoji-tag` (U+1F3F4 + tags + U+E007F), `joiner` (ZWJ/ZWNJ between letters of the same joining script), `variation` (after a visible character); tools report only `context: null`, and show everything in their show-hidden mode. `documentLayout` (`src/layout.ts`, moved from the apps' `ranges.ts`), `describeRequirement` (the per-line text of `explainRequire`).
-- The apps switch to these helpers after the next release.
 
 ## Open items / next steps
 
-- The VS Code extension and Fountain Pen use these helpers through `file:../md-signature/packages/core`; switch them to `0.1.1` once it is on npm. keys.mdsig.dev (md-signature/keys) still needs the format 0.1 update.
+- The VS Code extension and Fountain Pen use `@mdsig/core` 0.1.1 and these helpers. keys.mdsig.dev (md-signature/keys) still needs the format 0.1 update.
 - `by=` deadlines in `require`; an MCP server; a JSON Schema for `--json`.
 - npm wrapper package `mdsig` (JS CLI with `@clack/prompts`), or npm distribution of the Go binary.
 - The TSA roots workflow has not run on GitHub yet (needs "Allow GitHub Actions to create and approve pull requests"). OpenPGP Argon2/AEAD-protected keys in the TS core; PQC algorithms once Web Crypto supports ML-DSA.
