@@ -4,6 +4,17 @@
 
 `mdsig` CLI、Go ライブラリ `mdsig.dev/mdsig`、`@mdsig/core` のリリースは共通のバージョンです。署名形式は別のバージョンを持ち、括弧内に示します。
 
+## 未リリース（形式 0.1）
+
+### 変更
+
+- Web サイトを別のリポジトリに移しました。読むページ（トップ、ドキュメント、導入）は引き続き https://mdsig.dev/ で、デモ、エディタ、鍵ディレクトリ、署名ページは https://keys.mdsig.dev/ で配信します。旧 URL（`mdsig.dev/playground/` など）は新しい URL へ転送します。パスキーの RP ID は `keys.mdsig.dev` になるため、旧デモ（`mdsig.dev`）で作成したパスキーは新しいページでは使用できません。作成済みの署名は引き続き検証できます。
+- `packages/core` の `npm run build:docs` と `docs/tsa-roots.json` の生成を削除しました。
+
+### 修正
+
+- 署名ページの検査 `payloadMatchesKey` / `PayloadMatchesKey` が、ペイロードの `pubkey` を文字列のまま比較していました。SPEC 3.4 のとおり復号した鍵のバイト列で比較し、同じ鍵の生の形式と SPKI 形式を一致とみなします。従来は、形式が異なるだけの正当な依頼を拒否していました。
+
 ## 0.1.2（形式 0.1）、2026-11-28
 
 ### 追加

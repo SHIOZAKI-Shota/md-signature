@@ -4,6 +4,17 @@
 
 Releases of the `mdsig` CLI, the Go library `mdsig.dev/mdsig`, and `@mdsig/core` share one version number. The signature format has its own version, shown in parentheses.
 
+## Unreleased (format 0.1)
+
+### Changed
+
+- The website moved to a separate repository. The pages to read (top, documentation, getting started) stay at https://mdsig.dev/; the playground, the editor, the key directory, and the signing page are served from https://keys.mdsig.dev/. Old URLs such as `mdsig.dev/playground/` redirect to the new ones. The passkey RP ID becomes `keys.mdsig.dev`, so passkeys made on the old playground (`mdsig.dev`) do not work on the new pages. Existing signatures stay verifiable.
+- Removed `npm run build:docs` and the generation of `docs/tsa-roots.json` from `packages/core`.
+
+### Fixed
+
+- The signing-page check `payloadMatchesKey` / `PayloadMatchesKey` compared the payload's `pubkey` as a string. It now compares decoded key bytes, as SPEC 3.4 says, so the raw and SPKI forms of the same key match. Before, a valid request whose key differed only in form was refused.
+
 ## 0.1.2 (format 0.1), 2026-11-28
 
 ### Added

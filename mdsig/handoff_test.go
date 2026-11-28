@@ -163,3 +163,26 @@ func TestHandoffPageRefusesBadRequests(t *testing.T) {
 		t.Errorf("evil return: %+v", r)
 	}
 }
+
+func TestPayloadMatchesKeyComparesDecodedBytes(t *testing.T) {
+	a := newSoftAuth(t, "mdsig.dev", "", 0x05)
+	b := newSoftAuth(t, "mdsig.dev", "", 0x05)
+	spki := a.PublicKeySPKI()
+	raw := spki[len(spki)-65:]
+	cases := []struct {
+		fields map[string]string
+		key    []byte
+		want   bool
+	}{
+		{map[string]string{"pubkey": "es256:" + toBase64(raw)}, spki, true},
+		{map[string]string{"pubkey": "es256:" + toBase64(spki)}, raw, true},
+		{map[string]string{"pubkey": "es256:" + toBase64(b.PublicKeySPKI())}, spki, false},
+		{map[string]string{"pubkey": "ed25519:" + toBase64(raw)}, spki, false},
+		{map[string]string{}, spki, true},
+	}
+	for i, c := range cases {
+		if got := PayloadMatchesKey(c.fields, c.key); got != c.want {
+			t.Errorf("case %d: got %v, want %v", i, got, c.want)
+		}
+	}
+}

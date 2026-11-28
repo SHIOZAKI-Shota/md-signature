@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/logo.svg" width="180" alt="md-signature"></p>
+<p align="center"><img src="https://mdsig.dev/logo.svg" width="180" alt="md-signature"></p>
 
 # md-signature
 
 **Markdown にも電子署名を。**
 
-[English](README.md) · [仕様書](SPEC.ja.md) · [CLI 仕様](CLI_SPEC.ja.md) · [デモ](https://mdsig.dev/playground/)
+[English](README.md) · [仕様書](SPEC.ja.md) · [CLI 仕様](CLI_SPEC.ja.md) · [Web サイト](https://mdsig.dev/) · [デモ](https://keys.mdsig.dev/playground/)
 
 `md-signature` は、本文の最終行に署名を追加し検証する、Markdown のためのオープンフォーマットです。特定のベンダーに依存しません。
 署名はファイル末尾に HTML コメントとして追記します。
@@ -160,7 +160,7 @@ r := mdsig.VerifyDocument(ctx, text, &mdsig.VerifyOptions{})
 
 OpenPGP 署名（`alg: openpgp`）の `sig` は、`gpg --detach-sign` が出力する形式の分離署名です。CLI は gpg を経由して署名するため、gpg-agent やスマートカード上の鍵をそのまま使用できます。鍵ファイルを指定した署名も可能で、ブラウザでも鍵ファイルを読み込んで署名できます。対応する鍵は Ed25519（v4・v6）、RSA（2048 ビット以上）、ECDSA P-256 です。パスフレーズによる保護は、gpg の既定形式（iterated+salted S2K と AES）に対応します。Argon2 と AEAD による保護は CLI のみ対応し、ブラウザでは未対応です。
 
-パスキー署名（`alg: webauthn-es256`）の公開鍵は `tofu`、`dns`、`directory` で示します。パスキーは署名ページのドメイン（現在は `mdsig.dev`）に結び付きます。デモを別ドメインへ移すと、旧ドメインで登録したパスキーではそこで署名できません。作成済みの署名は引き続き検証できます。
+パスキー署名（`alg: webauthn-es256`）の公開鍵は `tofu`、`dns`、`directory` で示します。パスキーは署名ページのドメイン（現在は `keys.mdsig.dev`）に結び付きます。デモを別ドメインへ移すと、旧ドメインで登録したパスキーではそこで署名できません。作成済みの署名は引き続き検証できます。
 
 ## リポジトリ構成
 
@@ -173,7 +173,6 @@ OpenPGP 署名（`alg: openpgp`）の `sig` は、`gpg --detach-sign` が出力�
 | [`packages/core`](packages/core) | `@mdsig/core`（TypeScript） |
 | [`mdsig`](mdsig) | Go ライブラリ。[`mdsig/server`](mdsig/server) は HTTP ハンドラ |
 | [`cmd/mdsig`](cmd/mdsig)、[`internal`](internal) | ネイティブ CLI `mdsig`（Go） |
-| [`docs`](docs) | Web サイト（https://mdsig.dev/）と[デモ](https://mdsig.dev/playground/) |
 | [`examples`](examples) | 全実装で共有するテストベクタ |
 
 ## 開発
@@ -183,7 +182,6 @@ cd packages/core
 npm install
 npm test                    # 単体テストと examples/ の適合性ベクタ
 npm run check:web-standard  # src/ が Node 専用 API を使用していれば失敗
-npm run build:docs          # docs/vendor/core とデモ文書を再生成
 
 cd ../..
 go test ./...

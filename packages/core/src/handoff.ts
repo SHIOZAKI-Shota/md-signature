@@ -1,5 +1,6 @@
 import { PAYLOAD_DOMAIN, signedPayload } from "./canonical.ts";
 import { bytesEqual, toBase64 } from "./encoding.ts";
+import { sameKeyValue } from "./identity.ts";
 import { prepareSignature, type SignOptions, type SignResult } from "./sign.ts";
 import { fromBase64Url, toBase64Url, type WebAuthnAssertion } from "./webauthn.ts";
 
@@ -212,8 +213,9 @@ export function checkHandoffRequest(url: string, rpId: string): PageRequest {
 }
 
 // CLI_SPEC 8.3 check 3: a payload that names a key must name the passkey in use
+// SPEC 3.4: keys compare as decoded bytes, so a raw key and its SPKI form match
 export function payloadMatchesKey(fields: Record<string, string>, publicKey: Uint8Array): boolean {
-  return fields.pubkey === undefined || fields.pubkey === "es256:" + toBase64(publicKey);
+  return fields.pubkey === undefined || sameKeyValue(fields.pubkey, "es256:" + toBase64(publicKey));
 }
 
 export function handoffResponseUrl(returnUrl: string, state: string, answer: { rpId: string; key: Uint8Array; credential: string } | WebAuthnAssertion | { error: HandoffErrorCode }): string {

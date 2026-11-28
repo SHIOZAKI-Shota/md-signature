@@ -46,7 +46,6 @@
     "examples": "node scripts/gen-examples.ts",
     "build:tsa-roots": "node scripts/gen-tsa-roots.ts",
     "build:messages": "node scripts/gen-messages.ts",
-    "build:docs": "tsc -p tsconfig.json --outDir ../../docs/vendor/core --declaration false && node scripts/gen-docs-examples.ts",
     "prepublishOnly": "npm run typecheck && npm test && npm run check:web-standard && npm run build",
     "prepack": "node scripts/copy-examples.ts"
   },

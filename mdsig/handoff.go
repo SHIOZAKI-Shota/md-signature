@@ -331,9 +331,10 @@ func CheckHandoffRequest(request, rpID string) *PageRequest {
 }
 
 // CLI_SPEC 8.3 check 3: a payload that names a key must name the passkey in use
+// SPEC 3.4: keys compare as decoded bytes, so a raw key and its SPKI form match
 func PayloadMatchesKey(fields map[string]string, publicKey []byte) bool {
 	pk, ok := fields["pubkey"]
-	return !ok || pk == "es256:"+toBase64(publicKey)
+	return !ok || sameKeyValue(pk, "es256:"+toBase64(publicKey))
 }
 
 type HandoffAnswer struct {

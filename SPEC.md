@@ -1360,7 +1360,7 @@ IETF.
 
 - **`@mdsig/core`** (TypeScript): a reference implementation that generates and verifies signatures. It uses only Web-standard APIs and runs in browsers and on servers. MIT license. https://github.com/SHIOZAKI-Shota/md-signature
 - **`mdsig.dev`** (Go): a library that generates and verifies signatures, and the command-line tool `mdsig` (CLI_SPEC). MIT license. Same repository.
-- **Playground**: https://mdsig.dev/playground/ lets users sign (including with passkeys) and verify in a browser.
+- **Playground**: https://keys.mdsig.dev/playground/ lets users sign (including with passkeys) and verify in a browser.
 
 These implementations check that they agree on a shared set of test vectors
 (`examples/` in the repository). Both implement version 0.1 of this document.

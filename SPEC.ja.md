@@ -1309,7 +1309,7 @@ URL を取得すると、誰かが検証を行っていること、およびそ�
 
 - **`@mdsig/core`**（TypeScript）：署名の生成と検証を行う参照実装。Web 標準の API のみを使用し、ブラウザとサーバの両方で動作する。MIT ライセンス。https://github.com/SHIOZAKI-Shota/md-signature
 - **`mdsig.dev`**（Go）：署名の生成と検証のライブラリ、およびコマンドラインツール `mdsig`（CLI_SPEC）。MIT ライセンス。同じリポジトリ。
-- **デモ**：https://mdsig.dev/playground/ で、ブラウザでの署名（パスキーを含む）と検証を試せる。
+- **デモ**：https://keys.mdsig.dev/playground/ で、ブラウザでの署名（パスキーを含む）と検証を試せる。
 
 これらの実装は、同じテストベクタ（リポジトリの `examples/`）で結果の一致を確認している。
 いずれの実装も本書の版 0.1 に対応している。連絡先は冒頭の著者欄による。

@@ -5,6 +5,7 @@ import {
   connectPasskeyViaPage,
   createHandoffRequest,
   createSoftwareAuthenticator,
+  toBase64,
   fromHex,
   handoffResponseUrl,
   HandoffError,
@@ -121,4 +122,15 @@ test("the signing page refuses bad requests", async () => {
   assert.equal(parseSignedPayload(utf8("md-signature/v1\nb=1\na=2")), null);
   assert.deepEqual(parseSignedPayload(utf8("md-signature/v1\na=x\n  y\nb=1")), { a: "x\ny", b: "1" });
   assert.equal(parseHandoffResponse("mdsig+test://handoff?v=2&state=abc", "key"), null);
+});
+
+test("payloadMatchesKey compares decoded key bytes (SPEC 3.4)", async () => {
+  const a = await createSoftwareAuthenticator("mdsig.dev");
+  const b = await createSoftwareAuthenticator("mdsig.dev");
+  const raw = a.publicKey.slice(-65);
+  assert.ok(payloadMatchesKey({ pubkey: "es256:" + toBase64(raw) }, a.publicKey));
+  assert.ok(payloadMatchesKey({ pubkey: "es256:" + toBase64(a.publicKey) }, raw));
+  assert.ok(!payloadMatchesKey({ pubkey: "es256:" + toBase64(b.publicKey) }, a.publicKey));
+  assert.ok(!payloadMatchesKey({ pubkey: "ed25519:" + toBase64(raw) }, a.publicKey));
+  assert.ok(payloadMatchesKey({}, a.publicKey));
 });

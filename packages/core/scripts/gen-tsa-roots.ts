@@ -32,7 +32,4 @@ ${rows.map((r) => `  root(${JSON.stringify(r.name)}, "${r.sha256}", "${r.notAfte
 `;
 writeFileSync(new URL("../src/tsa-roots.ts", import.meta.url), out);
 
-// the playground reads this list at start-up, so a new list reaches the page without a core rebuild
-const json = { source: "packages/core/tsa-roots/*.pem (npm run build:tsa-roots)", roots: rows.map((r) => ({ name: r.name, sha256: r.sha256, notAfter: r.notAfter, der: r.b64 })) };
-writeFileSync(new URL("../../../docs/tsa-roots.json", import.meta.url), JSON.stringify(json, null, 2) + "\n");
 console.log(rows.map((r) => `${r.sha256}  ${r.notAfter}  ${r.name}`).join("\n"));

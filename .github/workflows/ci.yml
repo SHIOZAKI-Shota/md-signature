@@ -31,11 +31,10 @@ jobs:
       - run: npm run typecheck
       - run: npm run check:web-standard
       - run: npm test
-      - name: Generated playground files are up to date
+      - name: Generated TSA roots are up to date
         run: |
           npm run build:tsa-roots
-          npm run build:docs
-          git diff --exit-code -- ../../docs/vendor/core ../../docs/tsa-roots.json src/tsa-roots.ts
+          git diff --exit-code -- src/tsa-roots.ts
 
   go:
     name: Go (${{ matrix.os }})

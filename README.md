@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/logo.svg" width="180" alt="md-signature"></p>
+<p align="center"><img src="https://mdsig.dev/logo.svg" width="180" alt="md-signature"></p>
 
 # md-signature
 
 **Electronic signatures, for Markdown too.**
 
-[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Playground](https://mdsig.dev/playground/)
+[日本語](README.ja.md) · [Specification](SPEC.md) · [CLI specification](CLI_SPEC.md) · [Website](https://mdsig.dev/) · [Playground](https://keys.mdsig.dev/playground/)
 
 `md-signature` is an open, vendor-neutral format for Markdown that appends a signature after the last line of a document and verifies it.
 Each signature is an HTML comment appended to the end of the file:
@@ -167,7 +167,7 @@ OpenPGP signatures (`alg: openpgp`) store a detached signature in `sig`, the sam
 
 Passkey signatures (`alg: webauthn-es256`) use `tofu`, `dns`, or `directory` for the public key.
 Passkeys are bound to the domain of the signing page (currently
-`mdsig.dev`). If the playground moves to another domain, passkeys
+`keys.mdsig.dev`). If the playground moves to another domain, passkeys
 registered on the old one cannot sign there, though existing signatures stay
 verifiable.
 
@@ -182,7 +182,6 @@ verifiable.
 | [`packages/core`](packages/core) | `@mdsig/core`, TypeScript, zero dependencies |
 | [`mdsig`](mdsig) | Go library (`mdsig.dev/mdsig`); [`mdsig/server`](mdsig/server) is the HTTP handler |
 | [`cmd/mdsig`](cmd/mdsig), [`internal`](internal) | `mdsig`, the native CLI (Go) |
-| [`docs`](docs) | Website at https://mdsig.dev/, with the [playground](https://mdsig.dev/playground/) |
 | [`examples`](examples) | Test vectors shared by all implementations |
 
 ## Development
@@ -192,7 +191,6 @@ cd packages/core
 npm install
 npm test                    # unit tests + examples/ compliance vectors
 npm run check:web-standard  # fails if src/ uses Node-only APIs
-npm run build:docs          # rebuild docs/vendor/core and the playground demo document
 
 cd ../..
 go test ./...
